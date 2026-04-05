@@ -1,4 +1,4 @@
-import { noteName, num } from "./helpers.js";
+import { noteName, num, pinLabel, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
 
 export class ItemList extends HTMLElement {
   connectedCallback() {
@@ -11,7 +11,7 @@ export class ItemList extends HTMLElement {
     this._countId = this.dataset.countId;   // e.g. "btnCount"
     this._addId = this.dataset.addId;       // e.g. "addButton"
     this._addLabel = this.dataset.addLabel; // e.g. "+ Add Button"
-    this._fields = this._type === "pot" ? ["cc"] : ["note", "velocity"];
+    this._fields = this._type === "pot" ? ["cc"] : this._type === "touch" ? ["note", "velocity", "threshold_pct"] : ["note", "velocity"];
 
     this.innerHTML =
       `<div id="${this._listId}"></div>` +
@@ -31,21 +31,37 @@ export class ItemList extends HTMLElement {
 
     const isPot = this._type === "pot";
     const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
+    const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : POT_PINS;
 
     items.forEach((item, i) => {
       const row = document.createElement("div");
       row.className = "item-row";
 
+      const pin = i < pinMap.length ? pinLabel(pinMap[i]) : "";
+      const pinHtml = `<span class="pin-label">${pin}</span>`;
+
       if (isPot) {
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
+          pinHtml +
           `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
           `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
           `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
+      } else if (this._type === "touch") {
+        row.innerHTML =
+          `<span class="index">#${i + 1}</span>` +
+          pinHtml +
+          `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
+          `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
+          `<span class="note-hint">${noteName(item.note)}</span>` +
+          `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
+          `<label>Thr%</label><input type="number" min="1" max="255" value="${item.threshold_pct}" data-type="${this._type}" data-idx="${i}" data-field="threshold_pct">` +
+          `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       } else {
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
+          pinHtml +
           `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
           `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
           `<span class="note-hint">${noteName(item.note)}</span>` +
@@ -71,7 +87,7 @@ export class ItemList extends HTMLElement {
       });
     });
 
-    this.querySelector(`#${this._addId}`).disabled = items.length >= this._max;
+    this.querySelector(`#${this._addId}`).disabled = items.length >= this._max || items.length >= pinMap.length;
   }
 
   syncFromDOM(items) {
@@ -87,10 +103,17 @@ export class ItemList extends HTMLElement {
   readFromDOM() {
     const items = [];
     const isPot = this._type === "pot";
+    const isTouch = this._type === "touch";
     this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
       if (isPot) {
         items.push({
           cc: num(row.querySelector('[data-field="cc"]').value, 0),
+        });
+      } else if (isTouch) {
+        items.push({
+          note: num(row.querySelector('[data-field="note"]').value, 0),
+          velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
+          threshold_pct: num(row.querySelector('[data-field="threshold_pct"]').value, 33),
         });
       } else {
         items.push({

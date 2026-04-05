@@ -4,7 +4,7 @@ import {
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
   RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
 } from "./protocol.js";
-import { sleep, num, clamp } from "./helpers.js";
+import { sleep, num, clamp, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
 
 // ── State ──
 
@@ -279,6 +279,7 @@ function readConfigFromUI() {
   config.touch_pads = panel.touchList.readFromDOM().map(t => ({
     note: clamp(t.note, 0, 127),
     velocity: clamp(t.velocity, 1, 127),
+    threshold_pct: clamp(t.threshold_pct, 1, 255),
   }));
 
   // Pots
@@ -351,13 +352,13 @@ function handleItemAdd(e) {
   const list = e.target;
   const type = list.dataset.type;
 
-  if (type === "button" && config.buttons.length < 8) {
+  if (type === "button" && config.buttons.length < BUTTON_PINS.length) {
     config.buttons.push({ note: 60, velocity: 100 });
     list.render(config.buttons);
-  } else if (type === "touch" && config.touch_pads.length < 8) {
-    config.touch_pads.push({ note: 72, velocity: 100 });
+  } else if (type === "touch" && config.touch_pads.length < TOUCH_PINS.length) {
+    config.touch_pads.push({ note: 72, velocity: 100, threshold_pct: 33 });
     list.render(config.touch_pads);
-  } else if (type === "pot" && config.pots.length < 4) {
+  } else if (type === "pot" && config.pots.length < POT_PINS.length) {
     config.pots.push({ cc: 0 });
     list.render(config.pots);
   }

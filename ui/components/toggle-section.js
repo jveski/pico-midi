@@ -1,4 +1,4 @@
-import { noteName } from "./helpers.js";
+import { noteName, pinLabel, LDR_PIN } from "./helpers.js";
 
 export class LdrSection extends HTMLElement {
   connectedCallback() {
@@ -11,6 +11,7 @@ export class LdrSection extends HTMLElement {
           '<span class="slider"></span>' +
         '</label>' +
         '<label>Enabled</label>' +
+        `<span class="pin-label">${pinLabel(LDR_PIN)}</span>` +
       '</div>' +
       '<div id="ldrFields">' +
         '<div class="field">' +

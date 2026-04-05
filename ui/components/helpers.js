@@ -18,3 +18,22 @@ export function clamp(v, min, max) {
 export function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
+
+// ── Hardware pin mappings (mirrors firmware main.rs) ──
+
+/** GPIO pins assigned to each button index in firmware. */
+export const BUTTON_PINS = [2, 3, 4, 5, 11, 12, 13, 14];
+
+/** GPIO pins assigned to each touch pad index in firmware. */
+export const TOUCH_PINS = [6, 7, 8, 9, 10, 15, 16, 17];
+
+/** GPIO (ADC) pins assigned to each pot index in firmware. */
+export const POT_PINS = [26, 27];
+
+/** GPIO (ADC) pin for the LDR in firmware. */
+export const LDR_PIN = 28;
+
+/** Format a GPIO pin number as a label, e.g. "GP2". */
+export function pinLabel(n) {
+  return n != null ? "GP" + n : "";
+}
