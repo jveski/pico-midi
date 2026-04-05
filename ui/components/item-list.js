@@ -11,7 +11,7 @@ export class ItemList extends HTMLElement {
     this._countId = this.dataset.countId;   // e.g. "btnCount"
     this._addId = this.dataset.addId;       // e.g. "addButton"
     this._addLabel = this.dataset.addLabel; // e.g. "+ Add Button"
-    this._fields = this._type === "pot" ? ["pin", "cc"] : ["pin", "note", "velocity"];
+    this._fields = this._type === "pot" ? ["cc"] : ["note", "velocity"];
 
     this.innerHTML =
       `<div id="${this._listId}"></div>` +
@@ -41,14 +41,12 @@ export class ItemList extends HTMLElement {
           `<span class="index">#${i + 1}</span>` +
           `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
           `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
-          `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="${this._type}" data-idx="${i}" data-field="pin">` +
           `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       } else {
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
           `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
-          `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="${this._type}" data-idx="${i}" data-field="pin">` +
           `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
           `<span class="note-hint">${noteName(item.note)}</span>` +
           `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
@@ -92,12 +90,10 @@ export class ItemList extends HTMLElement {
     this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
       if (isPot) {
         items.push({
-          pin: num(row.querySelector('[data-field="pin"]').value, 0),
           cc: num(row.querySelector('[data-field="cc"]').value, 0),
         });
       } else {
         items.push({
-          pin: num(row.querySelector('[data-field="pin"]').value, 0),
           note: num(row.querySelector('[data-field="note"]').value, 0),
           velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
         });

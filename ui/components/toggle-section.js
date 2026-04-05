@@ -14,10 +14,6 @@ export class LdrSection extends HTMLElement {
       '</div>' +
       '<div id="ldrFields">' +
         '<div class="field">' +
-          '<label>Pin (GPIO)</label>' +
-          '<input type="number" id="ldrPin" min="0" max="29" value="28">' +
-        '</div>' +
-        '<div class="field">' +
           '<label>CC Number</label>' +
           '<input type="number" id="ldrCc" min="0" max="127" value="74">' +
         '</div>' +
@@ -32,7 +28,6 @@ export class LdrSection extends HTMLElement {
 
   render(config) {
     this.querySelector("#ldrEnabled").checked = config.ldr_enabled;
-    this.querySelector("#ldrPin").value = config.ldr.pin;
     this.querySelector("#ldrCc").value = config.ldr.cc;
     this._updateVisibility();
     this._buildMonitor(config);
@@ -71,9 +66,6 @@ export class AccelSection extends HTMLElement {
         '<label>Enabled</label>' +
       '</div>' +
       '<div id="accelFields">' +
-        '<div class="field"><label>SDA Pin</label><input type="number" id="accelSda" min="0" max="29" value="0"></div>' +
-        '<div class="field"><label>SCL Pin</label><input type="number" id="accelScl" min="0" max="29" value="1"></div>' +
-        '<div class="field"><label>INT Pin</label><input type="number" id="accelInt" min="0" max="29" value="11"></div>' +
         '<div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>' +
         '<div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>' +
         '<div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>' +
@@ -94,16 +86,13 @@ export class AccelSection extends HTMLElement {
   }
 
   render(config) {
-    this.querySelector("#accelEnabled").checked = config.accel_enabled;
-    this.querySelector("#accelSda").value = config.accel.sda;
-    this.querySelector("#accelScl").value = config.accel.scl;
-    this.querySelector("#accelInt").value = config.accel.int_pin;
+    this.querySelector("#accelEnabled").checked = config.accel.enabled;
     this.querySelector("#accelXCc").value = config.accel.x_cc;
     this.querySelector("#accelYCc").value = config.accel.y_cc;
     this.querySelector("#accelTapNote").value = config.accel.tap_note;
-    this.querySelector("#accelTapVel").value = config.accel.tap_vel;
-    this.querySelector("#accelDeadZone").value = config.accel.dead_zone;
-    this.querySelector("#accelSmoothing").value = config.accel.smoothing;
+    this.querySelector("#accelTapVel").value = config.accel.tap_velocity;
+    this.querySelector("#accelDeadZone").value = config.accel.dead_zone_tenths;
+    this.querySelector("#accelSmoothing").value = config.accel.smoothing_pct;
     this._updateVisibility();
     this._updateHints();
     this._buildMonitor(config);
@@ -126,7 +115,7 @@ export class AccelSection extends HTMLElement {
   _buildMonitor(config) {
     const container = this.querySelector("#accelMonitor");
     container.innerHTML = "";
-    const enabled = config ? config.accel_enabled : this.querySelector("#accelEnabled").checked;
+    const enabled = config ? config.accel.enabled : this.querySelector("#accelEnabled").checked;
     if (!enabled) return;
 
     [["Tilt X", "monAccelXBar", "monAccelXVal", "64"],

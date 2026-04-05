@@ -271,41 +271,34 @@ function readConfigFromUI() {
 
   // Buttons
   config.buttons = panel.buttonList.readFromDOM().map(b => ({
-    pin: clamp(b.pin, 0, 29),
     note: clamp(b.note, 0, 127),
     velocity: clamp(b.velocity, 1, 127),
   }));
 
   // Touch pads
   config.touch_pads = panel.touchList.readFromDOM().map(t => ({
-    pin: clamp(t.pin, 0, 29),
     note: clamp(t.note, 0, 127),
     velocity: clamp(t.velocity, 1, 127),
   }));
 
   // Pots
   config.pots = panel.potList.readFromDOM().map(p => ({
-    pin: clamp(p.pin, 0, 29),
     cc: clamp(p.cc, 0, 127),
   }));
 
   config.ldr_enabled = document.getElementById("ldrEnabled").checked;
   config.ldr = {
-    pin: clamp(num(document.getElementById("ldrPin").value, 0), 0, 29),
     cc: clamp(num(document.getElementById("ldrCc").value, 0), 0, 127),
   };
 
-  config.accel_enabled = document.getElementById("accelEnabled").checked;
   config.accel = {
-    sda: clamp(num(document.getElementById("accelSda").value, 0), 0, 29),
-    scl: clamp(num(document.getElementById("accelScl").value, 0), 0, 29),
-    int_pin: clamp(num(document.getElementById("accelInt").value, 0), 0, 29),
+    enabled: document.getElementById("accelEnabled").checked,
     x_cc: clamp(num(document.getElementById("accelXCc").value, 0), 0, 127),
     y_cc: clamp(num(document.getElementById("accelYCc").value, 0), 0, 127),
     tap_note: clamp(num(document.getElementById("accelTapNote").value, 0), 0, 127),
-    tap_vel: clamp(num(document.getElementById("accelTapVel").value, 1), 1, 127),
-    dead_zone: clamp(num(document.getElementById("accelDeadZone").value, 0), 0, 255),
-    smoothing: clamp(num(document.getElementById("accelSmoothing").value, 0), 0, 100),
+    tap_velocity: clamp(num(document.getElementById("accelTapVel").value, 1), 1, 127),
+    dead_zone_tenths: clamp(num(document.getElementById("accelDeadZone").value, 0), 0, 255),
+    smoothing_pct: clamp(num(document.getElementById("accelSmoothing").value, 0), 0, 100),
   };
 }
 
@@ -359,13 +352,13 @@ function handleItemAdd(e) {
   const type = list.dataset.type;
 
   if (type === "button" && config.buttons.length < 8) {
-    config.buttons.push({ pin: 0, note: 60, velocity: 100 });
+    config.buttons.push({ note: 60, velocity: 100 });
     list.render(config.buttons);
   } else if (type === "touch" && config.touch_pads.length < 8) {
-    config.touch_pads.push({ pin: 0, note: 72, velocity: 100 });
+    config.touch_pads.push({ note: 72, velocity: 100 });
     list.render(config.touch_pads);
   } else if (type === "pot" && config.pots.length < 4) {
-    config.pots.push({ pin: 26, cc: 0 });
+    config.pots.push({ cc: 0 });
     list.render(config.pots);
   }
 }

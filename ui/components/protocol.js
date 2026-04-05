@@ -107,64 +107,71 @@ export const MAX_POTS = 4;
 
 export function writeConfig(w, cfg) {
   w.u8(cfg.midi_channel);
+  // ButtonDef: { note: u8, velocity: u8 }
   w.u8(cfg.buttons.length);
   for (let i = 0; i < MAX_BUTTONS; i++) {
     if (i < cfg.buttons.length) {
-      w.u8(cfg.buttons[i].pin); w.u8(cfg.buttons[i].note); w.u8(cfg.buttons[i].velocity);
-    } else { w.u8(0); w.u8(0); w.u8(0); }
+      w.u8(cfg.buttons[i].note); w.u8(cfg.buttons[i].velocity);
+    } else { w.u8(0); w.u8(0); }
   }
+  // TouchPadDef: { note: u8, velocity: u8 }
   w.u8(cfg.touch_pads.length);
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
     if (i < cfg.touch_pads.length) {
-      w.u8(cfg.touch_pads[i].pin); w.u8(cfg.touch_pads[i].note); w.u8(cfg.touch_pads[i].velocity);
-    } else { w.u8(0); w.u8(0); w.u8(0); }
+      w.u8(cfg.touch_pads[i].note); w.u8(cfg.touch_pads[i].velocity);
+    } else { w.u8(0); w.u8(0); }
   }
+  // PotDef: { cc: u8 }
   w.u8(cfg.pots.length);
   for (let i = 0; i < MAX_POTS; i++) {
     if (i < cfg.pots.length) {
-      w.u8(cfg.pots[i].pin); w.u8(cfg.pots[i].cc);
-    } else { w.u8(0); w.u8(0); }
+      w.u8(cfg.pots[i].cc);
+    } else { w.u8(0); }
   }
-  w.u8(cfg.ldr.pin); w.u8(cfg.ldr.cc);
+  // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
+  w.u8(cfg.ldr.cc);
   w.bool(cfg.ldr_enabled);
-  w.bool(cfg.accel_enabled);
-  w.u8(cfg.accel.sda); w.u8(cfg.accel.scl); w.u8(cfg.accel.int_pin);
+  // accel: AccelConfig { enabled, x_cc, y_cc, tap_note, tap_velocity, dead_zone_tenths, smoothing_pct }
+  w.bool(cfg.accel.enabled);
   w.u8(cfg.accel.x_cc); w.u8(cfg.accel.y_cc);
-  w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_vel);
-  w.u8(cfg.accel.dead_zone); w.u8(cfg.accel.smoothing);
+  w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_velocity);
+  w.u8(cfg.accel.dead_zone_tenths); w.u8(cfg.accel.smoothing_pct);
 }
 
 export function readConfig(r) {
   const cfg = {
     midi_channel: 0, buttons: [], touch_pads: [], pots: [],
-    ldr_enabled: false, ldr: { pin: 0, cc: 0 },
-    accel_enabled: false,
-    accel: { sda: 0, scl: 0, int_pin: 0, x_cc: 0, y_cc: 0, tap_note: 0, tap_vel: 1, dead_zone: 0, smoothing: 0 },
+    ldr_enabled: false, ldr: { cc: 0 },
+    accel: { enabled: false, x_cc: 0, y_cc: 0, tap_note: 0, tap_velocity: 1, dead_zone_tenths: 0, smoothing_pct: 0 },
   };
   cfg.midi_channel = r.u8();
+  // ButtonDef: { note: u8, velocity: u8 }
   const nb = r.u8();
   for (let i = 0; i < MAX_BUTTONS; i++) {
-    const pin = r.u8(), note = r.u8(), velocity = r.u8();
-    if (i < nb) cfg.buttons.push({ pin, note, velocity });
+    const note = r.u8(), velocity = r.u8();
+    if (i < nb) cfg.buttons.push({ note, velocity });
   }
+  // TouchPadDef: { note: u8, velocity: u8 }
   const nt = r.u8();
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
-    const pin = r.u8(), note = r.u8(), velocity = r.u8();
-    if (i < nt) cfg.touch_pads.push({ pin, note, velocity });
+    const note = r.u8(), velocity = r.u8();
+    if (i < nt) cfg.touch_pads.push({ note, velocity });
   }
+  // PotDef: { cc: u8 }
   const np = r.u8();
   for (let i = 0; i < MAX_POTS; i++) {
-    const pin = r.u8(), cc = r.u8();
-    if (i < np) cfg.pots.push({ pin, cc });
+    const cc = r.u8();
+    if (i < np) cfg.pots.push({ cc });
   }
-  cfg.ldr = { pin: r.u8(), cc: r.u8() };
+  // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
+  cfg.ldr = { cc: r.u8() };
   cfg.ldr_enabled = r.bool();
-  cfg.accel_enabled = r.bool();
+  // accel: AccelConfig { enabled, x_cc, y_cc, tap_note, tap_velocity, dead_zone_tenths, smoothing_pct }
   cfg.accel = {
-    sda: r.u8(), scl: r.u8(), int_pin: r.u8(),
+    enabled: r.bool(),
     x_cc: r.u8(), y_cc: r.u8(),
-    tap_note: r.u8(), tap_vel: r.u8(),
-    dead_zone: r.u8(), smoothing: r.u8(),
+    tap_note: r.u8(), tap_velocity: r.u8(),
+    dead_zone_tenths: r.u8(), smoothing_pct: r.u8(),
   };
   return cfg;
 }
