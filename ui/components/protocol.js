@@ -91,7 +91,6 @@ export const REQ_GET_CONFIG = 2;
 export const REQ_PUT_CONFIG = 3;
 export const REQ_SAVE = 4;
 export const REQ_RESET = 5;
-export const REQ_REBOOT = 6;
 
 export const RESP_PONG = 0;
 export const RESP_VERSION = 1;

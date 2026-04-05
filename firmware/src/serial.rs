@@ -19,8 +19,6 @@ pub enum Request {
     Save,
     /// Restore default config (in RAM).
     Reset,
-    /// Reboot the device.
-    Reboot,
 }
 
 /// Responses sent from the device to the host.
@@ -55,7 +53,6 @@ pub struct MonitorSnapshot {
 pub enum Action {
     None,
     Save,
-    Reboot,
 }
 
 pub fn handle_frame(frame: &mut [u8], config: &mut Config, resp: &mut [u8]) -> (usize, Action) {
@@ -81,7 +78,6 @@ pub fn handle_frame(frame: &mut [u8], config: &mut Config, resp: &mut [u8]) -> (
             *config = Config::default();
             encode_response(&Response::Ok, resp, Action::None)
         }
-        Request::Reboot => encode_response(&Response::Ok, resp, Action::Reboot),
     }
 }
 

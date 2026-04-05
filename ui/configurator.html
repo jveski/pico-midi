@@ -24,7 +24,6 @@
     <p>Connect a pico-midi device via USB to configure it.</p>
   </div>
 
-  <serial-log></serial-log>
 </div>
 
 <toast-notification></toast-notification>
@@ -34,7 +33,6 @@ import "./components/collapsible-card.js";
 import "./components/status-bar.js";
 import "./components/app-toolbar.js";
 import "./components/toast-notification.js";
-import "./components/serial-log.js";
 import "./components/midi-channel.js";
 import "./components/item-list.js";
 import "./components/toggle-section.js";
@@ -46,7 +44,6 @@ init({
   toolbar: document.querySelector("app-toolbar"),
   configPanel: document.querySelector("config-panel"),
   emptyState: document.getElementById("emptyState"),
-  serialLog: document.querySelector("serial-log"),
   toast: document.querySelector("toast-notification"),
 });
 </script>

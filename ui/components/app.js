@@ -1,7 +1,7 @@
 import {
   cobsDecode, buildRequest, parseResponse, readMonitorSnapshot,
   PostcardReader,
-  REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET, REQ_REBOOT,
+  REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
   RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
 } from "./protocol.js";
 import { sleep, num, clamp } from "./helpers.js";
@@ -16,23 +16,19 @@ let monitorTapTimer = null;
 
 // ── DOM refs (set by init) ──
 
-let statusBar, toolbar, configPanel, emptyState, serialLog, toastEl;
+let statusBar, toolbar, configPanel, emptyState, toastEl;
 
 export function init(refs) {
   statusBar = refs.statusBar;
   toolbar = refs.toolbar;
   configPanel = refs.configPanel;
   emptyState = refs.emptyState;
-  serialLog = refs.serialLog;
   toastEl = refs.toast;
 
-  toolbar.btnConnect.addEventListener("click", async () => {
-    if (port) await disconnect(); else await connect();
-  });
+  toolbar.btnConnect.addEventListener("click", connect);
   toolbar.btnRefresh.addEventListener("click", refreshConfig);
   toolbar.btnSave.addEventListener("click", saveConfig);
   toolbar.btnReset.addEventListener("click", resetConfig);
-  toolbar.btnReboot.addEventListener("click", rebootDevice);
 
   configPanel.addEventListener("item-add", handleItemAdd);
   configPanel.addEventListener("item-remove", handleItemRemove);
@@ -43,7 +39,7 @@ export function init(refs) {
   } else {
     navigator.serial.addEventListener("disconnect", (e) => {
       if (port && (e.target === port || e.port === port)) {
-        disconnect();
+        cleanup();
         toast("Device disconnected", "info");
       }
     });
@@ -54,12 +50,6 @@ export function init(refs) {
 
 function toast(msg, type) {
   toastEl.show(msg, type);
-}
-
-// ── Log ──
-
-function log(text, cls) {
-  serialLog.append(text, cls);
 }
 
 // ── Connection ──
@@ -85,7 +75,6 @@ async function connect() {
     rxFrames = [];
     readLoop();
     setConnected(true);
-    log("Connected", "resp");
     const resp = await sendRequest(REQ_VERSION);
     if (resp.type === "version") {
       if (!resp.value.startsWith("midictrl")) {
@@ -99,23 +88,21 @@ async function connect() {
     await refreshConfig();
   } catch (e) {
     if (e.name !== "NotFoundError") {
-      log("Connection error: " + e.message, "err");
       toast("Connection failed", "error");
     }
-    await disconnect();
+    cleanup();
   }
 }
 
-async function disconnect() {
+function cleanup() {
   keepReading = false;
-  try { if (reader) { await reader.cancel(); reader.releaseLock(); } } catch {}
+  try { if (reader) { reader.cancel(); reader.releaseLock(); } } catch {}
   try { if (writer) { writer.releaseLock(); } } catch {}
-  try { if (port) { await port.close(); } } catch {}
+  try { if (port) { port.close(); } } catch {}
   reader = null; writer = null; port = null;
   rxBuf = []; rxFrames = [];
   cmdLock = Promise.resolve();
   setConnected(false);
-  log("Disconnected", "err");
 }
 
 // ── Read Loop ──
@@ -140,7 +127,7 @@ async function readLoop() {
         drainMonitorFrames();
       }
     } catch (e) {
-      if (keepReading) log("Read error: " + e.message, "err");
+      // read error during shutdown is expected
     } finally {
       try { reader.releaseLock(); } catch {}
       reader = null;
@@ -178,8 +165,6 @@ function sendRequest(variantIndex, configObj) {
 
 async function _sendRequest(variantIndex, configObj) {
   if (!writer) throw new Error("Not connected");
-  const reqNames = ["PING", "VERSION", "GET_CONFIG", "PUT_CONFIG", "SAVE", "RESET", "REBOOT"];
-  log("> " + (reqNames[variantIndex] || "?"), "cmd");
 
   rxFrames = rxFrames.filter(frame => {
     try {
@@ -201,11 +186,6 @@ async function _sendRequest(variantIndex, configObj) {
         const resp = parseResponse(decoded);
         if (resp && resp.type !== "monitor") {
           rxFrames.splice(i, 1);
-          const desc = resp.type === "error" ? "ERR: " + resp.message :
-                       resp.type === "version" ? resp.value :
-                       resp.type === "config" ? "Config (" + resp.value.buttons.length + " btns)" :
-                       resp.type.toUpperCase();
-          log(desc, resp.type === "error" ? "err" : "resp");
           return resp;
         }
       } catch {
@@ -267,7 +247,6 @@ async function refreshConfig() {
       throw new Error("Unexpected response: " + resp.type);
     }
   } catch (e) {
-    log("Refresh failed: " + e.message, "err");
     toast("Failed to load config", "error");
   } finally {
     setToolbarBusy(false);
@@ -337,7 +316,6 @@ async function applyConfig() {
     if (resp.type === "ok") return true;
     throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
   } catch (e) {
-    log("Apply failed: " + e.message, "err");
     toast("Apply failed: " + e.message, "error");
     return false;
   }
@@ -351,7 +329,6 @@ async function saveConfig() {
     if (resp.type === "ok") toast("Saved to flash", "success");
     else toast("Save failed: " + (resp.message || resp.type), "error");
   } catch (e) {
-    log("Save error: " + e.message, "err");
     toast("Save failed", "error");
   } finally {
     setToolbarBusy(false);
@@ -368,23 +345,9 @@ async function resetConfig() {
       toast("Defaults restored", "info");
     }
   } catch (e) {
-    log("Reset error: " + e.message, "err");
     toast("Reset failed", "error");
   } finally {
     setToolbarBusy(false);
-  }
-}
-
-async function rebootDevice() {
-  if (!confirm("Reboot the device? Unsaved changes will be lost.")) return;
-  setToolbarBusy(true);
-  try {
-    await sendRequest(REQ_REBOOT);
-    toast("Device rebooting...", "info");
-    await disconnect();
-  } catch (e) {
-    await disconnect();
-    toast("Device rebooted", "info");
   }
 }
 

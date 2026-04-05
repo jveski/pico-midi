@@ -304,10 +304,6 @@ async fn main(_spawner: Spawner) {
                                                 send_serial(&mut serial_class, &resp[..resp_len])
                                                     .await;
                                             }
-                                            if action == serial::Action::Reboot {
-                                                Timer::after(Duration::from_millis(50)).await;
-                                                cortex_m::peripheral::SCB::sys_reset();
-                                            }
                                             frame_pos = 0;
                                         }
                                     } else if frame_pos < frame_buf.len() {
