@@ -10,6 +10,6 @@ A firmware for building custom midi controllers with Raspberry Pi Pico microcont
 ## Getting Started
 
 - Download a `.uf2` file from the latest Github release (pick rp2040 or rp2350)
-- Hold `bootsel` while connecting it, drop the downloaded file onto its filesystem
-- Open the configuration app in a Chrome-based browser: [https://jveski.github.io/pico-midi](https://jveski.github.io/pico-midi)
+- Hold `BOOTSEL` while connecting it, drop the downloaded file onto its filesystem
+- Open the web interface: [https://jveski.github.io/pico-midi](https://jveski.github.io/pico-midi/)
 

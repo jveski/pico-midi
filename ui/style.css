@@ -12,6 +12,8 @@ collapsible-card { display: block; }
 
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 header h1 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+header h1 a { color: var(--fg); text-decoration: none; }
+header h1 a:hover { color: var(--dim); }
 header h1 span { color: var(--dim); font-weight: 400; }
 
 .status-bar { display: flex; align-items: center; gap: 8px; color: var(--dim); }
@@ -24,6 +26,7 @@ header h1 span { color: var(--dim); font-weight: 400; }
   border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; white-space: nowrap;
 }
 .btn:hover { background: var(--fg); color: var(--bg); }
+a.btn { text-decoration: none; }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .btn:disabled:hover { background: var(--bg); color: var(--fg); }
 .btn-primary { background: var(--fg); color: var(--bg); }
@@ -101,3 +104,17 @@ header h1 span { color: var(--dim); font-weight: 400; }
 .monitor-tap { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: #111; flex-shrink: 0; transition: background 0.06s, border-color 0.06s; }
 .monitor-tap.active { background: var(--orange); border-color: var(--orange); }
 .monitor-label { font-size: 12px; color: var(--dim); min-width: 56px; flex-shrink: 0; }
+
+/* Landing page */
+.landing-intro { color: var(--dim); margin-bottom: 32px; line-height: 1.7; }
+.landing-section { margin-bottom: 32px; }
+.landing-section h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+.landing-steps { padding-left: 20px; color: var(--dim); }
+.landing-steps li { margin-bottom: 16px; line-height: 1.7; }
+.landing-steps li:last-child { margin-bottom: 0; }
+.landing-steps strong { color: var(--fg); }
+.landing-steps ul { list-style: disc; padding-left: 18px; margin-top: 6px; }
+.landing-steps code { color: var(--fg); }
+.landing-steps a, .landing-intro a { color: var(--fg); }
+.landing-steps a:hover, .landing-intro a:hover { color: var(--dim); }
+.landing-cta { display: flex; gap: 10px; padding-top: 8px; }

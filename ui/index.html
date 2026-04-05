@@ -3,52 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pico-midi configurator</title>
+<title>pico-midi</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>pico-midi <span>configurator</span></h1>
-    <status-bar></status-bar>
+    <h1>pico-midi</h1>
   </header>
 
-  <div id="unsupported">
-    Web Serial API is not available in this browser. Use Chrome or Edge 89+ on desktop.
+  <p class="landing-intro">
+    Firmware for building custom MIDI controllers with Raspberry Pi Pico.
+    Supports buttons, touch pads, potentiometers, light sensors, and accelerometers.
+    Configure everything from your browser &mdash; no code required.
+  </p>
+
+  <div class="landing-section">
+    <h2>Getting Started</h2>
+    <ol class="landing-steps">
+      <li>
+        <strong>Download the firmware</strong><br>
+        Grab the <code>.uf2</code> file for your board from the
+        <a href="https://github.com/jveski/pico-midi/releases/latest">latest release</a>:
+        <ul>
+          <li><code>midictrl-rp2040.uf2</code> &mdash; for Raspberry Pi Pico (RP2040)</li>
+          <li><code>midictrl-rp2350.uf2</code> &mdash; for Raspberry Pi Pico 2 (RP2350)</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Flash it</strong><br>
+        Hold the <code>BOOTSEL</code> button on your Pico while plugging it into USB.
+        It will appear as a removable drive. Drag the <code>.uf2</code> file onto it.
+        The board will reboot automatically.
+      </li>
+      <li>
+        <strong>Configure</strong><br>
+        Open the <a href="configurator.html">configurator</a> in Chrome or Edge and
+        connect to your device over USB to set up your MIDI mappings.
+      </li>
+    </ol>
   </div>
 
-  <app-toolbar></app-toolbar>
-  <config-panel></config-panel>
-
-  <div id="emptyState" class="empty-state">
-    <p>Connect a pico-midi device via USB to configure it.</p>
+  <div class="landing-cta">
+    <a class="btn btn-primary" href="configurator.html">Open Configurator</a>
+    <a class="btn" href="https://github.com/jveski/pico-midi">GitHub</a>
   </div>
-
-  <serial-log></serial-log>
 </div>
-
-<toast-notification></toast-notification>
-
-<script type="module">
-import "./components/collapsible-card.js";
-import "./components/status-bar.js";
-import "./components/app-toolbar.js";
-import "./components/toast-notification.js";
-import "./components/serial-log.js";
-import "./components/midi-channel.js";
-import "./components/item-list.js";
-import "./components/toggle-section.js";
-import "./components/config-panel.js";
-import { init } from "./components/app.js";
-
-init({
-  statusBar: document.querySelector("status-bar"),
-  toolbar: document.querySelector("app-toolbar"),
-  configPanel: document.querySelector("config-panel"),
-  emptyState: document.getElementById("emptyState"),
-  serialLog: document.querySelector("serial-log"),
-  toast: document.querySelector("toast-notification"),
-});
-</script>
 </body>
 </html>
