@@ -3,204 +3,150 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MIDICtrl Configurator</title>
+<title>pico-midi configurator</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #232733;
-  --border: #2e3348;
-  --text: #e1e4ed;
-  --text-dim: #8b90a5;
-  --accent: #6c7bff;
-  --accent-hover: #8490ff;
-  --green: #3dd68c;
-  --red: #f05a6e;
-  --orange: #f0a040;
-  --radius: 8px;
+  --bg: #000; --fg: #fff; --dim: #888; --border: #444;
+  --green: #0f0; --red: #f00; --orange: #f80;
   --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.5;
-  min-height: 100vh;
-}
+body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; }
 
 .container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
 collapsible-card { display: block; }
 
-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
-}
-header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
-header h1 span { color: var(--text-dim); font-weight: 400; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+header h1 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+header h1 span { color: var(--dim); font-weight: 400; }
 
-.status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.status-bar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); text-transform: uppercase; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
 .status-dot.connected { background: var(--green); }
 
 .btn {
-  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
-  font-size: 13px; font-weight: 500; font-family: inherit;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface); color: var(--text); cursor: pointer;
-  transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+  font-size: 12px; font-weight: 700; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; white-space: nowrap;
 }
-.btn:hover { background: var(--surface2); border-color: #3e4460; }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn:disabled:hover { background: var(--surface); border-color: var(--border); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
+.btn:hover { background: var(--fg); color: var(--bg); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--bg); color: var(--fg); }
+.btn-primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn-primary:hover { background: var(--dim); }
+.btn-primary:disabled:hover { background: var(--fg); color: var(--bg); }
 .btn-danger { border-color: var(--red); color: var(--red); }
-.btn-danger:hover { background: rgba(240, 90, 110, 0.1); }
-.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-danger:hover { background: var(--red); color: var(--bg); }
+.btn-sm { padding: 3px 10px; font-size: 11px; }
 
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
 
-#unsupported {
-  display: none; background: rgba(240, 90, 110, 0.1); border: 1px solid var(--red);
-  border-radius: var(--radius); padding: 16px; margin-bottom: 20px; font-size: 14px; color: var(--red);
-}
+#unsupported { display: none; border: 1px solid var(--red); padding: 16px; margin-bottom: 20px; font-size: 13px; color: var(--red); }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+.card { border: 1px solid var(--border); margin-bottom: 12px; }
 
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+  padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
 }
-.card-header:hover { background: var(--surface2); border-radius: var(--radius) var(--radius) 0 0; }
-.card-header h2 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.card-header .badge {
-  font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 10px;
-  background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border);
-}
-.card-header .chevron { font-size: 12px; color: var(--text-dim); transition: transform 0.2s; }
+.card-header:hover { background: #111; }
+.card-header h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+.card-header .badge { font-size: 11px; font-weight: 700; padding: 1px 6px; border: 1px solid var(--border); color: var(--dim); }
+.card-header .chevron { font-size: 12px; color: var(--dim); transition: transform 0.15s; }
 .card-header.collapsed .chevron { transform: rotate(-90deg); }
 .card-body { padding: 16px; }
 .card-body.collapsed { display: none; }
 
 .field { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .field:last-child { margin-bottom: 0; }
-.field label { font-size: 13px; color: var(--text-dim); min-width: 100px; flex-shrink: 0; }
+.field label { font-size: 12px; color: var(--dim); min-width: 100px; flex-shrink: 0; text-transform: uppercase; }
 .field input, .field select {
-  padding: 6px 10px; font-size: 13px; font-family: var(--mono);
-  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); width: 80px; outline: none; transition: border-color 0.15s;
+  padding: 5px 8px; font-size: 13px; font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 80px; outline: none;
 }
-.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input:focus, .field select:focus { border-color: var(--fg); }
 .field input[type="number"] { -moz-appearance: textfield; }
 .field input::-webkit-outer-spin-button,
 .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-.item-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 0;
-  border-bottom: 1px solid var(--border); font-size: 13px;
-}
+.item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .item-row:last-of-type { border-bottom: none; }
-.item-row .index { font-family: var(--mono); font-size: 11px; color: var(--text-dim); min-width: 20px; }
+.item-row .index { font-size: 11px; color: var(--dim); min-width: 20px; }
 .item-row input {
-  padding: 5px 8px; font-size: 13px; font-family: var(--mono);
-  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); width: 64px; outline: none; transition: border-color 0.15s;
+  padding: 4px 8px; font-size: 13px; font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 64px; outline: none;
 }
-.item-row input:focus { border-color: var(--accent); }
-.item-row label { font-size: 11px; color: var(--text-dim); min-width: 28px; }
+.item-row input:focus { border-color: var(--fg); }
+.item-row label { font-size: 11px; color: var(--dim); min-width: 28px; text-transform: uppercase; }
 .item-row .btn-remove {
   margin-left: auto; padding: 2px 8px; font-size: 11px; color: var(--red);
-  background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; cursor: pointer; text-transform: uppercase;
 }
-.item-row .btn-remove:hover { border-color: var(--red); background: rgba(240, 90, 110, 0.08); }
+.item-row .btn-remove:hover { border-color: var(--red); }
 .list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
 .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.toggle-row label { font-size: 13px; color: var(--text-dim); }
+.toggle-row label { font-size: 12px; color: var(--dim); text-transform: uppercase; }
 .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle .slider {
-  position: absolute; inset: 0; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  position: absolute; inset: 0; background: #222; border: 1px solid var(--border); cursor: pointer; transition: background 0.15s;
 }
 .toggle .slider::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
-  background: var(--text-dim); border-radius: 50%; transition: transform 0.2s, background 0.2s;
+  background: var(--dim); transition: transform 0.15s, background 0.15s;
 }
-.toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
-.toggle input:checked + .slider::after { transform: translateX(16px); background: #fff; }
+.toggle input:checked + .slider { background: var(--fg); border-color: var(--fg); }
+.toggle input:checked + .slider::after { transform: translateX(16px); background: var(--bg); }
 
-.note-hint { font-size: 11px; color: var(--text-dim); font-family: var(--mono); min-width: 32px; }
+.note-hint { font-size: 11px; color: var(--dim); min-width: 32px; }
 
-.log-panel {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); margin-top: 20px;
-}
-.log-panel .card-header h2 { font-size: 13px; }
+.log-panel { border: 1px solid var(--border); margin-top: 20px; }
+.log-panel .card-header h2 { font-size: 12px; }
 .log-content {
   padding: 12px 16px; max-height: 200px; overflow-y: auto;
-  font-family: var(--mono); font-size: 12px; line-height: 1.6;
-  color: var(--text-dim); white-space: pre-wrap; word-break: break-all;
+  font-size: 12px; line-height: 1.6; color: var(--dim); white-space: pre-wrap; word-break: break-all;
 }
-.log-content .cmd { color: var(--accent); }
+.log-content .cmd { color: var(--fg); }
 .log-content .resp { color: var(--green); }
 .log-content .err { color: var(--red); }
 
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-  padding: 10px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
-  opacity: 0; transition: transform 0.3s, opacity 0.3s; z-index: 100; pointer-events: none;
+  padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase;
+  opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 100; pointer-events: none;
 }
 .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
-.toast.success { background: var(--green); color: #0a1a10; }
-.toast.error { background: var(--red); color: #fff; }
-.toast.info { background: var(--accent); color: #fff; }
+.toast.success { background: var(--green); color: var(--bg); }
+.toast.error { background: var(--red); color: var(--bg); }
+.toast.info { background: var(--fg); color: var(--bg); }
 
-.empty-state { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 14px; }
+.empty-state { padding: 40px 20px; text-align: center; color: var(--dim); font-size: 13px; }
 .empty-state p { margin-bottom: 12px; }
 
 .monitor-row { display: flex; align-items: center; gap: 10px; height: 28px; margin-top: 6px; }
 .monitor-indicator {
-  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
-  background: var(--surface2); flex-shrink: 0;
-  transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border);
+  background: #111; flex-shrink: 0; transition: background 0.08s, border-color 0.08s;
 }
-.monitor-indicator.active {
-  background: var(--green); border-color: var(--green); box-shadow: 0 0 8px rgba(61, 214, 140, 0.4);
-}
-.monitor-bar-track {
-  flex: 1; height: 8px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 4px; overflow: hidden; min-width: 60px;
-}
-.monitor-bar-fill {
-  height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.06s linear;
-}
-.monitor-value {
-  font-size: 12px; font-family: var(--mono); color: var(--text);
-  min-width: 28px; text-align: right; flex-shrink: 0;
-}
+.monitor-indicator.active { background: var(--green); border-color: var(--green); }
+.monitor-bar-track { flex: 1; height: 6px; background: #111; border: 1px solid var(--border); overflow: hidden; min-width: 60px; }
+.monitor-bar-fill { height: 100%; width: 0%; background: var(--fg); transition: width 0.06s linear; }
+.monitor-value { font-size: 12px; color: var(--fg); min-width: 28px; text-align: right; flex-shrink: 0; }
 .monitor-tap {
-  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
-  background: var(--surface2); flex-shrink: 0;
-  transition: background 0.06s, border-color 0.06s, box-shadow 0.06s;
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border);
+  background: #111; flex-shrink: 0; transition: background 0.06s, border-color 0.06s;
 }
-.monitor-tap.active {
-  background: var(--orange); border-color: var(--orange); box-shadow: 0 0 8px rgba(240, 160, 64, 0.5);
-}
-.monitor-label {
-  font-size: 12px; font-family: var(--mono); color: var(--text-dim); min-width: 56px; flex-shrink: 0;
-}
+.monitor-tap.active { background: var(--orange); border-color: var(--orange); }
+.monitor-label { font-size: 12px; color: var(--dim); min-width: 56px; flex-shrink: 0; text-transform: uppercase; }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>MIDICtrl <span>Configurator</span></h1>
+    <h1>pico-midi <span>configurator</span></h1>
     <div class="status-bar">
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">Disconnected</span>
@@ -330,7 +276,7 @@ header h1 span { color: var(--text-dim); font-weight: 400; }
   </div>
 
   <div id="emptyState" class="empty-state">
-    <p>Connect a MIDICtrl device via USB to configure it.</p>
+    <p>Connect a pico-midi device via USB to configure it.</p>
   </div>
 
   <!-- Serial log (collapsed by default) -->
@@ -351,8 +297,6 @@ header h1 span { color: var(--text-dim); font-weight: 400; }
 "use strict";
 
 // ── Collapsible Card Web Component ──
-// Renders a .card with .card-header + .card-body in light DOM.
-// Handles collapse toggling automatically.
 class CollapsibleCard extends HTMLElement {
   connectedCallback() {
     if (this._initialized) return;
@@ -363,7 +307,6 @@ class CollapsibleCard extends HTMLElement {
     const badgeId = this.dataset.badgeId;
     const bodyId = section ? "section" + section[0].toUpperCase() + section.slice(1) : null;
 
-    // Wrap existing children into card structure
     const children = document.createDocumentFragment();
     while (this.firstChild) children.appendChild(this.firstChild);
 
@@ -406,6 +349,118 @@ class CollapsibleCard extends HTMLElement {
 }
 customElements.define("collapsible-card", CollapsibleCard);
 
+// ── COBS encode/decode ──
+// COBS: Consistent Overhead Byte Stuffing. Frames end with 0x00 sentinel.
+function cobsEncode(data) {
+  const out = [];
+  let codeIdx = 0;
+  let code = 1;
+  out.push(0); // placeholder for first code byte
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] === 0) {
+      out[codeIdx] = code;
+      codeIdx = out.length;
+      out.push(0); // placeholder
+      code = 1;
+    } else {
+      out.push(data[i]);
+      code++;
+      if (code === 0xFF) {
+        out[codeIdx] = code;
+        codeIdx = out.length;
+        out.push(0); // placeholder
+        code = 1;
+      }
+    }
+  }
+  out[codeIdx] = code;
+  out.push(0x00); // sentinel
+  return new Uint8Array(out);
+}
+
+function cobsDecode(buf) {
+  // buf should NOT include the trailing 0x00 sentinel
+  const out = [];
+  let i = 0;
+  while (i < buf.length) {
+    const code = buf[i++];
+    if (code === 0) throw new Error("COBS: unexpected zero");
+    for (let j = 1; j < code && i < buf.length; j++) {
+      out.push(buf[i++]);
+    }
+    if (code < 0xFF && i < buf.length) {
+      out.push(0);
+    }
+  }
+  // Remove trailing zero if present (artifact of COBS for non-0xFF final block)
+  if (out.length > 0 && out[out.length - 1] === 0) {
+    out.pop();
+  }
+  return new Uint8Array(out);
+}
+
+// ── Postcard binary reader ──
+// Reads postcard-serialized data from a Uint8Array.
+class PostcardReader {
+  constructor(buf) { this.buf = buf; this.pos = 0; }
+  u8() { return this.buf[this.pos++]; }
+  bool() { return this.u8() !== 0; }
+  varint() {
+    let val = 0, shift = 0;
+    while (true) {
+      const b = this.u8();
+      val |= (b & 0x7F) << shift;
+      if ((b & 0x80) === 0) return val;
+      shift += 7;
+    }
+  }
+  str() {
+    const len = this.varint();
+    const bytes = this.buf.slice(this.pos, this.pos + len);
+    this.pos += len;
+    return new TextDecoder().decode(bytes);
+  }
+  remaining() { return this.buf.length - this.pos; }
+}
+
+// ── Postcard binary writer ──
+class PostcardWriter {
+  constructor() { this.buf = []; }
+  u8(v) { this.buf.push(v & 0xFF); }
+  bool(v) { this.u8(v ? 1 : 0); }
+  varint(v) {
+    v = v >>> 0; // ensure unsigned
+    while (v >= 0x80) {
+      this.buf.push((v & 0x7F) | 0x80);
+      v >>>= 7;
+    }
+    this.buf.push(v & 0x7F);
+  }
+  finish() { return new Uint8Array(this.buf); }
+}
+
+// ── Protocol constants ──
+// Request variant indices (host -> device)
+const REQ_PING = 0;
+const REQ_VERSION = 1;
+const REQ_GET_CONFIG = 2;
+const REQ_PUT_CONFIG = 3;
+const REQ_SAVE = 4;
+const REQ_RESET = 5;
+const REQ_REBOOT = 6;
+
+// Response variant indices (device -> host)
+const RESP_PONG = 0;
+const RESP_VERSION = 1;
+const RESP_CONFIG = 2;
+const RESP_OK = 3;
+const RESP_ERROR = 4;
+const RESP_MONITOR = 5;
+
+const MAX_BUTTONS = 8;
+const MAX_TOUCH_PADS = 8;
+const MAX_POTS = 4;
+
 // ── MIDI note names ──
 const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 function noteName(n) {
@@ -434,10 +489,13 @@ function log(text, cls) {
 }
 
 // ── Serial connection state ──
-let port = null, reader = null, writer = null, readBuf = "", keepReading = false;
+let port = null, reader = null, writer = null, keepReading = false;
+// Binary receive buffer: accumulates raw bytes, split on 0x00 sentinels
+let rxBuf = [];
+// Completed COBS frames (bytes between 0x00 sentinels), not yet processed
+let rxFrames = [];
+// Promise chain to serialize command/response exchanges
 let cmdLock = Promise.resolve();
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 // ── DOM refs ──
 const btnConnect = document.getElementById("btnConnect");
@@ -454,7 +512,6 @@ const emptyState = document.getElementById("emptyState");
 let config = null;
 
 // ── Monitor state ──
-let monitorPollTimer = null;
 let monitorTapTimer = null;
 
 // ── Helpers ──
@@ -468,6 +525,145 @@ if (!("serial" in navigator)) {
   btnConnect.disabled = true;
 }
 
+// ── Build and send a COBS-framed postcard Request ──
+function buildRequest(variantIndex, configObj) {
+  const w = new PostcardWriter();
+  w.varint(variantIndex);
+  if (variantIndex === REQ_PUT_CONFIG && configObj) {
+    writeConfig(w, configObj);
+  }
+  return cobsEncode(w.finish());
+}
+
+// ── Serialize Config into PostcardWriter ──
+// Must match firmware Config struct field order exactly:
+//   midi_channel: u8, num_buttons: u8, buttons: [ButtonDef;8],
+//   num_touch_pads: u8, touch_pads: [TouchPadDef;8],
+//   num_pots: u8, pots: [PotDef;4],
+//   ldr: PotDef, ldr_enabled: bool,
+//   accel: AccelConfig
+function writeConfig(w, cfg) {
+  w.u8(cfg.midi_channel);
+  w.u8(cfg.buttons.length);
+  for (let i = 0; i < MAX_BUTTONS; i++) {
+    if (i < cfg.buttons.length) {
+      w.u8(cfg.buttons[i].pin);
+      w.u8(cfg.buttons[i].note);
+      w.u8(cfg.buttons[i].velocity);
+    } else {
+      w.u8(0); w.u8(0); w.u8(0);
+    }
+  }
+  w.u8(cfg.touch_pads.length);
+  for (let i = 0; i < MAX_TOUCH_PADS; i++) {
+    if (i < cfg.touch_pads.length) {
+      w.u8(cfg.touch_pads[i].pin);
+      w.u8(cfg.touch_pads[i].note);
+      w.u8(cfg.touch_pads[i].velocity);
+    } else {
+      w.u8(0); w.u8(0); w.u8(0);
+    }
+  }
+  w.u8(cfg.pots.length);
+  for (let i = 0; i < MAX_POTS; i++) {
+    if (i < cfg.pots.length) {
+      w.u8(cfg.pots[i].pin);
+      w.u8(cfg.pots[i].cc);
+    } else {
+      w.u8(0); w.u8(0);
+    }
+  }
+  // ldr: PotDef
+  w.u8(cfg.ldr.pin);
+  w.u8(cfg.ldr.cc);
+  // ldr_enabled: bool
+  w.bool(cfg.ldr_enabled);
+  // accel: AccelConfig { enabled, sda_pin, scl_pin, int_pin, x_cc, y_cc,
+  //   tap_note, tap_velocity, dead_zone_tenths, smoothing_pct }
+  w.bool(cfg.accel_enabled);
+  w.u8(cfg.accel.sda);
+  w.u8(cfg.accel.scl);
+  w.u8(cfg.accel.int_pin);
+  w.u8(cfg.accel.x_cc);
+  w.u8(cfg.accel.y_cc);
+  w.u8(cfg.accel.tap_note);
+  w.u8(cfg.accel.tap_vel);
+  w.u8(cfg.accel.dead_zone);
+  w.u8(cfg.accel.smoothing);
+}
+
+// ── Deserialize Config from PostcardReader ──
+function readConfig(r) {
+  const cfg = {
+    midi_channel: 0, buttons: [], touch_pads: [], pots: [],
+    ldr_enabled: false, ldr: { pin: 0, cc: 0 },
+    accel_enabled: false,
+    accel: { sda: 0, scl: 0, int_pin: 0, x_cc: 0, y_cc: 0, tap_note: 0, tap_vel: 1, dead_zone: 0, smoothing: 0 },
+  };
+  cfg.midi_channel = r.u8();
+  const nb = r.u8();
+  for (let i = 0; i < MAX_BUTTONS; i++) {
+    const pin = r.u8(), note = r.u8(), velocity = r.u8();
+    if (i < nb) cfg.buttons.push({ pin, note, velocity });
+  }
+  const nt = r.u8();
+  for (let i = 0; i < MAX_TOUCH_PADS; i++) {
+    const pin = r.u8(), note = r.u8(), velocity = r.u8();
+    if (i < nt) cfg.touch_pads.push({ pin, note, velocity });
+  }
+  const np = r.u8();
+  for (let i = 0; i < MAX_POTS; i++) {
+    const pin = r.u8(), cc = r.u8();
+    if (i < np) cfg.pots.push({ pin, cc });
+  }
+  cfg.ldr = { pin: r.u8(), cc: r.u8() };
+  cfg.ldr_enabled = r.bool();
+  cfg.accel_enabled = r.bool();
+  cfg.accel = {
+    sda: r.u8(), scl: r.u8(), int_pin: r.u8(),
+    x_cc: r.u8(), y_cc: r.u8(),
+    tap_note: r.u8(), tap_vel: r.u8(),
+    dead_zone: r.u8(), smoothing: r.u8(),
+  };
+  return cfg;
+}
+
+// ── Deserialize MonitorSnapshot from PostcardReader ──
+function readMonitorSnapshot(r) {
+  const snap = { buttons: [], touch_pads: [], pots: [], ldr: 0, accel_x: 0, accel_y: 0, accel_tap: false };
+  for (let i = 0; i < MAX_BUTTONS; i++) snap.buttons.push(r.bool());
+  for (let i = 0; i < MAX_TOUCH_PADS; i++) snap.touch_pads.push(r.bool());
+  for (let i = 0; i < MAX_POTS; i++) snap.pots.push(r.u8());
+  snap.ldr = r.u8();
+  snap.accel_x = r.u8();
+  snap.accel_y = r.u8();
+  snap.accel_tap = r.bool();
+  return snap;
+}
+
+// ── Parse a decoded postcard response ──
+// Returns { type, ...fields } or null on error.
+function parseResponse(bytes) {
+  const r = new PostcardReader(bytes);
+  const variant = r.varint();
+  switch (variant) {
+    case RESP_PONG:
+      return { type: "pong" };
+    case RESP_VERSION:
+      return { type: "version", value: r.str() };
+    case RESP_CONFIG:
+      return { type: "config", value: readConfig(r) };
+    case RESP_OK:
+      return { type: "ok" };
+    case RESP_ERROR:
+      return { type: "error", message: r.str() };
+    case RESP_MONITOR:
+      return { type: "monitor", value: readMonitorSnapshot(r) };
+    default:
+      return null;
+  }
+}
+
 // ── Connect / Disconnect ──
 btnConnect.addEventListener("click", async () => {
   if (port) await disconnect(); else await connect();
@@ -479,17 +675,23 @@ async function connect() {
     await port.open({ baudRate: 115200 });
     writer = port.writable.getWriter();
     keepReading = true;
+    rxBuf = [];
+    rxFrames = [];
     readLoop();
     setConnected(true);
     log("Connected", "resp");
-    const ver = await sendCommand("VERSION");
-    if (!ver.startsWith("midictrl")) {
-      toast("Unexpected device: " + ver, "error");
+    // Query firmware version
+    const resp = await sendRequest(REQ_VERSION);
+    if (resp.type === "version") {
+      if (!resp.value.startsWith("midictrl")) {
+        toast("Unexpected device: " + resp.value, "error");
+      } else {
+        statusText.textContent = resp.value;
+      }
     } else {
-      statusText.textContent = ver.trim();
+      toast("Unexpected response", "error");
     }
     await refreshConfig();
-    startMonitorPoll();
   } catch (e) {
     if (e.name !== "NotFoundError") {
       log("Connection error: " + e.message, "err");
@@ -500,12 +702,12 @@ async function connect() {
 }
 
 async function disconnect() {
-  stopMonitorPoll();
   keepReading = false;
   try { if (reader) { await reader.cancel(); reader.releaseLock(); } } catch {}
   try { if (writer) { writer.releaseLock(); } } catch {}
   try { if (port) { await port.close(); } } catch {}
-  reader = null; writer = null; port = null; readBuf = "";
+  reader = null; writer = null; port = null;
+  rxBuf = []; rxFrames = [];
   cmdLock = Promise.resolve();
   setConnected(false);
   log("Disconnected", "err");
@@ -532,7 +734,7 @@ function setToolbarBusy(busy) {
   btnReboot.disabled = busy;
 }
 
-// ── Read loop ──
+// ── Read loop: accumulates bytes, splits on 0x00 sentinels ──
 async function readLoop() {
   while (keepReading && port && port.readable) {
     try {
@@ -540,7 +742,19 @@ async function readLoop() {
       while (keepReading) {
         const { value, done } = await reader.read();
         if (done) break;
-        readBuf += decoder.decode(value, { stream: true });
+        for (let i = 0; i < value.length; i++) {
+          if (value[i] === 0x00) {
+            // End of COBS frame
+            if (rxBuf.length > 0) {
+              rxFrames.push(new Uint8Array(rxBuf));
+              rxBuf = [];
+            }
+          } else {
+            rxBuf.push(value[i]);
+          }
+        }
+        // Process any monitor frames immediately (non-command responses)
+        drainMonitorFrames();
       }
     } catch (e) {
       if (keepReading) log("Read error: " + e.message, "err");
@@ -551,165 +765,90 @@ async function readLoop() {
   }
 }
 
-// ── Send command with monitor line filtering ──
-function sendCommand(cmd) {
-  const p = cmdLock.then(() => _sendCommand(cmd));
+// ── Process and remove monitor frames from rxFrames ──
+function drainMonitorFrames() {
+  let i = 0;
+  while (i < rxFrames.length) {
+    try {
+      const decoded = cobsDecode(rxFrames[i]);
+      const r = new PostcardReader(decoded);
+      const variant = r.varint();
+      if (variant === RESP_MONITOR) {
+        const snap = readMonitorSnapshot(r);
+        applyMonitorData(snap);
+        rxFrames.splice(i, 1);
+        continue;
+      }
+    } catch {}
+    i++;
+  }
+}
+
+// ── Send a request and wait for a non-monitor response ──
+function sendRequest(variantIndex, configObj) {
+  const p = cmdLock.then(() => _sendRequest(variantIndex, configObj));
   cmdLock = p.catch(() => {});
   return p;
 }
 
-async function _sendCommand(cmd) {
+async function _sendRequest(variantIndex, configObj) {
   if (!writer) throw new Error("Not connected");
-  log("> " + cmd, "cmd");
-  drainMonitorLines();
-  readBuf = "";
-  await writer.write(encoder.encode(cmd + "\n"));
+  const reqNames = ["PING", "VERSION", "GET_CONFIG", "PUT_CONFIG", "SAVE", "RESET", "REBOOT"];
+  log("> " + (reqNames[variantIndex] || "?"), "cmd");
+
+  // Flush any stale non-monitor frames
+  rxFrames = rxFrames.filter(frame => {
+    try {
+      const decoded = cobsDecode(frame);
+      const r = new PostcardReader(decoded);
+      return r.varint() === RESP_MONITOR;
+    } catch { return false; }
+  });
+
+  const frame = buildRequest(variantIndex, configObj);
+  await writer.write(frame);
+
   const deadline = Date.now() + 3000;
   while (Date.now() < deadline) {
-    await sleep(20);
-    drainMonitorLines();
-    const lines = readBuf.split("\n");
-    if (lines.length < 2) continue;
-    for (let i = 0; i < lines.length - 1; i++) {
-      const resp = lines[i].trim();
-      if (resp.length > 0 && !resp.startsWith("M:")) {
-        readBuf = lines.slice(i + 1).join("\n");
-        log(resp.length > 80 ? resp.substring(0, 80) + "..." : resp, "resp");
-        return resp;
+    await sleep(15);
+    // Look for a non-monitor response frame
+    for (let i = 0; i < rxFrames.length; i++) {
+      try {
+        const decoded = cobsDecode(rxFrames[i]);
+        const resp = parseResponse(decoded);
+        if (resp && resp.type !== "monitor") {
+          rxFrames.splice(i, 1);
+          const desc = resp.type === "error" ? "ERR: " + resp.message :
+                       resp.type === "version" ? resp.value :
+                       resp.type === "config" ? "Config (" + resp.value.buttons.length + " btns)" :
+                       resp.type.toUpperCase();
+          log(desc, resp.type === "error" ? "err" : "resp");
+          return resp;
+        }
+      } catch {
+        // Bad frame, discard
+        rxFrames.splice(i, 1);
+        i--;
       }
     }
-    readBuf = lines[lines.length - 1];
   }
   throw new Error("Timeout waiting for response");
-}
-
-function drainMonitorLines() {
-  const lines = readBuf.split("\n");
-  const incomplete = lines.pop() || "";
-  const kept = [];
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith("M:")) applyMonitorLine(line);
-    else if (line.length > 0) kept.push(raw);
-  }
-  readBuf = (kept.length > 0 ? kept.join("\n") + "\n" : "") + incomplete;
-}
-
-// ── Config binary format ──
-const CONFIG_MAGIC = 0x4D494449;
-const CONFIG_VERSION = 2;
-const MAX_BUTTONS = 8;
-const MAX_TOUCH_PADS = 8;
-const MAX_POTS = 4;
-
-function hexEncode(bytes) {
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-}
-function hexDecode(str) {
-  const bytes = new Uint8Array(str.length / 2);
-  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(str.substr(i * 2, 2), 16);
-  return bytes;
-}
-
-function decodeConfig(hex) {
-  const b = hexDecode(hex.trim());
-  if (b.length < 6) return null;
-  const magic = b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
-  if (magic !== CONFIG_MAGIC || b[4] !== CONFIG_VERSION) return null;
-  if (b.length < 78) return null;
-
-  const cfg = {
-    midi_channel: 0, buttons: [], touch_pads: [], pots: [],
-    ldr_enabled: false, ldr: { pin: 0, cc: 0 },
-    accel_enabled: false,
-    accel: { sda: 0, scl: 0, int_pin: 0, x_cc: 0, y_cc: 0, tap_note: 0, tap_vel: 1, dead_zone: 0, smoothing: 0 },
-  };
-
-  let i = 5;
-  cfg.midi_channel = Math.min(b[i++], 15);
-
-  const nb = Math.min(b[i++], MAX_BUTTONS);
-  for (let j = 0; j < MAX_BUTTONS; j++) {
-    const pin = b[i], note = Math.min(b[i+1], 127), velocity = Math.max(1, Math.min(b[i+2], 127));
-    if (j < nb) cfg.buttons.push({ pin, note, velocity });
-    i += 3;
-  }
-
-  const nt = Math.min(b[i++], MAX_TOUCH_PADS);
-  for (let j = 0; j < MAX_TOUCH_PADS; j++) {
-    const pin = b[i], note = Math.min(b[i+1], 127), velocity = Math.max(1, Math.min(b[i+2], 127));
-    if (j < nt) cfg.touch_pads.push({ pin, note, velocity });
-    i += 3;
-  }
-
-  const np = Math.min(b[i++], MAX_POTS);
-  for (let j = 0; j < MAX_POTS; j++) {
-    const pin = b[i], cc = Math.min(b[i+1], 127);
-    if (j < np) cfg.pots.push({ pin, cc });
-    i += 2;
-  }
-
-  cfg.ldr = { pin: b[i], cc: Math.min(b[i+1], 127) }; i += 2;
-  cfg.ldr_enabled = b[i++] !== 0;
-
-  cfg.accel_enabled = b[i] !== 0;
-  cfg.accel = {
-    sda: b[i+1], scl: b[i+2], int_pin: b[i+3],
-    x_cc: Math.min(b[i+4], 127), y_cc: Math.min(b[i+5], 127),
-    tap_note: Math.min(b[i+6], 127), tap_vel: Math.max(1, Math.min(b[i+7], 127)),
-    dead_zone: b[i+8], smoothing: b[i+9],
-  };
-  return cfg;
-}
-
-function encodeConfig(cfg) {
-  const buf = [];
-  buf.push(CONFIG_MAGIC & 0xFF, (CONFIG_MAGIC >> 8) & 0xFF, (CONFIG_MAGIC >> 16) & 0xFF, (CONFIG_MAGIC >> 24) & 0xFF);
-  buf.push(CONFIG_VERSION);
-  buf.push(Math.min(cfg.midi_channel, 15));
-
-  function pushSlots(items, max, fields) {
-    buf.push(Math.min(items.length, max));
-    for (let j = 0; j < max; j++) {
-      if (j < items.length) fields.forEach(f => buf.push(f.clamp(items[j][f.key])));
-      else fields.forEach(() => buf.push(0));
-    }
-  }
-
-  const noteFields = [
-    { key: "pin", clamp: v => v },
-    { key: "note", clamp: v => Math.min(v, 127) },
-    { key: "velocity", clamp: v => Math.max(1, Math.min(v, 127)) },
-  ];
-  const potFields = [
-    { key: "pin", clamp: v => v },
-    { key: "cc", clamp: v => Math.min(v, 127) },
-  ];
-
-  pushSlots(cfg.buttons, MAX_BUTTONS, noteFields);
-  pushSlots(cfg.touch_pads, MAX_TOUCH_PADS, noteFields);
-  pushSlots(cfg.pots, MAX_POTS, potFields);
-
-  buf.push(cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
-  buf.push(cfg.ldr_enabled ? 1 : 0);
-
-  const a = cfg.accel;
-  buf.push(cfg.accel_enabled ? 1 : 0, a.sda, a.scl, a.int_pin,
-    Math.min(a.x_cc, 127), Math.min(a.y_cc, 127),
-    Math.min(a.tap_note, 127), Math.max(1, Math.min(a.tap_vel, 127)),
-    a.dead_zone, a.smoothing);
-
-  return hexEncode(new Uint8Array(buf));
 }
 
 // ── Refresh / Apply / Save / Reset / Reboot ──
 async function refreshConfig() {
   setToolbarBusy(true);
   try {
-    const resp = await sendCommand("GET");
-    config = decodeConfig(resp);
-    renderConfig();
-    toast("Config loaded", "success");
+    const resp = await sendRequest(REQ_GET_CONFIG);
+    if (resp.type === "config") {
+      config = resp.value;
+      renderConfig();
+      toast("Config loaded", "success");
+    } else if (resp.type === "error") {
+      throw new Error(resp.message);
+    } else {
+      throw new Error("Unexpected response: " + resp.type);
+    }
   } catch (e) {
     log("Refresh failed: " + e.message, "err");
     toast("Failed to load config", "error");
@@ -723,10 +862,9 @@ btnRefresh.addEventListener("click", refreshConfig);
 async function applyConfig() {
   try {
     readConfigFromUI();
-    const hex = encodeConfig(config);
-    const r = await sendCommand("PUT " + hex);
-    if (!r.startsWith("OK")) throw new Error("PUT: " + r);
-    return true;
+    const resp = await sendRequest(REQ_PUT_CONFIG, config);
+    if (resp.type === "ok") return true;
+    throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
   } catch (e) {
     log("Apply failed: " + e.message, "err");
     toast("Apply failed: " + e.message, "error");
@@ -738,9 +876,9 @@ btnSave.addEventListener("click", async () => {
   setToolbarBusy(true);
   try {
     if (!await applyConfig()) return;
-    const r = await sendCommand("SAVE");
-    if (r.includes("OK")) toast("Saved to flash", "success");
-    else toast("Save failed: " + r, "error");
+    const resp = await sendRequest(REQ_SAVE);
+    if (resp.type === "ok") toast("Saved to flash", "success");
+    else toast("Save failed: " + (resp.message || resp.type), "error");
   } catch (e) {
     log("Save error: " + e.message, "err");
     toast("Save failed", "error");
@@ -753,8 +891,8 @@ btnReset.addEventListener("click", async () => {
   if (!confirm("Reset all config to factory defaults? (in RAM only, use Save to persist)")) return;
   setToolbarBusy(true);
   try {
-    const r = await sendCommand("RESET");
-    if (r.startsWith("OK")) {
+    const resp = await sendRequest(REQ_RESET);
+    if (resp.type === "ok") {
       await refreshConfig();
       toast("Defaults restored", "info");
     }
@@ -770,7 +908,7 @@ btnReboot.addEventListener("click", async () => {
   if (!confirm("Reboot the device? Unsaved changes will be lost.")) return;
   setToolbarBusy(true);
   try {
-    await sendCommand("REBOOT");
+    await sendRequest(REQ_REBOOT);
     toast("Device rebooting...", "info");
     await disconnect();
   } catch (e) {
@@ -900,7 +1038,7 @@ function buildAccelMonitor() {
   container.innerHTML = "";
   if (!config || !config.accel_enabled) return;
 
-  [   ["Tilt X", "monAccelXBar", "monAccelXVal", "64"],
+  [["Tilt X", "monAccelXBar", "monAccelXVal", "64"],
    ["Tilt Y", "monAccelYBar", "monAccelYVal", "64"]].forEach(([label, barId, valId, def]) => {
     const row = document.createElement("div");
     row.className = "monitor-row";
@@ -1059,70 +1197,36 @@ if ("serial" in navigator) {
   });
 }
 
-// ── Automatic Input Monitoring ──
-function startMonitorPoll() {
-  if (monitorPollTimer) return;
-  monitorPollTimer = setInterval(processMonitorBuffer, 30);
-}
-
-function stopMonitorPoll() {
-  clearInterval(monitorPollTimer);
-  monitorPollTimer = null;
-}
-
-function updateMonitorBar(barId, valId, raw) {
-  const v = parseInt(raw, 10) || 0;
+// ── Monitor: apply structured snapshot data to DOM ──
+function updateMonitorBar(barId, valId, v) {
   const bar = document.getElementById(barId);
   const val = document.getElementById(valId);
   if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
   if (val) val.textContent = v;
 }
 
-function applyMonitorLine(line) {
-  if (!line.startsWith("M:")) return;
-  const parts = {};
-  for (const seg of line.substring(2).split(",")) {
-    const eq = seg.indexOf("=");
-    if (eq > 0) parts[seg.substring(0, eq)] = seg.substring(eq + 1);
+function applyMonitorData(snap) {
+  for (let i = 0; i < snap.buttons.length && i < MAX_BUTTONS; i++) {
+    const el = document.getElementById("monBtn" + i);
+    if (el) el.classList.toggle("active", snap.buttons[i]);
   }
-
-  if (parts.b) {
-    for (let i = 0; i < parts.b.length && i < 8; i++) {
-      const el = document.getElementById("monBtn" + i);
-      if (el) el.classList.toggle("active", parts.b[i] === "1");
-    }
+  for (let i = 0; i < snap.touch_pads.length && i < MAX_TOUCH_PADS; i++) {
+    const el = document.getElementById("monTouch" + i);
+    if (el) el.classList.toggle("active", snap.touch_pads[i]);
   }
-  if (parts.t) {
-    for (let i = 0; i < parts.t.length && i < 8; i++) {
-      const el = document.getElementById("monTouch" + i);
-      if (el) el.classList.toggle("active", parts.t[i] === "1");
-    }
+  for (let i = 0; i < snap.pots.length && i < MAX_POTS; i++) {
+    updateMonitorBar("monPotBar" + i, "monPotVal" + i, snap.pots[i]);
   }
-  if (parts.p) {
-    const vals = parts.p.split(":");
-    for (let i = 0; i < vals.length && i < 4; i++)
-      updateMonitorBar("monPotBar" + i, "monPotVal" + i, vals[i]);
-  }
-  if (parts.l !== undefined) updateMonitorBar("monLdrBar", "monLdrVal", parts.l);
-  if (parts.ax !== undefined) updateMonitorBar("monAccelXBar", "monAccelXVal", parts.ax);
-  if (parts.ay !== undefined) updateMonitorBar("monAccelYBar", "monAccelYVal", parts.ay);
-  if (parts.at === "1") {
+  updateMonitorBar("monLdrBar", "monLdrVal", snap.ldr);
+  updateMonitorBar("monAccelXBar", "monAccelXVal", snap.accel_x);
+  updateMonitorBar("monAccelYBar", "monAccelYVal", snap.accel_y);
+  if (snap.accel_tap) {
     const el = document.getElementById("monAccelTap");
     if (el) {
       el.classList.add("active");
       clearTimeout(monitorTapTimer);
       monitorTapTimer = setTimeout(() => el.classList.remove("active"), 200);
     }
-  }
-}
-
-function processMonitorBuffer() {
-  if (!port) return;
-  const lines = readBuf.split("\n");
-  readBuf = lines.pop() || "";
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith("M:")) applyMonitorLine(line);
   }
 }
 </script>

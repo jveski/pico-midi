@@ -1,79 +1,154 @@
-//! Serial command protocol for configuration over USB CDC-ACM.
+//! Serial protocol for configuration over USB CDC-ACM.
 //!
-//! Protocol (line-based, newline-terminated):
-//!   PING          -> responds "PONG\n"
-//!   VERSION       -> responds "midictrl 0.1.0\n"
-//!   GET           -> responds with hex-encoded config bytes + "\n"
-//!   PUT <hex>     -> decodes hex, replaces in-memory config, responds "OK\n"
-//!   SAVE          -> writes current config to flash, responds "OK\n"
-//!   RESET         -> restores defaults, responds "OK\n"
-//!   REBOOT        -> responds "OK\n", then triggers software reset
+//! Binary protocol using postcard + COBS framing (0x00 sentinel).
+//! Each frame is a COBS-encoded postcard message terminated by 0x00.
 //!
-//! Monitor data (M: lines) is always streamed at ~50ms intervals when connected.
-//! After SAVE, the device should be rebooted to apply hardware changes.
+//! Requests (host -> device):  postcard-serialized `Request` enum
+//! Responses (device -> host): postcard-serialized `Response` enum
+//!
+//! Monitor snapshots are sent as `Response::Monitor` at ~50ms intervals.
 
 use crate::config::{self, Config, SECTOR_SIZE};
 
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::FLASH;
+use serde::{Deserialize, Serialize};
 
-/// Process a single command line. Writes the response into `resp_buf`.
-/// Returns (response_length, action).
-pub fn handle_command(
-    line: &[u8],
-    config: &mut Config,
-    resp: &mut [u8],
-) -> (usize, Action) {
-    let line = trim(line);
-
-    if line == b"PING" {
-        return (copy(resp, b"PONG\n"), Action::None);
-    }
-
-    if line == b"VERSION" {
-        return (copy(resp, b"midictrl 0.1.0\n"), Action::None);
-    }
-
-    if line == b"GET" {
-        let n = config.encode_hex(resp);
-        if n + 1 <= resp.len() {
-            resp[n] = b'\n';
-            return (n + 1, Action::None);
-        }
-        return (n, Action::None);
-    }
-
-    if line.len() > 4 && line.starts_with(b"PUT ") {
-        let hex = &line[4..];
-        if let Some(cfg) = Config::decode_hex(hex) {
-            *config = cfg;
-            return (copy(resp, b"OK\n"), Action::None);
-        } else {
-            return (copy(resp, b"ERR bad config\n"), Action::None);
-        }
-    }
-
-    if line == b"SAVE" {
-        return (copy(resp, b"OK\n"), Action::Save);
-    }
-
-    if line == b"RESET" {
-        *config = Config::default();
-        return (copy(resp, b"OK\n"), Action::None);
-    }
-
-    if line == b"REBOOT" {
-        return (copy(resp, b"OK\n"), Action::Reboot);
-    }
-
-    (copy(resp, b"ERR unknown command\n"), Action::None)
+/// Commands sent from the host to the device.
+#[derive(Deserialize)]
+pub enum Request {
+    /// Echo request.
+    Ping,
+    /// Query firmware version.
+    Version,
+    /// Read the current in-memory config.
+    GetConfig,
+    /// Replace the in-memory config.
+    PutConfig(Config),
+    /// Write the current config to flash.
+    Save,
+    /// Restore default config (in RAM).
+    Reset,
+    /// Reboot the device.
+    Reboot,
 }
 
+/// Responses sent from the device to the host.
+#[derive(Serialize)]
+pub enum Response<'a> {
+    /// Echo reply.
+    Pong,
+    /// Firmware version string.
+    Version(&'a str),
+    /// Current config.
+    Config(Config),
+    /// Command succeeded.
+    Ok,
+    /// Command failed with a reason.
+    Error(&'a str),
+    /// Live input monitor snapshot.
+    Monitor(MonitorSnapshot),
+}
+
+/// Snapshot of all live input values for the monitor display.
+#[derive(Serialize)]
+pub struct MonitorSnapshot {
+    pub buttons: [bool; config::MAX_BUTTONS],
+    pub touch_pads: [bool; config::MAX_TOUCH_PADS],
+    pub pots: [u8; config::MAX_POTS],
+    pub ldr: u8,
+    pub accel_x: u8,
+    pub accel_y: u8,
+    pub accel_tap: bool,
+}
+
+/// What the caller should do after handling a command.
 #[derive(PartialEq)]
 pub enum Action {
     None,
     Save,
     Reboot,
+}
+
+/// Decode a COBS frame and process the request. Writes the COBS-encoded
+/// response into `resp`. Returns `(response_length, action)`.
+///
+/// `frame` must be the raw bytes *before* the 0x00 sentinel (already stripped).
+pub fn handle_frame(
+    frame: &mut [u8],
+    config: &mut Config,
+    resp: &mut [u8],
+) -> (usize, Action) {
+    let request = match postcard::from_bytes_cobs::<Request>(frame) {
+        Ok(req) => req,
+        Err(_) => {
+            return encode_response(&Response::Error("bad frame"), resp, Action::None);
+        }
+    };
+
+    match request {
+        Request::Ping => {
+            encode_response(&Response::Pong, resp, Action::None)
+        }
+        Request::Version => {
+            encode_response(&Response::Version("midictrl 0.1.0"), resp, Action::None)
+        }
+        Request::GetConfig => {
+            encode_response(&Response::Config(*config), resp, Action::None)
+        }
+        Request::PutConfig(new_config) => {
+            *config = new_config;
+            encode_response(&Response::Ok, resp, Action::None)
+        }
+        Request::Save => {
+            encode_response(&Response::Ok, resp, Action::Save)
+        }
+        Request::Reset => {
+            *config = Config::default();
+            encode_response(&Response::Ok, resp, Action::None)
+        }
+        Request::Reboot => {
+            encode_response(&Response::Ok, resp, Action::Reboot)
+        }
+    }
+}
+
+/// Encode a response as a COBS frame with trailing 0x00 sentinel.
+/// Returns `(length, action)`.
+fn encode_response(response: &Response, buf: &mut [u8], action: Action) -> (usize, Action) {
+    match postcard::to_slice_cobs(response, buf) {
+        Ok(used) => {
+            let n = used.len();
+            // postcard::to_slice_cobs already appends the 0x00 sentinel
+            (n, action)
+        }
+        Err(_) => {
+            // Fallback: try to send a minimal error
+            if let Ok(used) = postcard::to_slice_cobs(&Response::Error("encode error"), buf) {
+                (used.len(), action)
+            } else {
+                (0, action)
+            }
+        }
+    }
+}
+
+/// Encode a monitor snapshot as a COBS-framed Response::Monitor.
+/// Returns the number of bytes written (including the trailing 0x00).
+pub fn encode_monitor(snapshot: MonitorSnapshot, buf: &mut [u8]) -> usize {
+    let resp = Response::Monitor(snapshot);
+    match postcard::to_slice_cobs(&resp, buf) {
+        Ok(used) => used.len(),
+        Err(_) => 0,
+    }
+}
+
+/// Encode an error response as a COBS frame. Returns bytes written.
+pub fn encode_error(msg: &str, buf: &mut [u8]) -> usize {
+    match postcard::to_slice_cobs(&Response::Error(msg), buf) {
+        Ok(used) => used.len(),
+        Err(_) => 0,
+    }
 }
 
 /// Save config to flash. This erases and writes the last sector.
@@ -110,24 +185,4 @@ pub fn load_config(
         return None;
     }
     Config::decode(&buf)
-}
-
-// ---- helpers ----
-
-fn trim(s: &[u8]) -> &[u8] {
-    let mut start = 0;
-    let mut end = s.len();
-    while start < end && matches!(s[start], b' ' | b'\t' | b'\r' | b'\n') {
-        start += 1;
-    }
-    while end > start && matches!(s[end - 1], b' ' | b'\t' | b'\r' | b'\n') {
-        end -= 1;
-    }
-    &s[start..end]
-}
-
-fn copy(dest: &mut [u8], src: &[u8]) -> usize {
-    let n = src.len().min(dest.len());
-    dest[..n].copy_from_slice(&src[..n]);
-    n
 }

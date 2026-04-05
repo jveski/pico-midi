@@ -2,7 +2,7 @@
 //!
 //! USB composite device: MIDI + CDC-ACM serial.
 //! MIDI: NoteOn/NoteOff for buttons/touch, CC for pots/LDR/accelerometer.
-//! Serial: line-based config protocol (GET/PUT/SAVE/RESET/REBOOT) + always-on monitoring.
+//! Serial: binary config protocol (postcard + COBS framing) + always-on monitoring.
 
 #![no_std]
 #![no_main]
@@ -296,13 +296,12 @@ async fn main(_spawner: Spawner) {
             serial_class.wait_connection().await;
             defmt::info!("serial connected");
 
-            let mut line_buf = [0u8; 256];
-            let mut line_pos = 0usize;
+            let mut frame_buf = [0u8; 256];
+            let mut frame_pos = 0usize;
             let mut last_monitor_send = Instant::now();
 
             loop {
-                // Always interleave command processing with monitor snapshots.
-                // Use select to either read a packet or timeout for next monitor send.
+                // Interleave command processing with monitor snapshots.
                 let mut buf = [0u8; 64];
 
                 let read_or_tick = select(
@@ -315,32 +314,35 @@ async fn main(_spawner: Spawner) {
                         match result {
                             Ok(n) => {
                                 for &b in &buf[..n] {
-                                    if b == b'\n' || b == b'\r' {
-                                        if line_pos > 0 {
+                                    if b == 0x00 {
+                                        // End of COBS frame
+                                        if frame_pos > 0 {
                                             let mut resp = [0u8; 1024];
-                                            let (resp_len, action) = serial::handle_command(
-                                                &line_buf[..line_pos], &mut cfg, &mut resp,
+                                            let (resp_len, action) = serial::handle_frame(
+                                                &mut frame_buf[..frame_pos], &mut cfg, &mut resp,
                                             );
-                                            // For SAVE, perform flash write before sending response
                                             if action == serial::Action::Save {
                                                 if serial::save_config(&mut flash, &cfg) {
-                                                    let _ = serial_class.write_packet(b"OK saved\n").await;
+                                                    send_serial(&mut serial_class, &resp[..resp_len]).await;
                                                 } else {
-                                                    let _ = serial_class.write_packet(b"ERR save failed\n").await;
+                                                    let mut err_resp = [0u8; 64];
+                                                    let n = serial::encode_error("save failed", &mut err_resp);
+                                                    if n > 0 {
+                                                        send_serial(&mut serial_class, &err_resp[..n]).await;
+                                                    }
                                                 }
-                                            } else {
+                                            } else if resp_len > 0 {
                                                 send_serial(&mut serial_class, &resp[..resp_len]).await;
                                             }
                                             if action == serial::Action::Reboot {
-                                                // Allow USB to flush before reset
                                                 Timer::after(Duration::from_millis(50)).await;
                                                 cortex_m::peripheral::SCB::sys_reset();
                                             }
-                                            line_pos = 0;
+                                            frame_pos = 0;
                                         }
-                                    } else if line_pos < line_buf.len() {
-                                        line_buf[line_pos] = b;
-                                        line_pos += 1;
+                                    } else if frame_pos < frame_buf.len() {
+                                        frame_buf[frame_pos] = b;
+                                        frame_pos += 1;
                                     }
                                 }
                             }
@@ -353,11 +355,12 @@ async fn main(_spawner: Spawner) {
                     Either::Second(()) => {}
                 }
 
-                // Always send monitor snapshot at ~50ms intervals
+                // Send monitor snapshot at ~50ms intervals
                 if Instant::now().duration_since(last_monitor_send).as_millis() >= 50 {
                     last_monitor_send = Instant::now();
                     let mut resp = [0u8; 256];
-                    let n = INPUT_STATE.format_snapshot(&mut resp);
+                    let snapshot = INPUT_STATE.snapshot();
+                    let n = serial::encode_monitor(snapshot, &mut resp);
                     if n > 0 {
                         send_serial(&mut serial_class, &resp[..n]).await;
                     }

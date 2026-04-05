@@ -155,10 +155,10 @@ const DEFAULT_CFG = `{
 test.describe("initial page load", () => {
   test("renders correct initial page state", async ({ page }) => {
     await page.goto(FILE_URL);
-    await expect(page).toHaveTitle("MIDICtrl Configurator");
+    await expect(page).toHaveTitle("pico-midi configurator");
     const h1 = page.locator("header h1");
-    await expect(h1).toContainText("MIDICtrl");
-    await expect(h1).toContainText("Configurator");
+    await expect(h1).toContainText("pico-midi");
+    await expect(h1).toContainText("configurator");
     await expect(page.locator("#statusText")).toHaveText("Disconnected");
     await expect(page.locator("#statusDot")).not.toHaveClass(/connected/);
     await expect(page.locator("#emptyState")).toBeVisible();
@@ -284,12 +284,12 @@ test.describe("hex encode/decode", () => {
 test.describe("config encode/decode", () => {
   test("roundtrip: default config", async ({ page }) => {
     await page.goto(FILE_URL);
-    const result = await page.evaluate(() => {
+    const result = await page.evaluate(`(() => {
       const cfg = ${DEFAULT_CFG};
       const hex = encodeConfig(cfg);
       const decoded = decodeConfig(hex);
       return { original: cfg, decoded, hex };
-    });
+    })()`);
     expect(result.decoded).toEqual(result.original);
     // Magic check: first 8 hex chars = MIDI LE, next 2 = version 02
     expect(result.hex.substring(0, 10)).toBe("4944494d02");
@@ -589,11 +589,11 @@ test.describe("MIDI channel", () => {
 test.describe("button list", () => {
   test("add button creates row with defaults, note hint, and hint updates on edit", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     await expect(page.locator("#btnCount")).toHaveText("0");
     await page.locator("#addButton").click();
@@ -677,11 +677,11 @@ test.describe("button list", () => {
 test.describe("touch pad list", () => {
   test("add touch pad creates row with defaults, disabled at max (8)", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     await expect(page.locator("#touchCount")).toHaveText("0");
     await page.locator("#addTouch").click();
@@ -736,11 +736,11 @@ test.describe("touch pad list", () => {
 test.describe("potentiometer list", () => {
   test("add pot creates row with defaults, disabled at max (4)", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     await expect(page.locator("#potCount")).toHaveText("0");
     await page.locator("#addPot").click();
@@ -790,11 +790,11 @@ test.describe("potentiometer list", () => {
 test.describe("LDR section", () => {
   test("toggle shows/hides fields with correct values", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     await expect(page.locator("#ldrFields")).toBeHidden();
     await expect(page.locator("#ldrEnabled")).not.toBeChecked();
@@ -858,11 +858,11 @@ test.describe("LDR section", () => {
 test.describe("accelerometer section", () => {
   test("toggle shows/hides fields with correct values and hints", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     await expect(page.locator("#accelFields")).toBeHidden();
 
@@ -1564,11 +1564,11 @@ test.describe("edge cases and bug documentation", () => {
 
   test("multiple rapid add/remove operations don't corrupt state", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     // Add 4 buttons rapidly
     for (let i = 0; i < 4; i++) {
@@ -1631,12 +1631,12 @@ test.describe("edge cases and bug documentation", () => {
 
   test("applyConfig returns false on error", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
       writer = null; // sendCommand will throw "Not connected"
-    });
+    })()`);
     const result = await page.evaluate(async () => applyConfig());
     expect(result).toBe(false);
   });
@@ -1698,11 +1698,11 @@ test.describe("documented bugs", () => {
 
   test("BUG: toggle LDR/Accel on doesn't update config before rebuilding monitor", async ({ page }) => {
     await page.goto(FILE_URL);
-    await page.evaluate(() => {
+    await page.evaluate(`(() => {
       config = ${DEFAULT_CFG};
       renderConfig();
       setConnected(true);
-    });
+    })()`);
 
     // Toggle LDR on - handler calls buildLdrMonitor() but doesn't update config.ldr_enabled first
     await page.evaluate(() => {

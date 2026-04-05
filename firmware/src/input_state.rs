@@ -7,6 +7,7 @@
 use portable_atomic::{AtomicBool, AtomicU8, Ordering};
 
 use crate::config;
+use crate::serial::MonitorSnapshot;
 
 /// Live input state shared between the MIDI polling task and serial monitor.
 pub struct InputState {
@@ -90,96 +91,32 @@ impl InputState {
 
     // ---- Reader (called from serial task) ----
 
-    /// Format the current input state as a monitor line.
-    ///
-    /// Format: `M:b=01100000,t=11010000,p=64,127,l=42,ax=65,ay=58,at=0\n`
-    /// - b=: button states (0/1 per button, MAX_BUTTONS chars)
-    /// - t=: touch pad states (0/1 per pad, MAX_TOUCH_PADS chars)
-    /// - p=: pot CC values, comma-separated
-    /// - l=: LDR CC value
-    /// - ax=: accelerometer X CC
-    /// - ay=: accelerometer Y CC
-    /// - at=: accelerometer tap (0 or 1, cleared on read)
-    ///
-    /// Returns the number of bytes written.
-    pub fn format_snapshot(&self, buf: &mut [u8]) -> usize {
-        let mut w = Writer::new(buf);
-
-        // Buttons
-        w.str("M:b=");
+    /// Take a snapshot of the current input state.
+    /// The accel_tap flag is cleared atomically on read.
+    pub fn snapshot(&self) -> MonitorSnapshot {
+        let mut buttons = [false; config::MAX_BUTTONS];
         for i in 0..config::MAX_BUTTONS {
-            w.byte(if self.buttons[i].load(Ordering::Relaxed) { b'1' } else { b'0' });
+            buttons[i] = self.buttons[i].load(Ordering::Relaxed);
         }
 
-        // Touch pads
-        w.str(",t=");
+        let mut touch_pads = [false; config::MAX_TOUCH_PADS];
         for i in 0..config::MAX_TOUCH_PADS {
-            w.byte(if self.touch_pads[i].load(Ordering::Relaxed) { b'1' } else { b'0' });
+            touch_pads[i] = self.touch_pads[i].load(Ordering::Relaxed);
         }
 
-        // Pots
-        w.str(",p=");
+        let mut pots = [0u8; config::MAX_POTS];
         for i in 0..config::MAX_POTS {
-            if i > 0 {
-                w.byte(b':');
-            }
-            w.u8_dec(self.pots[i].load(Ordering::Relaxed));
+            pots[i] = self.pots[i].load(Ordering::Relaxed);
         }
 
-        // LDR
-        w.str(",l=");
-        w.u8_dec(self.ldr.load(Ordering::Relaxed));
-
-        // Accelerometer
-        w.str(",ax=");
-        w.u8_dec(self.accel_x.load(Ordering::Relaxed));
-        w.str(",ay=");
-        w.u8_dec(self.accel_y.load(Ordering::Relaxed));
-        w.str(",at=");
-        // Swap tap flag: read and clear atomically
-        let tapped = self.accel_tap.swap(false, Ordering::Relaxed);
-        w.byte(if tapped { b'1' } else { b'0' });
-
-        w.byte(b'\n');
-        w.pos
-    }
-}
-
-// Tiny no-alloc writer, same pattern as config.rs
-struct Writer<'a> {
-    buf: &'a mut [u8],
-    pos: usize,
-}
-
-impl<'a> Writer<'a> {
-    fn new(buf: &'a mut [u8]) -> Self {
-        Self { buf, pos: 0 }
-    }
-
-    fn byte(&mut self, b: u8) {
-        if self.pos < self.buf.len() {
-            self.buf[self.pos] = b;
-            self.pos += 1;
-        }
-    }
-
-    fn str(&mut self, s: &str) {
-        for &b in s.as_bytes() {
-            self.byte(b);
-        }
-    }
-
-    fn u8_dec(&mut self, mut v: u8) {
-        if v >= 100 {
-            self.byte(b'0' + v / 100);
-            v %= 100;
-            self.byte(b'0' + v / 10);
-            self.byte(b'0' + v % 10);
-        } else if v >= 10 {
-            self.byte(b'0' + v / 10);
-            self.byte(b'0' + v % 10);
-        } else {
-            self.byte(b'0' + v);
+        MonitorSnapshot {
+            buttons,
+            touch_pads,
+            pots,
+            ldr: self.ldr.load(Ordering::Relaxed),
+            accel_x: self.accel_x.load(Ordering::Relaxed),
+            accel_y: self.accel_y.load(Ordering::Relaxed),
+            accel_tap: self.accel_tap.swap(false, Ordering::Relaxed),
         }
     }
 }
