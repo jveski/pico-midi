@@ -95,18 +95,18 @@ impl InputState {
     /// The accel_tap flag is cleared atomically on read.
     pub fn snapshot(&self) -> MonitorSnapshot {
         let mut buttons = [false; config::MAX_BUTTONS];
-        for i in 0..config::MAX_BUTTONS {
-            buttons[i] = self.buttons[i].load(Ordering::Relaxed);
+        for (i, button) in buttons.iter_mut().enumerate() {
+            *button = self.buttons[i].load(Ordering::Relaxed);
         }
 
         let mut touch_pads = [false; config::MAX_TOUCH_PADS];
-        for i in 0..config::MAX_TOUCH_PADS {
-            touch_pads[i] = self.touch_pads[i].load(Ordering::Relaxed);
+        for (i, touch_pad) in touch_pads.iter_mut().enumerate() {
+            *touch_pad = self.touch_pads[i].load(Ordering::Relaxed);
         }
 
         let mut pots = [0u8; config::MAX_POTS];
-        for i in 0..config::MAX_POTS {
-            pots[i] = self.pots[i].load(Ordering::Relaxed);
+        for (i, pot) in pots.iter_mut().enumerate() {
+            *pot = self.pots[i].load(Ordering::Relaxed);
         }
 
         MonitorSnapshot {

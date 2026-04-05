@@ -32,14 +32,14 @@ impl<const N: usize> Buttons<N> {
     pub fn poll(&mut self) -> [Option<ButtonEvent>; N] {
         let now = Instant::now();
         let mut events: [Option<ButtonEvent>; N] = [const { None }; N];
-        for i in 0..N {
+        for (i, event) in events.iter_mut().enumerate() {
             let pressed = self.pins[i].is_low();
             if pressed != self.prev[i]
                 && now.duration_since(self.stable_since[i]).as_millis() >= DEBOUNCE_MS
             {
                 self.prev[i] = pressed;
                 self.stable_since[i] = now;
-                events[i] = Some(ButtonEvent {
+                *event = Some(ButtonEvent {
                     index: i as u8,
                     pressed,
                 });

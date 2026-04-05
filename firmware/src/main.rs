@@ -378,10 +378,9 @@ async fn send_serial(serial: &mut CdcAcmClass<'static, Driver<'static, USB>>, da
         sent = end;
     }
     // Send ZLP if the payload was a non-zero exact multiple of 64 bytes
-    if !data.is_empty() && data.len() % 64 == 0 {
-        if serial.write_packet(&[]).await.is_err() {
-            return false;
-        }
+    if !data.is_empty() && data.len().is_multiple_of(64) && serial.write_packet(&[]).await.is_err()
+    {
+        return false;
     }
     true
 }
