@@ -120,7 +120,8 @@ async fn main(_spawner: Spawner) {
             Flex::new(p.PIN_16),
             Flex::new(p.PIN_17),
         ];
-        let touch_thresholds: [u8; 8] = core::array::from_fn(|i| midi_cfg.touch_pads[i].threshold_pct);
+        let touch_thresholds: [u8; 8] =
+            core::array::from_fn(|i| midi_cfg.touch_pads[i].threshold_pct);
         let mut touch = input::TouchPads::new(&mut touch_pins, &touch_thresholds);
 
         // --- Pots: GP26 (ADC0), GP27 (ADC1) ---
