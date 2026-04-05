@@ -10,7 +10,6 @@
 mod config;
 mod input;
 mod input_state;
-mod midi;
 mod serial;
 
 use embassy_executor::Spawner;
@@ -32,6 +31,50 @@ use {defmt_rtt as _, panic_probe as _};
 
 use config::Config;
 use input_state::InputState;
+
+// ---- USB-MIDI message construction ----
+// USB-MIDI 1.0 event packets are 4 bytes:
+//   [cable_number << 4 | CIN, status_byte, data1, data2]
+
+/// Code Index Number for Note Off
+const CIN_NOTE_OFF: u8 = 0x08;
+/// Code Index Number for Note On
+const CIN_NOTE_ON: u8 = 0x09;
+/// Code Index Number for Control Change
+const CIN_CC: u8 = 0x0B;
+
+/// Build a USB-MIDI Note On event packet.
+#[inline]
+fn note_on(channel: u8, note: u8, velocity: u8) -> [u8; 4] {
+    [
+        CIN_NOTE_ON,
+        0x90 | (channel & 0x0F),
+        note & 0x7F,
+        velocity & 0x7F,
+    ]
+}
+
+/// Build a USB-MIDI Note Off event packet.
+#[inline]
+fn note_off(channel: u8, note: u8) -> [u8; 4] {
+    [
+        CIN_NOTE_OFF,
+        0x80 | (channel & 0x0F),
+        note & 0x7F,
+        0,
+    ]
+}
+
+/// Build a USB-MIDI Control Change event packet.
+#[inline]
+fn control_change(channel: u8, cc: u8, value: u8) -> [u8; 4] {
+    [
+        CIN_CC,
+        0xB0 | (channel & 0x0F),
+        cc & 0x7F,
+        value & 0x7F,
+    ]
+}
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
@@ -159,9 +202,9 @@ async fn main(_spawner: Spawner) {
                 if (evt.index as usize) < nb {
                     let def = &midi_cfg.buttons[evt.index as usize];
                     let pkt = if evt.pressed {
-                        midi::note_on(midi_cfg.midi_channel, def.note, def.velocity)
+                        note_on(midi_cfg.midi_channel, def.note, def.velocity)
                     } else {
-                        midi::note_off(midi_cfg.midi_channel, def.note)
+                        note_off(midi_cfg.midi_channel, def.note)
                     };
                     let _ = embassy_futures::select::select(
                         midi_class.write_packet(&pkt),
@@ -177,9 +220,9 @@ async fn main(_spawner: Spawner) {
                 if (evt.index as usize) < nt {
                     let def = &midi_cfg.touch_pads[evt.index as usize];
                     let pkt = if evt.pressed {
-                        midi::note_on(midi_cfg.midi_channel, def.note, def.velocity)
+                        note_on(midi_cfg.midi_channel, def.note, def.velocity)
                     } else {
-                        midi::note_off(midi_cfg.midi_channel, def.note)
+                        note_off(midi_cfg.midi_channel, def.note)
                     };
                     let _ = embassy_futures::select::select(
                         midi_class.write_packet(&pkt),
@@ -192,7 +235,7 @@ async fn main(_spawner: Spawner) {
             // Poll pots
             if midi_cfg.num_pots >= 1 {
                 if let Some(v) = pot0.poll(&mut adc_inst, 2).await {
-                    let pkt = midi::control_change(midi_cfg.midi_channel, midi_cfg.pots[0].cc, v);
+                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[0].cc, v);
                     let _ = embassy_futures::select::select(
                         midi_class.write_packet(&pkt),
                         Timer::after(midi_timeout),
@@ -202,7 +245,7 @@ async fn main(_spawner: Spawner) {
             }
             if midi_cfg.num_pots >= 2 {
                 if let Some(v) = pot1.poll(&mut adc_inst, 2).await {
-                    let pkt = midi::control_change(midi_cfg.midi_channel, midi_cfg.pots[1].cc, v);
+                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[1].cc, v);
                     let _ = embassy_futures::select::select(
                         midi_class.write_packet(&pkt),
                         Timer::after(midi_timeout),
@@ -214,7 +257,7 @@ async fn main(_spawner: Spawner) {
             // Poll LDR
             if midi_cfg.ldr_enabled {
                 if let Some(v) = ldr.poll(&mut adc_inst, 2).await {
-                    let pkt = midi::control_change(midi_cfg.midi_channel, midi_cfg.ldr.cc, v);
+                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.ldr.cc, v);
                     let _ = embassy_futures::select::select(
                         midi_class.write_packet(&pkt),
                         Timer::after(midi_timeout),
@@ -228,23 +271,23 @@ async fn main(_spawner: Spawner) {
                 let r = accel.poll().await;
                 if let Some(x) = r.x_cc {
                     let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&midi::control_change(midi_cfg.midi_channel, midi_cfg.accel.x_cc, x)),
+                        midi_class.write_packet(&control_change(midi_cfg.midi_channel, midi_cfg.accel.x_cc, x)),
                         Timer::after(midi_timeout),
                     ).await;
                 }
                 if let Some(y) = r.y_cc {
                     let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&midi::control_change(midi_cfg.midi_channel, midi_cfg.accel.y_cc, y)),
+                        midi_class.write_packet(&control_change(midi_cfg.midi_channel, midi_cfg.accel.y_cc, y)),
                         Timer::after(midi_timeout),
                     ).await;
                 }
                 if r.tapped {
                     let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&midi::note_on(midi_cfg.midi_channel, midi_cfg.accel.tap_note, midi_cfg.accel.tap_velocity)),
+                        midi_class.write_packet(&note_on(midi_cfg.midi_channel, midi_cfg.accel.tap_note, midi_cfg.accel.tap_velocity)),
                         Timer::after(midi_timeout),
                     ).await;
                     let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&midi::note_off(midi_cfg.midi_channel, midi_cfg.accel.tap_note)),
+                        midi_class.write_packet(&note_off(midi_cfg.midi_channel, midi_cfg.accel.tap_note)),
                         Timer::after(midi_timeout),
                     ).await;
                     INPUT_STATE.set_accel_tap();
