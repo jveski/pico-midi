@@ -31,430 +31,169 @@ body {
   min-height: 100vh;
 }
 
-.container {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 24px 16px;
-}
+.container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+collapsible-card { display: block; }
 
 header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
 }
-
-header h1 {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
+header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 header h1 span { color: var(--text-dim); font-weight: 400; }
 
-.status-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-  flex-shrink: 0;
-}
-
+.status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
 .status-dot.connected { background: var(--green); }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s; white-space: nowrap;
 }
-
 .btn:hover { background: var(--surface2); border-color: #3e4460; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:disabled:hover { background: var(--surface); border-color: var(--border); }
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn-primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
-
-.btn-danger {
-  border-color: var(--red);
-  color: var(--red);
-}
-
+.btn-danger { border-color: var(--red); color: var(--red); }
 .btn-danger:hover { background: rgba(240, 90, 110, 0.1); }
-
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
-.toolbar {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
 
 #unsupported {
-  display: none;
-  background: rgba(240, 90, 110, 0.1);
-  border: 1px solid var(--red);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 20px;
-  font-size: 14px;
-  color: var(--red);
+  display: none; background: rgba(240, 90, 110, 0.1); border: 1px solid var(--red);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 20px; font-size: 14px; color: var(--red);
 }
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 12px;
-}
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
 
 .card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  user-select: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
 }
-
 .card-header:hover { background: var(--surface2); border-radius: var(--radius) var(--radius) 0 0; }
-
-.card-header h2 {
-  font-size: 14px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.card-header h2 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .card-header .badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: var(--surface2);
-  color: var(--text-dim);
-  border: 1px solid var(--border);
+  font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 10px;
+  background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border);
 }
-
-.card-header .chevron {
-  font-size: 12px;
-  color: var(--text-dim);
-  transition: transform 0.2s;
-}
-
+.card-header .chevron { font-size: 12px; color: var(--text-dim); transition: transform 0.2s; }
 .card-header.collapsed .chevron { transform: rotate(-90deg); }
-
 .card-body { padding: 16px; }
 .card-body.collapsed { display: none; }
 
-.field {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
+.field { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .field:last-child { margin-bottom: 0; }
-
-.field label {
-  font-size: 13px;
-  color: var(--text-dim);
-  min-width: 100px;
-  flex-shrink: 0;
-}
-
+.field label { font-size: 13px; color: var(--text-dim); min-width: 100px; flex-shrink: 0; }
 .field input, .field select {
-  padding: 6px 10px;
-  font-size: 13px;
-  font-family: var(--mono);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  width: 80px;
-  outline: none;
-  transition: border-color 0.15s;
+  padding: 6px 10px; font-size: 13px; font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); width: 80px; outline: none; transition: border-color 0.15s;
 }
-
 .field input:focus, .field select:focus { border-color: var(--accent); }
-
 .field input[type="number"] { -moz-appearance: textfield; }
 .field input::-webkit-outer-spin-button,
 .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 .item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px;
 }
-
 .item-row:last-of-type { border-bottom: none; }
-
-.item-row .index {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  min-width: 20px;
-}
-
+.item-row .index { font-family: var(--mono); font-size: 11px; color: var(--text-dim); min-width: 20px; }
 .item-row input {
-  padding: 5px 8px;
-  font-size: 13px;
-  font-family: var(--mono);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  width: 64px;
-  outline: none;
-  transition: border-color 0.15s;
+  padding: 5px 8px; font-size: 13px; font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); width: 64px; outline: none; transition: border-color 0.15s;
 }
-
 .item-row input:focus { border-color: var(--accent); }
-
-.item-row label {
-  font-size: 11px;
-  color: var(--text-dim);
-  min-width: 28px;
-}
-
+.item-row label { font-size: 11px; color: var(--text-dim); min-width: 28px; }
 .item-row .btn-remove {
-  margin-left: auto;
-  padding: 2px 8px;
-  font-size: 11px;
-  color: var(--red);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
+  margin-left: auto; padding: 2px 8px; font-size: 11px; color: var(--red);
+  background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
 }
-
 .item-row .btn-remove:hover { border-color: var(--red); background: rgba(240, 90, 110, 0.08); }
+.list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
-.list-actions {
-  padding-top: 10px;
-  display: flex;
-  gap: 8px;
-}
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.toggle-row label {
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-.toggle {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
+.toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.toggle-row label { font-size: 13px; color: var(--text-dim); }
+.toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
 .toggle .slider {
-  position: absolute;
-  inset: 0;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
+  position: absolute; inset: 0; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
 }
-
 .toggle .slider::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: var(--text-dim);
-  border-radius: 50%;
-  transition: transform 0.2s, background 0.2s;
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: var(--text-dim); border-radius: 50%; transition: transform 0.2s, background 0.2s;
 }
-
 .toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
 .toggle input:checked + .slider::after { transform: translateX(16px); background: #fff; }
 
-.note-hint {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-family: var(--mono);
-  min-width: 32px;
-}
+.note-hint { font-size: 11px; color: var(--text-dim); font-family: var(--mono); min-width: 32px; }
 
 .log-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-top: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-top: 20px;
 }
-
 .log-panel .card-header h2 { font-size: 13px; }
-
 .log-content {
-  padding: 12px 16px;
-  max-height: 200px;
-  overflow-y: auto;
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-dim);
-  white-space: pre-wrap;
-  word-break: break-all;
+  padding: 12px 16px; max-height: 200px; overflow-y: auto;
+  font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  color: var(--text-dim); white-space: pre-wrap; word-break: break-all;
 }
-
 .log-content .cmd { color: var(--accent); }
 .log-content .resp { color: var(--green); }
 .log-content .err { color: var(--red); }
 
 .toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  padding: 10px 20px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  font-weight: 500;
-  opacity: 0;
-  transition: transform 0.3s, opacity 0.3s;
-  z-index: 100;
-  pointer-events: none;
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  padding: 10px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+  opacity: 0; transition: transform 0.3s, opacity 0.3s; z-index: 100; pointer-events: none;
 }
-
 .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { background: var(--green); color: #0a1a10; }
 .toast.error { background: var(--red); color: #fff; }
 .toast.info { background: var(--accent); color: #fff; }
 
-.empty-state {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-dim);
-  font-size: 14px;
-}
-
+.empty-state { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 14px; }
 .empty-state p { margin-bottom: 12px; }
 
-/* ── Inline Monitor Indicators ── */
-.monitor-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 28px;
-  margin-top: 6px;
-}
-
+.monitor-row { display: flex; align-items: center; gap: 10px; height: 28px; margin-top: 6px; }
 .monitor-indicator {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
   transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
 }
-
 .monitor-indicator.active {
-  background: var(--green);
-  border-color: var(--green);
-  box-shadow: 0 0 8px rgba(61, 214, 140, 0.4);
+  background: var(--green); border-color: var(--green); box-shadow: 0 0 8px rgba(61, 214, 140, 0.4);
 }
-
 .monitor-bar-track {
-  flex: 1;
-  height: 8px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 60px;
+  flex: 1; height: 8px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden; min-width: 60px;
 }
-
 .monitor-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.06s linear;
+  height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.06s linear;
 }
-
 .monitor-value {
-  font-size: 12px;
-  font-family: var(--mono);
-  color: var(--text);
-  min-width: 28px;
-  text-align: right;
-  flex-shrink: 0;
+  font-size: 12px; font-family: var(--mono); color: var(--text);
+  min-width: 28px; text-align: right; flex-shrink: 0;
 }
-
 .monitor-tap {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
   transition: background 0.06s, border-color 0.06s, box-shadow 0.06s;
 }
-
 .monitor-tap.active {
-  background: var(--orange);
-  border-color: var(--orange);
-  box-shadow: 0 0 8px rgba(240, 160, 64, 0.5);
+  background: var(--orange); border-color: var(--orange); box-shadow: 0 0 8px rgba(240, 160, 64, 0.5);
 }
-
 .monitor-label {
-  font-size: 12px;
-  font-family: var(--mono);
-  color: var(--text-dim);
-  min-width: 56px;
-  flex-shrink: 0;
+  font-size: 12px; font-family: var(--mono); color: var(--text-dim); min-width: 56px; flex-shrink: 0;
 }
 </style>
 </head>
@@ -482,148 +221,112 @@ header h1 span { color: var(--text-dim); font-weight: 400; }
 
   <div id="configPanel" style="display:none">
     <!-- MIDI Channel -->
-    <div class="card">
-      <div class="card-header" data-section="general">
-        <h2>General</h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="general" data-title="General">
+      <div class="field">
+        <label>MIDI Channel</label>
+        <input type="number" id="midiChannel" min="0" max="15" value="0">
+        <span class="note-hint" id="midiChannelHint">Ch 1</span>
       </div>
-      <div class="card-body" id="sectionGeneral">
-        <div class="field">
-          <label>MIDI Channel</label>
-          <input type="number" id="midiChannel" min="0" max="15" value="0">
-          <span class="note-hint" id="midiChannelHint">Ch 1</span>
-        </div>
-      </div>
-    </div>
+    </collapsible-card>
 
     <!-- Buttons -->
-    <div class="card">
-      <div class="card-header" data-section="buttons">
-        <h2>Buttons <span class="badge" id="btnCount">0</span></h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">
+      <div id="buttonList"></div>
+      <div class="list-actions">
+        <button class="btn btn-sm" id="addButton">+ Add Button</button>
       </div>
-      <div class="card-body" id="sectionButtons">
-        <div id="buttonList"></div>
-        <div class="list-actions">
-          <button class="btn btn-sm" id="addButton">+ Add Button</button>
-        </div>
-      </div>
-    </div>
+    </collapsible-card>
 
     <!-- Touch Pads -->
-    <div class="card">
-      <div class="card-header" data-section="touch">
-        <h2>Touch Pads <span class="badge" id="touchCount">0</span></h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="touch" data-title="Touch Pads" data-badge-id="touchCount">
+      <div id="touchList"></div>
+      <div class="list-actions">
+        <button class="btn btn-sm" id="addTouch">+ Add Touch Pad</button>
       </div>
-      <div class="card-body" id="sectionTouch">
-        <div id="touchList"></div>
-        <div class="list-actions">
-          <button class="btn btn-sm" id="addTouch">+ Add Touch Pad</button>
-        </div>
-      </div>
-    </div>
+    </collapsible-card>
 
     <!-- Pots -->
-    <div class="card">
-      <div class="card-header" data-section="pots">
-        <h2>Potentiometers <span class="badge" id="potCount">0</span></h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="pots" data-title="Potentiometers" data-badge-id="potCount">
+      <div id="potList"></div>
+      <div class="list-actions">
+        <button class="btn btn-sm" id="addPot">+ Add Pot</button>
       </div>
-      <div class="card-body" id="sectionPots">
-        <div id="potList"></div>
-        <div class="list-actions">
-          <button class="btn btn-sm" id="addPot">+ Add Pot</button>
-        </div>
-      </div>
-    </div>
+    </collapsible-card>
 
     <!-- LDR -->
-    <div class="card">
-      <div class="card-header" data-section="ldr">
-        <h2>LDR (Light Sensor)</h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="ldr" data-title="LDR (Light Sensor)">
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="ldrEnabled">
+          <span class="slider"></span>
+        </label>
+        <label>Enabled</label>
       </div>
-      <div class="card-body" id="sectionLdr">
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="ldrEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
+      <div id="ldrFields">
+        <div class="field">
+          <label>Pin (GPIO)</label>
+          <input type="number" id="ldrPin" min="0" max="29" value="28">
         </div>
-        <div id="ldrFields">
-          <div class="field">
-            <label>Pin (GPIO)</label>
-            <input type="number" id="ldrPin" min="0" max="29" value="28">
-          </div>
-          <div class="field">
-            <label>CC Number</label>
-            <input type="number" id="ldrCc" min="0" max="127" value="74">
-          </div>
-          <div id="ldrMonitor"></div>
+        <div class="field">
+          <label>CC Number</label>
+          <input type="number" id="ldrCc" min="0" max="127" value="74">
         </div>
+        <div id="ldrMonitor"></div>
       </div>
-    </div>
+    </collapsible-card>
 
     <!-- Accelerometer -->
-    <div class="card">
-      <div class="card-header" data-section="accel">
-        <h2>Accelerometer</h2>
-        <span class="chevron">&#9660;</span>
+    <collapsible-card data-section="accel" data-title="Accelerometer">
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="accelEnabled">
+          <span class="slider"></span>
+        </label>
+        <label>Enabled</label>
       </div>
-      <div class="card-body" id="sectionAccel">
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="accelEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
+      <div id="accelFields">
+        <div class="field">
+          <label>SDA Pin</label>
+          <input type="number" id="accelSda" min="0" max="29" value="0">
         </div>
-        <div id="accelFields">
-          <div class="field">
-            <label>SDA Pin</label>
-            <input type="number" id="accelSda" min="0" max="29" value="0">
-          </div>
-          <div class="field">
-            <label>SCL Pin</label>
-            <input type="number" id="accelScl" min="0" max="29" value="1">
-          </div>
-          <div class="field">
-            <label>INT Pin</label>
-            <input type="number" id="accelInt" min="0" max="29" value="11">
-          </div>
-          <div class="field">
-            <label>X Axis CC</label>
-            <input type="number" id="accelXCc" min="0" max="127" value="1">
-          </div>
-          <div class="field">
-            <label>Y Axis CC</label>
-            <input type="number" id="accelYCc" min="0" max="127" value="2">
-          </div>
-          <div class="field">
-            <label>Tap Note</label>
-            <input type="number" id="accelTapNote" min="0" max="127" value="48">
-            <span class="note-hint" id="tapNoteHint"></span>
-          </div>
-          <div class="field">
-            <label>Tap Velocity</label>
-            <input type="number" id="accelTapVel" min="1" max="127" value="127">
-          </div>
-          <div class="field">
-            <label>Dead Zone</label>
-            <input type="number" id="accelDeadZone" min="0" max="255" value="13">
-            <span class="note-hint" id="deadZoneHint"></span>
-          </div>
-          <div class="field">
-            <label>Smoothing</label>
-            <input type="number" id="accelSmoothing" min="0" max="100" value="25">
-            <span class="note-hint" id="smoothingHint"></span>
-          </div>
-          <div id="accelMonitor"></div>
+        <div class="field">
+          <label>SCL Pin</label>
+          <input type="number" id="accelScl" min="0" max="29" value="1">
         </div>
+        <div class="field">
+          <label>INT Pin</label>
+          <input type="number" id="accelInt" min="0" max="29" value="11">
+        </div>
+        <div class="field">
+          <label>X Axis CC</label>
+          <input type="number" id="accelXCc" min="0" max="127" value="1">
+        </div>
+        <div class="field">
+          <label>Y Axis CC</label>
+          <input type="number" id="accelYCc" min="0" max="127" value="2">
+        </div>
+        <div class="field">
+          <label>Tap Note</label>
+          <input type="number" id="accelTapNote" min="0" max="127" value="48">
+          <span class="note-hint" id="tapNoteHint"></span>
+        </div>
+        <div class="field">
+          <label>Tap Velocity</label>
+          <input type="number" id="accelTapVel" min="1" max="127" value="127">
+        </div>
+        <div class="field">
+          <label>Dead Zone</label>
+          <input type="number" id="accelDeadZone" min="0" max="255" value="13">
+          <span class="note-hint" id="deadZoneHint"></span>
+        </div>
+        <div class="field">
+          <label>Smoothing</label>
+          <input type="number" id="accelSmoothing" min="0" max="100" value="25">
+          <span class="note-hint" id="smoothingHint"></span>
+        </div>
+        <div id="accelMonitor"></div>
       </div>
-    </div>
+    </collapsible-card>
   </div>
 
   <div id="emptyState" class="empty-state">
@@ -646,6 +349,62 @@ header h1 span { color: var(--text-dim); font-weight: 400; }
 
 <script>
 "use strict";
+
+// ── Collapsible Card Web Component ──
+// Renders a .card with .card-header + .card-body in light DOM.
+// Handles collapse toggling automatically.
+class CollapsibleCard extends HTMLElement {
+  connectedCallback() {
+    if (this._initialized) return;
+    this._initialized = true;
+
+    const section = this.dataset.section;
+    const title = this.dataset.title;
+    const badgeId = this.dataset.badgeId;
+    const bodyId = section ? "section" + section[0].toUpperCase() + section.slice(1) : null;
+
+    // Wrap existing children into card structure
+    const children = document.createDocumentFragment();
+    while (this.firstChild) children.appendChild(this.firstChild);
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const header = document.createElement("div");
+    header.className = "card-header";
+    if (section) header.dataset.section = section;
+    const h2 = document.createElement("h2");
+    h2.textContent = title;
+    if (badgeId) {
+      h2.append(" ");
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.id = badgeId;
+      badge.textContent = "0";
+      h2.appendChild(badge);
+    }
+    header.appendChild(h2);
+    const chevron = document.createElement("span");
+    chevron.className = "chevron";
+    chevron.innerHTML = "&#9660;";
+    header.appendChild(chevron);
+
+    const body = document.createElement("div");
+    body.className = "card-body";
+    if (bodyId) body.id = bodyId;
+    body.appendChild(children);
+
+    header.addEventListener("click", () => {
+      const collapsed = body.classList.toggle("collapsed");
+      header.classList.toggle("collapsed", collapsed);
+    });
+
+    card.appendChild(header);
+    card.appendChild(body);
+    this.appendChild(card);
+  }
+}
+customElements.define("collapsible-card", CollapsibleCard);
 
 // ── MIDI note names ──
 const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -675,13 +434,8 @@ function log(text, cls) {
 }
 
 // ── Serial connection state ──
-let port = null;
-let reader = null;
-let writer = null;
-let readBuf = "";
-let keepReading = false;
+let port = null, reader = null, writer = null, readBuf = "", keepReading = false;
 let cmdLock = Promise.resolve();
-
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -703,6 +457,11 @@ let config = null;
 let monitorPollTimer = null;
 let monitorTapTimer = null;
 
+// ── Helpers ──
+function num(s, fallback) { const v = parseInt(s, 10); return isNaN(v) ? fallback : v; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 // ── Web Serial check ──
 if (!("serial" in navigator)) {
   document.getElementById("unsupported").style.display = "block";
@@ -711,11 +470,7 @@ if (!("serial" in navigator)) {
 
 // ── Connect / Disconnect ──
 btnConnect.addEventListener("click", async () => {
-  if (port) {
-    await disconnect();
-  } else {
-    await connect();
-  }
+  if (port) await disconnect(); else await connect();
 });
 
 async function connect() {
@@ -727,7 +482,6 @@ async function connect() {
     readLoop();
     setConnected(true);
     log("Connected", "resp");
-    // Verify device
     const ver = await sendCommand("VERSION");
     if (!ver.startsWith("midictrl")) {
       toast("Unexpected device: " + ver, "error");
@@ -735,7 +489,6 @@ async function connect() {
       statusText.textContent = ver.trim();
     }
     await refreshConfig();
-    // Start automatic monitoring (firmware always streams M: lines)
     startMonitorPoll();
   } catch (e) {
     if (e.name !== "NotFoundError") {
@@ -752,10 +505,7 @@ async function disconnect() {
   try { if (reader) { await reader.cancel(); reader.releaseLock(); } } catch {}
   try { if (writer) { writer.releaseLock(); } } catch {}
   try { if (port) { await port.close(); } } catch {}
-  reader = null;
-  writer = null;
-  port = null;
-  readBuf = "";
+  reader = null; writer = null; port = null; readBuf = "";
   cmdLock = Promise.resolve();
   setConnected(false);
   log("Disconnected", "err");
@@ -782,7 +532,7 @@ function setToolbarBusy(busy) {
   btnReboot.disabled = busy;
 }
 
-// ── Read loop: accumulates data into readBuf ──
+// ── Read loop ──
 async function readLoop() {
   while (keepReading && port && port.readable) {
     try {
@@ -801,9 +551,7 @@ async function readLoop() {
   }
 }
 
-// ── Send a command, wait for full response ──
-// The firmware now always streams M: lines interleaved with command responses.
-// sendCommand must skip M: lines while collecting the actual response.
+// ── Send command with monitor line filtering ──
 function sendCommand(cmd) {
   const p = cmdLock.then(() => _sendCommand(cmd));
   cmdLock = p.catch(() => {});
@@ -813,24 +561,15 @@ function sendCommand(cmd) {
 async function _sendCommand(cmd) {
   if (!writer) throw new Error("Not connected");
   log("> " + cmd, "cmd");
-
-  // Drain any stale data (but process M: lines first)
   drainMonitorLines();
   readBuf = "";
-
   await writer.write(encoder.encode(cmd + "\n"));
-
   const deadline = Date.now() + 3000;
   while (Date.now() < deadline) {
     await sleep(20);
-
-    // Strip out M: lines from readBuf while waiting for the response
     drainMonitorLines();
-
     const lines = readBuf.split("\n");
     if (lines.length < 2) continue;
-
-    // Find first non-M: complete line as the response
     for (let i = 0; i < lines.length - 1; i++) {
       const resp = lines[i].trim();
       if (resp.length > 0 && !resp.startsWith("M:")) {
@@ -839,70 +578,45 @@ async function _sendCommand(cmd) {
         return resp;
       }
     }
-    // Keep only the last incomplete line
     readBuf = lines[lines.length - 1];
   }
   throw new Error("Timeout waiting for response");
 }
 
-// Extract and apply any complete M: lines from readBuf (used during command waits)
 function drainMonitorLines() {
   const lines = readBuf.split("\n");
   const incomplete = lines.pop() || "";
   const kept = [];
   for (const raw of lines) {
     const line = raw.trim();
-    if (line.startsWith("M:")) {
-      applyMonitorLine(line);
-    } else if (line.length > 0) {
-      kept.push(raw);
-    }
+    if (line.startsWith("M:")) applyMonitorLine(line);
+    else if (line.length > 0) kept.push(raw);
   }
-  // Rebuild readBuf: kept complete lines (each terminated with \n) + incomplete tail
   readBuf = (kept.length > 0 ? kept.join("\n") + "\n" : "") + incomplete;
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ── Config binary format constants (must match firmware config.rs) ──
-// The payload after the 5-byte header is postcard-encoded (serde, fixed-size).
-// Since all fields are u8 or bool, postcard encodes them as raw bytes in struct
-// field order. Fixed-size arrays are written in full (no length prefix).
-const CONFIG_MAGIC = 0x4D494449; // "MIDI" in little-endian
+// ── Config binary format ──
+const CONFIG_MAGIC = 0x4D494449;
 const CONFIG_VERSION = 2;
 const MAX_BUTTONS = 8;
 const MAX_TOUCH_PADS = 8;
 const MAX_POTS = 4;
 
-// ── Hex encode/decode ──
 function hexEncode(bytes) {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 function hexDecode(str) {
   const bytes = new Uint8Array(str.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(str.substr(i * 2, 2), 16);
-  }
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(str.substr(i * 2, 2), 16);
   return bytes;
 }
 
-// ── Decode postcard binary config from hex string ──
-// Layout after 5-byte header (postcard struct field order):
-//   midi_channel:1, num_buttons:1, buttons[8]:(pin,note,vel)*8,
-//   num_touch_pads:1, touch_pads[8]:(pin,note,vel)*8,
-//   num_pots:1, pots[4]:(pin,cc)*4,
-//   ldr:(pin,cc), ldr_enabled:1,
-//   accel:(enabled,sda,scl,int,x_cc,y_cc,tap_note,tap_vel,dead_zone,smoothing)
 function decodeConfig(hex) {
   const b = hexDecode(hex.trim());
-  // Header (5) + at least midi_channel (1) = 6 bytes minimum
   if (b.length < 6) return null;
   const magic = b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
   if (magic !== CONFIG_MAGIC || b[4] !== CONFIG_VERSION) return null;
-
-  // Postcard payload: 73 bytes (all u8/bool, fixed-size arrays)
-  const PAYLOAD_SIZE = 73;
-  if (b.length < 5 + PAYLOAD_SIZE) return null;
+  if (b.length < 78) return null;
 
   const cfg = {
     midi_channel: 0, buttons: [], touch_pads: [], pots: [],
@@ -914,36 +628,30 @@ function decodeConfig(hex) {
   let i = 5;
   cfg.midi_channel = Math.min(b[i++], 15);
 
-  // num_buttons + all MAX_BUTTONS entries (always 8)
   const nb = Math.min(b[i++], MAX_BUTTONS);
   for (let j = 0; j < MAX_BUTTONS; j++) {
-    const pin = b[i]; const note = Math.min(b[i+1], 127); const velocity = Math.max(1, Math.min(b[i+2], 127));
+    const pin = b[i], note = Math.min(b[i+1], 127), velocity = Math.max(1, Math.min(b[i+2], 127));
     if (j < nb) cfg.buttons.push({ pin, note, velocity });
     i += 3;
   }
 
-  // num_touch_pads + all MAX_TOUCH_PADS entries (always 8)
   const nt = Math.min(b[i++], MAX_TOUCH_PADS);
   for (let j = 0; j < MAX_TOUCH_PADS; j++) {
-    const pin = b[i]; const note = Math.min(b[i+1], 127); const velocity = Math.max(1, Math.min(b[i+2], 127));
+    const pin = b[i], note = Math.min(b[i+1], 127), velocity = Math.max(1, Math.min(b[i+2], 127));
     if (j < nt) cfg.touch_pads.push({ pin, note, velocity });
     i += 3;
   }
 
-  // num_pots + all MAX_POTS entries (always 4)
   const np = Math.min(b[i++], MAX_POTS);
   for (let j = 0; j < MAX_POTS; j++) {
-    const pin = b[i]; const cc = Math.min(b[i+1], 127);
+    const pin = b[i], cc = Math.min(b[i+1], 127);
     if (j < np) cfg.pots.push({ pin, cc });
     i += 2;
   }
 
-  // LDR (pin, cc) then ldr_enabled — note: matches Rust struct field order
-  cfg.ldr = { pin: b[i], cc: Math.min(b[i+1], 127) };
-  i += 2;
+  cfg.ldr = { pin: b[i], cc: Math.min(b[i+1], 127) }; i += 2;
   cfg.ldr_enabled = b[i++] !== 0;
 
-  // Accelerometer
   cfg.accel_enabled = b[i] !== 0;
   cfg.accel = {
     sda: b[i+1], scl: b[i+2], int_pin: b[i+3],
@@ -951,58 +659,40 @@ function decodeConfig(hex) {
     tap_note: Math.min(b[i+6], 127), tap_vel: Math.max(1, Math.min(b[i+7], 127)),
     dead_zone: b[i+8], smoothing: b[i+9],
   };
-
   return cfg;
 }
 
-// ── Encode config to hex string for PUT command (postcard format) ──
 function encodeConfig(cfg) {
   const buf = [];
-  // Header
   buf.push(CONFIG_MAGIC & 0xFF, (CONFIG_MAGIC >> 8) & 0xFF, (CONFIG_MAGIC >> 16) & 0xFF, (CONFIG_MAGIC >> 24) & 0xFF);
   buf.push(CONFIG_VERSION);
-
-  // MIDI channel
   buf.push(Math.min(cfg.midi_channel, 15));
 
-  // num_buttons + all MAX_BUTTONS slots (postcard writes fixed-size arrays in full)
-  const nb = Math.min(cfg.buttons.length, MAX_BUTTONS);
-  buf.push(nb);
-  for (let j = 0; j < MAX_BUTTONS; j++) {
-    if (j < nb) {
-      buf.push(cfg.buttons[j].pin, Math.min(cfg.buttons[j].note, 127), Math.max(1, Math.min(cfg.buttons[j].velocity, 127)));
-    } else {
-      buf.push(0, 0, 0);
+  function pushSlots(items, max, fields) {
+    buf.push(Math.min(items.length, max));
+    for (let j = 0; j < max; j++) {
+      if (j < items.length) fields.forEach(f => buf.push(f.clamp(items[j][f.key])));
+      else fields.forEach(() => buf.push(0));
     }
   }
 
-  // num_touch_pads + all MAX_TOUCH_PADS slots
-  const nt = Math.min(cfg.touch_pads.length, MAX_TOUCH_PADS);
-  buf.push(nt);
-  for (let j = 0; j < MAX_TOUCH_PADS; j++) {
-    if (j < nt) {
-      buf.push(cfg.touch_pads[j].pin, Math.min(cfg.touch_pads[j].note, 127), Math.max(1, Math.min(cfg.touch_pads[j].velocity, 127)));
-    } else {
-      buf.push(0, 0, 0);
-    }
-  }
+  const noteFields = [
+    { key: "pin", clamp: v => v },
+    { key: "note", clamp: v => Math.min(v, 127) },
+    { key: "velocity", clamp: v => Math.max(1, Math.min(v, 127)) },
+  ];
+  const potFields = [
+    { key: "pin", clamp: v => v },
+    { key: "cc", clamp: v => Math.min(v, 127) },
+  ];
 
-  // num_pots + all MAX_POTS slots
-  const np = Math.min(cfg.pots.length, MAX_POTS);
-  buf.push(np);
-  for (let j = 0; j < MAX_POTS; j++) {
-    if (j < np) {
-      buf.push(cfg.pots[j].pin, Math.min(cfg.pots[j].cc, 127));
-    } else {
-      buf.push(0, 0);
-    }
-  }
+  pushSlots(cfg.buttons, MAX_BUTTONS, noteFields);
+  pushSlots(cfg.touch_pads, MAX_TOUCH_PADS, noteFields);
+  pushSlots(cfg.pots, MAX_POTS, potFields);
 
-  // LDR (pin, cc) then ldr_enabled — matches Rust struct field order
   buf.push(cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
   buf.push(cfg.ldr_enabled ? 1 : 0);
 
-  // Accelerometer
   const a = cfg.accel;
   buf.push(cfg.accel_enabled ? 1 : 0, a.sda, a.scl, a.int_pin,
     Math.min(a.x_cc, 127), Math.min(a.y_cc, 127),
@@ -1012,7 +702,7 @@ function encodeConfig(cfg) {
   return hexEncode(new Uint8Array(buf));
 }
 
-// ── Refresh config from device ──
+// ── Refresh / Apply / Save / Reset / Reboot ──
 async function refreshConfig() {
   setToolbarBusy(true);
   try {
@@ -1030,7 +720,6 @@ async function refreshConfig() {
 
 btnRefresh.addEventListener("click", refreshConfig);
 
-// ── Apply config to device: encode and send as single PUT command ──
 async function applyConfig() {
   try {
     readConfigFromUI();
@@ -1045,17 +734,13 @@ async function applyConfig() {
   }
 }
 
-// ── Save to flash ──
 btnSave.addEventListener("click", async () => {
   setToolbarBusy(true);
   try {
     if (!await applyConfig()) return;
     const r = await sendCommand("SAVE");
-    if (r.includes("OK")) {
-      toast("Saved to flash", "success");
-    } else {
-      toast("Save failed: " + r, "error");
-    }
+    if (r.includes("OK")) toast("Saved to flash", "success");
+    else toast("Save failed: " + r, "error");
   } catch (e) {
     log("Save error: " + e.message, "err");
     toast("Save failed", "error");
@@ -1064,7 +749,6 @@ btnSave.addEventListener("click", async () => {
   }
 });
 
-// ── Reset defaults ──
 btnReset.addEventListener("click", async () => {
   if (!confirm("Reset all config to factory defaults? (in RAM only, use Save to persist)")) return;
   setToolbarBusy(true);
@@ -1082,7 +766,6 @@ btnReset.addEventListener("click", async () => {
   }
 });
 
-// ── Reboot device ──
 btnReboot.addEventListener("click", async () => {
   if (!confirm("Reboot the device? Unsaved changes will be lost.")) return;
   setToolbarBusy(true);
@@ -1139,13 +822,13 @@ function renderList(containerId, countId, items, type, max) {
     const row = document.createElement("div");
     row.className = "item-row";
     row.innerHTML =
-      '<span class="index">#' + (i + 1) + '</span>' +
-      '<div class="monitor-indicator" id="' + monPrefix + i + '"></div>' +
-      '<label>Pin</label><input type="number" min="0" max="29" value="' + item.pin + '" data-type="' + type + '" data-idx="' + i + '" data-field="pin">' +
-      '<label>Note</label><input type="number" min="0" max="127" value="' + item.note + '" data-type="' + type + '" data-idx="' + i + '" data-field="note">' +
-      '<span class="note-hint">' + noteName(item.note) + '</span>' +
-      '<label>Vel</label><input type="number" min="1" max="127" value="' + item.velocity + '" data-type="' + type + '" data-idx="' + i + '" data-field="velocity">' +
-      '<button class="btn-remove" data-type="' + type + '" data-idx="' + i + '">Remove</button>';
+      `<span class="index">#${i + 1}</span>` +
+      `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
+      `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="${type}" data-idx="${i}" data-field="pin">` +
+      `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${type}" data-idx="${i}" data-field="note">` +
+      `<span class="note-hint">${noteName(item.note)}</span>` +
+      `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${type}" data-idx="${i}" data-field="velocity">` +
+      `<button class="btn-remove" data-type="${type}" data-idx="${i}">Remove</button>`;
     container.appendChild(row);
   });
 
@@ -1158,7 +841,7 @@ function renderList(containerId, countId, items, type, max) {
 
   container.querySelectorAll(".btn-remove").forEach(btn => {
     btn.addEventListener("click", () => {
-      syncListFromDOM(container, items);
+      syncFromDOM(container, items, ["pin", "note", "velocity"]);
       const idx = parseInt(btn.dataset.idx, 10);
       items.splice(idx, 1);
       renderList(containerId, countId, items, type, max);
@@ -1178,18 +861,18 @@ function renderPotList(containerId, countId, items, max) {
     const row = document.createElement("div");
     row.className = "item-row";
     row.innerHTML =
-      '<span class="index">#' + (i + 1) + '</span>' +
-      '<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar' + i + '"></div></div>' +
-      '<span class="monitor-value" id="monPotVal' + i + '" style="min-width:24px">0</span>' +
-      '<label>Pin</label><input type="number" min="0" max="29" value="' + item.pin + '" data-type="pot" data-idx="' + i + '" data-field="pin">' +
-      '<label>CC</label><input type="number" min="0" max="127" value="' + item.cc + '" data-type="pot" data-idx="' + i + '" data-field="cc">' +
-      '<button class="btn-remove" data-type="pot" data-idx="' + i + '">Remove</button>';
+      `<span class="index">#${i + 1}</span>` +
+      `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
+      `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
+      `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="pot" data-idx="${i}" data-field="pin">` +
+      `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="pot" data-idx="${i}" data-field="cc">` +
+      `<button class="btn-remove" data-type="pot" data-idx="${i}">Remove</button>`;
     container.appendChild(row);
   });
 
   container.querySelectorAll(".btn-remove").forEach(btn => {
     btn.addEventListener("click", () => {
-      syncPotListFromDOM(container, items);
+      syncFromDOM(container, items, ["pin", "cc"]);
       const idx = parseInt(btn.dataset.idx, 10);
       items.splice(idx, 1);
       renderPotList(containerId, countId, items, max);
@@ -1199,7 +882,6 @@ function renderPotList(containerId, countId, items, max) {
   document.getElementById("addPot").disabled = items.length >= max;
 }
 
-// Build LDR inline monitor indicator
 function buildLdrMonitor() {
   const container = document.getElementById("ldrMonitor");
   container.innerHTML = "";
@@ -1213,27 +895,21 @@ function buildLdrMonitor() {
   container.appendChild(row);
 }
 
-// Build Accelerometer inline monitor indicators
 function buildAccelMonitor() {
   const container = document.getElementById("accelMonitor");
   container.innerHTML = "";
   if (!config || !config.accel_enabled) return;
 
-  const xRow = document.createElement("div");
-  xRow.className = "monitor-row";
-  xRow.innerHTML =
-    '<span class="monitor-label">Tilt X</span>' +
-    '<div class="monitor-bar-track"><div class="monitor-bar-fill" id="monAccelXBar"></div></div>' +
-    '<span class="monitor-value" id="monAccelXVal">64</span>';
-  container.appendChild(xRow);
-
-  const yRow = document.createElement("div");
-  yRow.className = "monitor-row";
-  yRow.innerHTML =
-    '<span class="monitor-label">Tilt Y</span>' +
-    '<div class="monitor-bar-track"><div class="monitor-bar-fill" id="monAccelYBar"></div></div>' +
-    '<span class="monitor-value" id="monAccelYVal">64</span>';
-  container.appendChild(yRow);
+  [   ["Tilt X", "monAccelXBar", "monAccelXVal", "64"],
+   ["Tilt Y", "monAccelYBar", "monAccelYVal", "64"]].forEach(([label, barId, valId, def]) => {
+    const row = document.createElement("div");
+    row.className = "monitor-row";
+    row.innerHTML =
+      `<span class="monitor-label">${label}</span>` +
+      `<div class="monitor-bar-track"><div class="monitor-bar-fill" id="${barId}"></div></div>` +
+      `<span class="monitor-value" id="${valId}">${def}</span>`;
+    container.appendChild(row);
+  });
 
   const tapRow = document.createElement("div");
   tapRow.className = "monitor-row";
@@ -1243,23 +919,12 @@ function buildAccelMonitor() {
   container.appendChild(tapRow);
 }
 
-// Sync DOM input values back into the items array (buttons/touch)
-function syncListFromDOM(container, items) {
+// Sync DOM input values back into items arrays
+function syncFromDOM(container, items, fields) {
   container.querySelectorAll(".item-row").forEach((row, i) => {
     if (i < items.length) {
-      items[i].pin = num(row.querySelector('[data-field="pin"]').value, items[i].pin);
-      items[i].note = num(row.querySelector('[data-field="note"]').value, items[i].note);
-      items[i].velocity = num(row.querySelector('[data-field="velocity"]').value, items[i].velocity);
-    }
-  });
-}
-
-// Sync DOM input values back into the items array (pots)
-function syncPotListFromDOM(container, items) {
-  container.querySelectorAll(".item-row").forEach((row, i) => {
-    if (i < items.length) {
-      items[i].pin = num(row.querySelector('[data-field="pin"]').value, items[i].pin);
-      items[i].cc = num(row.querySelector('[data-field="cc"]').value, items[i].cc);
+      for (const f of fields)
+        items[i][f] = num(row.querySelector(`[data-field="${f}"]`).value, items[i][f]);
     }
   });
 }
@@ -1323,14 +988,13 @@ function updateAccelHints() {
   document.getElementById("smoothingHint").textContent = isNaN(sm) ? "" : "\u03B1=" + (sm / 100).toFixed(2);
 }
 
-// ── Read config from UI into config object ──
+// ── Read config from UI ──
 function readConfigFromUI() {
   if (!config) return;
 
   config.midi_channel = clamp(num(document.getElementById("midiChannel").value, 0), 0, 15);
-
-  config.buttons = readItemsFromDOM("buttonList", "button");
-  config.touch_pads = readItemsFromDOM("touchList", "touch");
+  config.buttons = readItemsFromDOM("buttonList");
+  config.touch_pads = readItemsFromDOM("touchList");
   config.pots = readPotsFromDOM("potList");
 
   config.ldr_enabled = document.getElementById("ldrEnabled").checked;
@@ -1353,37 +1017,31 @@ function readConfigFromUI() {
   };
 }
 
-function readItemsFromDOM(containerId, type) {
+function readItemsFromDOM(containerId) {
   const items = [];
-  const container = document.getElementById(containerId);
-  const rows = container.querySelectorAll(".item-row");
-  rows.forEach(row => {
-    const pin = clamp(num(row.querySelector('[data-field="pin"]').value, 0), 0, 29);
-    const note = clamp(num(row.querySelector('[data-field="note"]').value, 0), 0, 127);
-    const velocity = clamp(num(row.querySelector('[data-field="velocity"]').value, 100), 1, 127);
-    items.push({ pin, note, velocity });
+  document.getElementById(containerId).querySelectorAll(".item-row").forEach(row => {
+    items.push({
+      pin: clamp(num(row.querySelector('[data-field="pin"]').value, 0), 0, 29),
+      note: clamp(num(row.querySelector('[data-field="note"]').value, 0), 0, 127),
+      velocity: clamp(num(row.querySelector('[data-field="velocity"]').value, 100), 1, 127),
+    });
   });
   return items;
 }
 
 function readPotsFromDOM(containerId) {
   const items = [];
-  const container = document.getElementById(containerId);
-  const rows = container.querySelectorAll(".item-row");
-  rows.forEach(row => {
-    const pin = clamp(num(row.querySelector('[data-field="pin"]').value, 0), 0, 29);
-    const cc = clamp(num(row.querySelector('[data-field="cc"]').value, 0), 0, 127);
-    items.push({ pin, cc });
+  document.getElementById(containerId).querySelectorAll(".item-row").forEach(row => {
+    items.push({
+      pin: clamp(num(row.querySelector('[data-field="pin"]').value, 0), 0, 29),
+      cc: clamp(num(row.querySelector('[data-field="cc"]').value, 0), 0, 127),
+    });
   });
   return items;
 }
 
-function num(s, fallback) { const v = parseInt(s, 10); return isNaN(v) ? fallback : v; }
-
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-
-// ── Collapsible card sections ──
-document.querySelectorAll(".card-header[data-section]").forEach(header => {
+// ── Collapsible log section (only for the log card, not managed by web component) ──
+document.querySelectorAll('.log-panel > .card-header[data-section]').forEach(header => {
   header.addEventListener("click", () => {
     const body = header.nextElementSibling;
     const isCollapsed = body.classList.toggle("collapsed");
@@ -1402,9 +1060,6 @@ if ("serial" in navigator) {
 }
 
 // ── Automatic Input Monitoring ──
-// The firmware always streams M: lines at ~50ms intervals.
-// We poll readBuf on a timer to extract and apply them.
-
 function startMonitorPoll() {
   if (monitorPollTimer) return;
   monitorPollTimer = setInterval(processMonitorBuffer, 30);
@@ -1415,71 +1070,42 @@ function stopMonitorPoll() {
   monitorPollTimer = null;
 }
 
-// Parse a single M: line and update the inline DOM indicators
+function updateMonitorBar(barId, valId, raw) {
+  const v = parseInt(raw, 10) || 0;
+  const bar = document.getElementById(barId);
+  const val = document.getElementById(valId);
+  if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
+  if (val) val.textContent = v;
+}
+
 function applyMonitorLine(line) {
-  // Format: M:b=01100000,t=11010000,p=64:127:0:0,l=42,ax=65,ay=58,at=0
   if (!line.startsWith("M:")) return;
-  const data = line.substring(2);
   const parts = {};
-  for (const seg of data.split(",")) {
+  for (const seg of line.substring(2).split(",")) {
     const eq = seg.indexOf("=");
-    if (eq > 0) {
-      parts[seg.substring(0, eq)] = seg.substring(eq + 1);
-    }
+    if (eq > 0) parts[seg.substring(0, eq)] = seg.substring(eq + 1);
   }
 
-  // Buttons
   if (parts.b) {
     for (let i = 0; i < parts.b.length && i < 8; i++) {
       const el = document.getElementById("monBtn" + i);
       if (el) el.classList.toggle("active", parts.b[i] === "1");
     }
   }
-
-  // Touch pads
   if (parts.t) {
     for (let i = 0; i < parts.t.length && i < 8; i++) {
       const el = document.getElementById("monTouch" + i);
       if (el) el.classList.toggle("active", parts.t[i] === "1");
     }
   }
-
-  // Pots
   if (parts.p) {
     const vals = parts.p.split(":");
-    for (let i = 0; i < vals.length && i < 4; i++) {
-      const v = parseInt(vals[i], 10) || 0;
-      const bar = document.getElementById("monPotBar" + i);
-      const val = document.getElementById("monPotVal" + i);
-      if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
-      if (val) val.textContent = v;
-    }
+    for (let i = 0; i < vals.length && i < 4; i++)
+      updateMonitorBar("monPotBar" + i, "monPotVal" + i, vals[i]);
   }
-
-  // LDR
-  if (parts.l !== undefined) {
-    const v = parseInt(parts.l, 10) || 0;
-    const bar = document.getElementById("monLdrBar");
-    const val = document.getElementById("monLdrVal");
-    if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
-    if (val) val.textContent = v;
-  }
-
-  // Accelerometer
-  if (parts.ax !== undefined) {
-    const v = parseInt(parts.ax, 10) || 0;
-    const bar = document.getElementById("monAccelXBar");
-    const val = document.getElementById("monAccelXVal");
-    if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
-    if (val) val.textContent = v;
-  }
-  if (parts.ay !== undefined) {
-    const v = parseInt(parts.ay, 10) || 0;
-    const bar = document.getElementById("monAccelYBar");
-    const val = document.getElementById("monAccelYVal");
-    if (bar) bar.style.width = ((v / 127) * 100).toFixed(1) + "%";
-    if (val) val.textContent = v;
-  }
+  if (parts.l !== undefined) updateMonitorBar("monLdrBar", "monLdrVal", parts.l);
+  if (parts.ax !== undefined) updateMonitorBar("monAccelXBar", "monAccelXVal", parts.ax);
+  if (parts.ay !== undefined) updateMonitorBar("monAccelYBar", "monAccelYVal", parts.ay);
   if (parts.at === "1") {
     const el = document.getElementById("monAccelTap");
     if (el) {
@@ -1490,16 +1116,13 @@ function applyMonitorLine(line) {
   }
 }
 
-// Process buffered monitor data from readBuf
 function processMonitorBuffer() {
   if (!port) return;
   const lines = readBuf.split("\n");
   readBuf = lines.pop() || "";
   for (const raw of lines) {
     const line = raw.trim();
-    if (line.startsWith("M:")) {
-      applyMonitorLine(line);
-    }
+    if (line.startsWith("M:")) applyMonitorLine(line);
   }
 }
 </script>
