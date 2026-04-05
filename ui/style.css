@@ -98,6 +98,8 @@ a.btn { text-decoration: none; }
 
 /* Landing page */
 .landing-intro { color: var(--dim); margin-bottom: 32px; line-height: 1.7; }
+.landing-intro a { color: var(--fg); }
+.landing-intro a:hover { color: var(--dim); }
 .landing-section { margin-bottom: 32px; }
 .landing-section h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
 .landing-steps { padding-left: 20px; color: var(--dim); }
@@ -106,6 +108,22 @@ a.btn { text-decoration: none; }
 .landing-steps strong { color: var(--fg); }
 .landing-steps ul { list-style: disc; padding-left: 18px; margin-top: 6px; }
 .landing-steps code { color: var(--fg); }
-.landing-steps a, .landing-intro a { color: var(--fg); }
-.landing-steps a:hover, .landing-intro a:hover { color: var(--dim); }
+.landing-steps a { color: var(--fg); }
+.landing-steps a:hover { color: var(--dim); }
 .landing-cta { display: flex; gap: 10px; padding-top: 8px; }
+
+/* Download section */
+.download-list { color: var(--dim); }
+.download-loading { color: var(--dim); }
+.download-error { color: var(--red); }
+.download-error a { color: var(--fg); }
+.download-error a:hover { color: var(--dim); }
+.download-version { margin-bottom: 12px; }
+.download-version a { color: var(--fg); }
+.download-version a:hover { color: var(--dim); }
+.download-items { display: flex; gap: 10px; flex-wrap: wrap; }
+.download-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; border: 1px solid var(--border); text-decoration: none; color: var(--fg); min-width: 200px; }
+.download-item:hover { background: var(--fg); color: var(--bg); }
+.download-item:hover .download-desc { color: var(--bg); }
+.download-name { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+.download-desc { font-size: 11px; color: var(--dim); }

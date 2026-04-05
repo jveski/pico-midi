@@ -19,17 +19,15 @@
   </p>
 
   <div class="landing-section">
-    <h2>Getting Started</h2>
+    <h2>Download Firmware</h2>
+    <div id="downloads" class="download-list">
+      <p class="download-loading">Loading latest release&hellip;</p>
+    </div>
+  </div>
+
+  <div class="landing-section">
+    <h2>Installation</h2>
     <ol class="landing-steps">
-      <li>
-        <strong>Download the firmware</strong><br>
-        Grab the <code>.uf2</code> file for your board from the
-        <a href="https://github.com/jveski/pico-midi/releases/latest">latest release</a>:
-        <ul>
-          <li><code>midictrl-rp2040.uf2</code> &mdash; for Raspberry Pi Pico (RP2040)</li>
-          <li><code>midictrl-rp2350.uf2</code> &mdash; for Raspberry Pi Pico 2 (RP2350)</li>
-        </ul>
-      </li>
       <li>
         <strong>Flash it</strong><br>
         Hold the <code>BOOTSEL</code> button on your Pico while plugging it into USB.
@@ -49,5 +47,51 @@
     <a class="btn" href="https://github.com/jveski/pico-midi">GitHub</a>
   </div>
 </div>
+
+<script>
+const REPO = "jveski/pico-midi";
+const FRIENDLY_NAMES = {
+  "midictrl-rp2040.uf2": "RP2040 Firmware",
+  "midictrl-rp2350.uf2": "RP2350 Firmware",
+};
+const FRIENDLY_DESCRIPTIONS = {
+  "midictrl-rp2040.uf2": "Raspberry Pi Pico",
+  "midictrl-rp2350.uf2": "Raspberry Pi Pico 2",
+};
+
+async function loadDownloads() {
+  const container = document.getElementById("downloads");
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+    if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+    const release = await res.json();
+    const version = release.tag_name;
+
+    let html = `<p class="download-version">Latest release: <a href="${release.html_url}">${version}</a></p>`;
+    html += `<div class="download-items">`;
+
+    for (const [filename, label] of Object.entries(FRIENDLY_NAMES)) {
+      const asset = release.assets.find(a => a.name === filename);
+      const url = asset
+        ? asset.browser_download_url
+        : `https://github.com/${REPO}/releases/download/${version}/${filename}`;
+      const desc = FRIENDLY_DESCRIPTIONS[filename] || "";
+      html += `<a class="download-item" href="${url}">`;
+      html += `<span class="download-name">${label}</span>`;
+      html += `<span class="download-desc">${desc}</span>`;
+      html += `</a>`;
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML =
+      `<p class="download-error">Could not load release info. ` +
+      `Download directly from <a href="https://github.com/${REPO}/releases/latest">GitHub Releases</a>.</p>`;
+  }
+}
+
+loadDownloads();
+</script>
 </body>
 </html>
