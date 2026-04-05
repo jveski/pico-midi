@@ -10,7 +10,7 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 2;
+pub const VERSION: u8 = 3;
 
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
@@ -27,26 +27,23 @@ pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 /// Header: 4-byte magic + 1-byte version.
 const HEADER_SIZE: usize = 5;
 
-/// A single button definition: GPIO pin number, MIDI note, velocity.
+/// A single button definition: MIDI note, velocity.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct ButtonDef {
-    pub pin: u8,
     pub note: u8,
     pub velocity: u8,
 }
 
-/// A single touch pad definition: GPIO pin number, MIDI note, velocity.
+/// A single touch pad definition: MIDI note, velocity.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct TouchPadDef {
-    pub pin: u8,
     pub note: u8,
     pub velocity: u8,
 }
 
-/// A potentiometer/LDR definition: GPIO pin number (must be ADC-capable), CC number.
+/// A potentiometer/LDR definition: CC number.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct PotDef {
-    pub pin: u8,
     pub cc: u8,
 }
 
@@ -54,9 +51,6 @@ pub struct PotDef {
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct AccelConfig {
     pub enabled: bool,
-    pub sda_pin: u8,
-    pub scl_pin: u8,
-    pub int_pin: u8,
     pub x_cc: u8,
     pub y_cc: u8,
     pub tap_note: u8,
@@ -88,40 +82,37 @@ impl Default for Config {
             midi_channel: 0,
             num_buttons: 4,
             buttons: [
-                ButtonDef { pin: 2, note: 60, velocity: 100 },
-                ButtonDef { pin: 3, note: 62, velocity: 100 },
-                ButtonDef { pin: 4, note: 64, velocity: 100 },
-                ButtonDef { pin: 5, note: 65, velocity: 100 },
-                ButtonDef { pin: 0, note: 0, velocity: 0 },
-                ButtonDef { pin: 0, note: 0, velocity: 0 },
-                ButtonDef { pin: 0, note: 0, velocity: 0 },
-                ButtonDef { pin: 0, note: 0, velocity: 0 },
+                ButtonDef { note: 60, velocity: 100 },
+                ButtonDef { note: 62, velocity: 100 },
+                ButtonDef { note: 64, velocity: 100 },
+                ButtonDef { note: 65, velocity: 100 },
+                ButtonDef { note: 0, velocity: 0 },
+                ButtonDef { note: 0, velocity: 0 },
+                ButtonDef { note: 0, velocity: 0 },
+                ButtonDef { note: 0, velocity: 0 },
             ],
             num_touch_pads: 5,
             touch_pads: [
-                TouchPadDef { pin: 6, note: 72, velocity: 100 },
-                TouchPadDef { pin: 7, note: 74, velocity: 100 },
-                TouchPadDef { pin: 8, note: 76, velocity: 100 },
-                TouchPadDef { pin: 9, note: 77, velocity: 100 },
-                TouchPadDef { pin: 10, note: 79, velocity: 100 },
-                TouchPadDef { pin: 0, note: 0, velocity: 0 },
-                TouchPadDef { pin: 0, note: 0, velocity: 0 },
-                TouchPadDef { pin: 0, note: 0, velocity: 0 },
+                TouchPadDef { note: 72, velocity: 100 },
+                TouchPadDef { note: 74, velocity: 100 },
+                TouchPadDef { note: 76, velocity: 100 },
+                TouchPadDef { note: 77, velocity: 100 },
+                TouchPadDef { note: 79, velocity: 100 },
+                TouchPadDef { note: 0, velocity: 0 },
+                TouchPadDef { note: 0, velocity: 0 },
+                TouchPadDef { note: 0, velocity: 0 },
             ],
             num_pots: 2,
             pots: [
-                PotDef { pin: 26, cc: 7 },
-                PotDef { pin: 27, cc: 10 },
-                PotDef { pin: 0, cc: 0 },
-                PotDef { pin: 0, cc: 0 },
+                PotDef { cc: 7 },
+                PotDef { cc: 10 },
+                PotDef { cc: 0 },
+                PotDef { cc: 0 },
             ],
             ldr_enabled: true,
-            ldr: PotDef { pin: 28, cc: 74 },
+            ldr: PotDef { cc: 74 },
             accel: AccelConfig {
                 enabled: true,
-                sda_pin: 0,
-                scl_pin: 1,
-                int_pin: 11,
                 x_cc: 1,
                 y_cc: 2,
                 tap_note: 48,

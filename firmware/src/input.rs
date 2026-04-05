@@ -4,7 +4,7 @@ use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::I2C0;
-use embassy_time::Instant;
+use embassy_time::{Instant, Timer};
 
 // ---- Buttons (digital GPIO with pull-up, active low, debounced) ----
 
@@ -118,7 +118,7 @@ pub struct TouchEvent {
     pub pressed: bool,
 }
 
-fn measure_touch(pin: &mut Flex<'static>) -> u32 {
+fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
     pin.set_high();
     cortex_m::asm::delay(1000);
@@ -133,13 +133,28 @@ fn measure_touch(pin: &mut Flex<'static>) -> u32 {
     count
 }
 
+async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
+    pin.set_as_output();
+    pin.set_high();
+    Timer::after_micros(10).await;
+
+    pin.set_as_input();
+    pin.set_pull(Pull::Down);
+
+    let mut count: u32 = 0;
+    while pin.is_high() && count < 5_000 {
+        count += 1;
+    }
+    count
+}
+
 impl<const N: usize> TouchPads<N> {
     /// Initialize touch pads, measuring baseline capacitance.
     pub fn new(pins: &mut [Flex<'static>; N]) -> Self {
         let pads: [TouchPad; N] = core::array::from_fn(|i| {
             let mut sum: u32 = 0;
             for _ in 0..8 {
-                sum += measure_touch(&mut pins[i]);
+                sum += measure_touch_sync(&mut pins[i]);
             }
             let baseline = sum / 8;
             TouchPad {
@@ -151,10 +166,10 @@ impl<const N: usize> TouchPads<N> {
     }
 
     /// Poll all touch pads. Returns up to N state-change events.
-    pub fn poll(&mut self, pins: &mut [Flex<'static>; N]) -> [Option<TouchEvent>; N] {
+    pub async fn poll(&mut self, pins: &mut [Flex<'static>; N]) -> [Option<TouchEvent>; N] {
         let mut events: [Option<TouchEvent>; N] = [const { None }; N];
         for i in 0..N {
-            let reading = measure_touch(&mut pins[i]);
+            let reading = measure_touch_async(&mut pins[i]).await;
             let touched = reading > self.pads[i].threshold;
 
             if touched != self.pads[i].was_touched {

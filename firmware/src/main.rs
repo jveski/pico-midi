@@ -95,6 +95,12 @@ async fn send_serial(serial: &mut CdcAcmClass<'static, Driver<'static, USB>>, da
         }
         sent = end;
     }
+    // Send ZLP if the payload was a non-zero exact multiple of 64 bytes
+    if !data.is_empty() && data.len() % 64 == 0 {
+        if serial.write_packet(&[]).await.is_err() {
+            return false;
+        }
+    }
     true
 }
 
@@ -170,21 +176,28 @@ async fn main(_spawner: Spawner) {
     let midi_fut = async {
         Timer::after(Duration::from_millis(100)).await;
 
-        // --- Buttons: GP2-GP5 ---
+        // --- Buttons: GP2-GP5, GP11-GP14 ---
         let mut buttons = input::Buttons::new([
             Input::new(p.PIN_2, Pull::Up),
             Input::new(p.PIN_3, Pull::Up),
             Input::new(p.PIN_4, Pull::Up),
             Input::new(p.PIN_5, Pull::Up),
+            Input::new(p.PIN_11, Pull::Up),
+            Input::new(p.PIN_12, Pull::Up),
+            Input::new(p.PIN_13, Pull::Up),
+            Input::new(p.PIN_14, Pull::Up),
         ]);
 
-        // --- Touch pads: GP6-GP10 ---
-        let mut touch_pins: [Flex<'static>; 5] = [
+        // --- Touch pads: GP6-GP10, GP15-GP17 ---
+        let mut touch_pins: [Flex<'static>; 8] = [
             Flex::new(p.PIN_6),
             Flex::new(p.PIN_7),
             Flex::new(p.PIN_8),
             Flex::new(p.PIN_9),
             Flex::new(p.PIN_10),
+            Flex::new(p.PIN_15),
+            Flex::new(p.PIN_16),
+            Flex::new(p.PIN_17),
         ];
         let mut touch = input::TouchPads::new(&mut touch_pins);
 
@@ -217,7 +230,7 @@ async fn main(_spawner: Spawner) {
             Timer::after(Duration::from_millis(1)).await;
 
             // Poll buttons
-            let nb = (midi_cfg.num_buttons as usize).min(4);
+            let nb = (midi_cfg.num_buttons as usize).min(8);
             for evt in buttons.poll().into_iter().flatten() {
                 if (evt.index as usize) < nb {
                     let def = &midi_cfg.buttons[evt.index as usize];
@@ -232,8 +245,8 @@ async fn main(_spawner: Spawner) {
             }
 
             // Poll touch pads
-            let nt = (midi_cfg.num_touch_pads as usize).min(5);
-            for evt in touch.poll(&mut touch_pins).into_iter().flatten() {
+            let nt = (midi_cfg.num_touch_pads as usize).min(8);
+            for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
                 if (evt.index as usize) < nt {
                     let def = &midi_cfg.touch_pads[evt.index as usize];
                     let pkt = if evt.pressed {

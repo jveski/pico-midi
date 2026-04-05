@@ -6,7 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
-    let memory_x = if cfg!(feature = "rp2350") {
+    let memory_x = if env::var("CARGO_FEATURE_RP2350").is_ok() {
         include_bytes!("memory-rp2350.x").as_slice()
     } else {
         include_bytes!("memory-rp2040.x").as_slice()
