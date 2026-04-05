@@ -35,7 +35,7 @@ pub fn handle_command(
     }
 
     if line == b"GET" {
-        let n = config.to_hex(resp);
+        let n = config.encode_hex(resp);
         if n + 1 <= resp.len() {
             resp[n] = b'\n';
             return (n + 1, Action::None);
@@ -45,7 +45,7 @@ pub fn handle_command(
 
     if line.len() > 4 && line.starts_with(b"PUT ") {
         let hex = &line[4..];
-        if let Some(cfg) = Config::from_hex(hex) {
+        if let Some(cfg) = Config::decode_hex(hex) {
             *config = cfg;
             return (copy(resp, b"OK\n"), Action::None);
         } else {
@@ -82,7 +82,7 @@ pub fn save_config(
     config: &Config,
 ) -> bool {
     let mut sector = [0xFFu8; SECTOR_SIZE];
-    let n = config.to_bytes(&mut sector);
+    let n = config.encode(&mut sector);
     if n == 0 {
         return false;
     }
@@ -109,7 +109,7 @@ pub fn load_config(
         defmt::warn!("flash read failed");
         return None;
     }
-    Config::from_bytes(&buf)
+    Config::decode(&buf)
 }
 
 // ---- helpers ----

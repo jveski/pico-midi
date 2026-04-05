@@ -865,8 +865,11 @@ function drainMonitorLines() {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Config binary format constants (must match firmware config.rs) ──
+// The payload after the 5-byte header is postcard-encoded (serde, fixed-size).
+// Since all fields are u8 or bool, postcard encodes them as raw bytes in struct
+// field order. Fixed-size arrays are written in full (no length prefix).
 const CONFIG_MAGIC = 0x4D494449; // "MIDI" in little-endian
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 const MAX_BUTTONS = 8;
 const MAX_TOUCH_PADS = 8;
 const MAX_POTS = 4;
@@ -883,59 +886,64 @@ function hexDecode(str) {
   return bytes;
 }
 
-// ── Decode binary config from hex string ──
+// ── Decode postcard binary config from hex string ──
+// Layout after 5-byte header (postcard struct field order):
+//   midi_channel:1, num_buttons:1, buttons[8]:(pin,note,vel)*8,
+//   num_touch_pads:1, touch_pads[8]:(pin,note,vel)*8,
+//   num_pots:1, pots[4]:(pin,cc)*4,
+//   ldr:(pin,cc), ldr_enabled:1,
+//   accel:(enabled,sda,scl,int,x_cc,y_cc,tap_note,tap_vel,dead_zone,smoothing)
 function decodeConfig(hex) {
   const b = hexDecode(hex.trim());
+  // Header (5) + at least midi_channel (1) = 6 bytes minimum
   if (b.length < 6) return null;
   const magic = b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
   if (magic !== CONFIG_MAGIC || b[4] !== CONFIG_VERSION) return null;
 
+  // Postcard payload: 73 bytes (all u8/bool, fixed-size arrays)
+  const PAYLOAD_SIZE = 73;
+  if (b.length < 5 + PAYLOAD_SIZE) return null;
+
   const cfg = {
     midi_channel: 0, buttons: [], touch_pads: [], pots: [],
-    ldr_enabled: false, ldr: { pin: 28, cc: 74 },
+    ldr_enabled: false, ldr: { pin: 0, cc: 0 },
     accel_enabled: false,
-    accel: { sda: 0, scl: 1, int_pin: 11, x_cc: 1, y_cc: 2, tap_note: 48, tap_vel: 127, dead_zone: 13, smoothing: 25 },
+    accel: { sda: 0, scl: 0, int_pin: 0, x_cc: 0, y_cc: 0, tap_note: 0, tap_vel: 1, dead_zone: 0, smoothing: 0 },
   };
 
   let i = 5;
-  if (i >= b.length) return cfg;
   cfg.midi_channel = Math.min(b[i++], 15);
 
-  // Buttons
-  if (i >= b.length) return cfg;
+  // num_buttons + all MAX_BUTTONS entries (always 8)
   const nb = Math.min(b[i++], MAX_BUTTONS);
-  for (let j = 0; j < nb; j++) {
-    if (i + 2 >= b.length) return cfg;
-    cfg.buttons.push({ pin: b[i], note: Math.min(b[i+1], 127), velocity: Math.max(1, Math.min(b[i+2], 127)) });
+  for (let j = 0; j < MAX_BUTTONS; j++) {
+    const pin = b[i]; const note = Math.min(b[i+1], 127); const velocity = Math.max(1, Math.min(b[i+2], 127));
+    if (j < nb) cfg.buttons.push({ pin, note, velocity });
     i += 3;
   }
 
-  // Touch pads
-  if (i >= b.length) return cfg;
+  // num_touch_pads + all MAX_TOUCH_PADS entries (always 8)
   const nt = Math.min(b[i++], MAX_TOUCH_PADS);
-  for (let j = 0; j < nt; j++) {
-    if (i + 2 >= b.length) return cfg;
-    cfg.touch_pads.push({ pin: b[i], note: Math.min(b[i+1], 127), velocity: Math.max(1, Math.min(b[i+2], 127)) });
+  for (let j = 0; j < MAX_TOUCH_PADS; j++) {
+    const pin = b[i]; const note = Math.min(b[i+1], 127); const velocity = Math.max(1, Math.min(b[i+2], 127));
+    if (j < nt) cfg.touch_pads.push({ pin, note, velocity });
     i += 3;
   }
 
-  // Pots
-  if (i >= b.length) return cfg;
+  // num_pots + all MAX_POTS entries (always 4)
   const np = Math.min(b[i++], MAX_POTS);
-  for (let j = 0; j < np; j++) {
-    if (i + 1 >= b.length) return cfg;
-    cfg.pots.push({ pin: b[i], cc: Math.min(b[i+1], 127) });
+  for (let j = 0; j < MAX_POTS; j++) {
+    const pin = b[i]; const cc = Math.min(b[i+1], 127);
+    if (j < np) cfg.pots.push({ pin, cc });
     i += 2;
   }
 
-  // LDR
-  if (i + 2 >= b.length) return cfg;
-  cfg.ldr_enabled = b[i] !== 0;
-  cfg.ldr = { pin: b[i+1], cc: Math.min(b[i+2], 127) };
-  i += 3;
+  // LDR (pin, cc) then ldr_enabled — note: matches Rust struct field order
+  cfg.ldr = { pin: b[i], cc: Math.min(b[i+1], 127) };
+  i += 2;
+  cfg.ldr_enabled = b[i++] !== 0;
 
   // Accelerometer
-  if (i + 9 >= b.length) return cfg;
   cfg.accel_enabled = b[i] !== 0;
   cfg.accel = {
     sda: b[i+1], scl: b[i+2], int_pin: b[i+3],
@@ -947,34 +955,53 @@ function decodeConfig(hex) {
   return cfg;
 }
 
-// ── Encode config to hex string for PUT command ──
+// ── Encode config to hex string for PUT command (postcard format) ──
 function encodeConfig(cfg) {
   const buf = [];
   // Header
   buf.push(CONFIG_MAGIC & 0xFF, (CONFIG_MAGIC >> 8) & 0xFF, (CONFIG_MAGIC >> 16) & 0xFF, (CONFIG_MAGIC >> 24) & 0xFF);
   buf.push(CONFIG_VERSION);
+
   // MIDI channel
   buf.push(Math.min(cfg.midi_channel, 15));
-  // Buttons
+
+  // num_buttons + all MAX_BUTTONS slots (postcard writes fixed-size arrays in full)
   const nb = Math.min(cfg.buttons.length, MAX_BUTTONS);
   buf.push(nb);
-  for (let j = 0; j < nb; j++) {
-    buf.push(cfg.buttons[j].pin, Math.min(cfg.buttons[j].note, 127), Math.max(1, Math.min(cfg.buttons[j].velocity, 127)));
+  for (let j = 0; j < MAX_BUTTONS; j++) {
+    if (j < nb) {
+      buf.push(cfg.buttons[j].pin, Math.min(cfg.buttons[j].note, 127), Math.max(1, Math.min(cfg.buttons[j].velocity, 127)));
+    } else {
+      buf.push(0, 0, 0);
+    }
   }
-  // Touch pads
+
+  // num_touch_pads + all MAX_TOUCH_PADS slots
   const nt = Math.min(cfg.touch_pads.length, MAX_TOUCH_PADS);
   buf.push(nt);
-  for (let j = 0; j < nt; j++) {
-    buf.push(cfg.touch_pads[j].pin, Math.min(cfg.touch_pads[j].note, 127), Math.max(1, Math.min(cfg.touch_pads[j].velocity, 127)));
+  for (let j = 0; j < MAX_TOUCH_PADS; j++) {
+    if (j < nt) {
+      buf.push(cfg.touch_pads[j].pin, Math.min(cfg.touch_pads[j].note, 127), Math.max(1, Math.min(cfg.touch_pads[j].velocity, 127)));
+    } else {
+      buf.push(0, 0, 0);
+    }
   }
-  // Pots
+
+  // num_pots + all MAX_POTS slots
   const np = Math.min(cfg.pots.length, MAX_POTS);
   buf.push(np);
-  for (let j = 0; j < np; j++) {
-    buf.push(cfg.pots[j].pin, Math.min(cfg.pots[j].cc, 127));
+  for (let j = 0; j < MAX_POTS; j++) {
+    if (j < np) {
+      buf.push(cfg.pots[j].pin, Math.min(cfg.pots[j].cc, 127));
+    } else {
+      buf.push(0, 0);
+    }
   }
-  // LDR
-  buf.push(cfg.ldr_enabled ? 1 : 0, cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
+
+  // LDR (pin, cc) then ldr_enabled — matches Rust struct field order
+  buf.push(cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
+  buf.push(cfg.ldr_enabled ? 1 : 0);
+
   // Accelerometer
   const a = cfg.accel;
   buf.push(cfg.accel_enabled ? 1 : 0, a.sda, a.scl, a.int_pin,

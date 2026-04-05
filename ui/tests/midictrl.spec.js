@@ -4,8 +4,9 @@ const path = require("path");
 
 const FILE_URL = `file://${path.resolve(__dirname, "..", "index.html")}`;
 
-// Helper: build a minimal valid config hex string
+// Helper: build a minimal valid config hex string (postcard format v2)
 function buildConfigHex(overrides = {}) {
+  const MAX_BUTTONS = 8, MAX_TOUCH_PADS = 8, MAX_POTS = 4;
   const cfg = {
     midi_channel: 0,
     buttons: [],
@@ -21,29 +22,45 @@ function buildConfigHex(overrides = {}) {
     },
     ...overrides,
   };
-  // Encode manually to match encodeConfig
+  // Encode in postcard format: fixed-size arrays, ldr before ldr_enabled
   const buf = [];
   const MAGIC = 0x4d494449;
   buf.push(MAGIC & 0xff, (MAGIC >> 8) & 0xff, (MAGIC >> 16) & 0xff, (MAGIC >> 24) & 0xff);
-  buf.push(1); // version
+  buf.push(2); // version 2
   buf.push(Math.min(cfg.midi_channel, 15));
-  // buttons
-  buf.push(cfg.buttons.length);
-  for (const b of cfg.buttons) {
-    buf.push(b.pin, Math.min(b.note, 127), Math.max(1, Math.min(b.velocity, 127)));
+  // buttons: count then all MAX_BUTTONS slots
+  const nb = Math.min(cfg.buttons.length, MAX_BUTTONS);
+  buf.push(nb);
+  for (let j = 0; j < MAX_BUTTONS; j++) {
+    if (j < nb) {
+      buf.push(cfg.buttons[j].pin, Math.min(cfg.buttons[j].note, 127), Math.max(1, Math.min(cfg.buttons[j].velocity, 127)));
+    } else {
+      buf.push(0, 0, 0);
+    }
   }
-  // touch pads
-  buf.push(cfg.touch_pads.length);
-  for (const t of cfg.touch_pads) {
-    buf.push(t.pin, Math.min(t.note, 127), Math.max(1, Math.min(t.velocity, 127)));
+  // touch pads: count then all MAX_TOUCH_PADS slots
+  const nt = Math.min(cfg.touch_pads.length, MAX_TOUCH_PADS);
+  buf.push(nt);
+  for (let j = 0; j < MAX_TOUCH_PADS; j++) {
+    if (j < nt) {
+      buf.push(cfg.touch_pads[j].pin, Math.min(cfg.touch_pads[j].note, 127), Math.max(1, Math.min(cfg.touch_pads[j].velocity, 127)));
+    } else {
+      buf.push(0, 0, 0);
+    }
   }
-  // pots
-  buf.push(cfg.pots.length);
-  for (const p of cfg.pots) {
-    buf.push(p.pin, Math.min(p.cc, 127));
+  // pots: count then all MAX_POTS slots
+  const np = Math.min(cfg.pots.length, MAX_POTS);
+  buf.push(np);
+  for (let j = 0; j < MAX_POTS; j++) {
+    if (j < np) {
+      buf.push(cfg.pots[j].pin, Math.min(cfg.pots[j].cc, 127));
+    } else {
+      buf.push(0, 0);
+    }
   }
-  // ldr
-  buf.push(cfg.ldr_enabled ? 1 : 0, cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
+  // ldr (pin, cc) then ldr_enabled — matches Rust struct field order
+  buf.push(cfg.ldr.pin, Math.min(cfg.ldr.cc, 127));
+  buf.push(cfg.ldr_enabled ? 1 : 0);
   // accel
   const a = cfg.accel;
   buf.push(cfg.accel_enabled ? 1 : 0, a.sda, a.scl, a.int_pin,
@@ -333,15 +350,15 @@ test.describe("config encode/decode", () => {
 
   test("decodeConfig returns null for wrong magic", async ({ page }) => {
     await page.goto(FILE_URL);
-    const result = await page.evaluate(() => decodeConfig("0000000001000000000000001c4a00000001000b01023001017f0d19"));
+    const result = await page.evaluate(() => decodeConfig("00000000" + "02".padEnd(146, "0")));
     expect(result).toBeNull();
   });
 
   test("decodeConfig returns null for wrong version", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      // Correct magic but version 2 instead of 1
-      return decodeConfig("4944494d02000000000000001c4a00000001000b01023001017f0d19");
+      // Correct magic but version 1 instead of 2
+      return decodeConfig("4944494d01" + "00".repeat(73));
     });
     expect(result).toBeNull();
   });
@@ -431,15 +448,14 @@ test.describe("config encode/decode", () => {
 
   test("decodeConfig handles truncated data gracefully", async ({ page }) => {
     await page.goto(FILE_URL);
-    // Provide just magic + version + midi channel (6 bytes), truncated before buttons
+    // Provide just magic + version + midi channel (6 bytes), truncated before full payload
     const result = await page.evaluate(() => {
-      const hex = "4944494d0105"; // magic + ver 1 + channel 5
+      const hex = "4944494d0205"; // magic + ver 2 + channel 5
       const decoded = decodeConfig(hex);
       return decoded;
     });
-    expect(result).not.toBeNull();
-    expect(result.midi_channel).toBe(5);
-    expect(result.buttons).toEqual([]);
+    // Postcard format requires full 78-byte payload; truncated data returns null
+    expect(result).toBeNull();
   });
 
   test("config binary magic is MIDI in little-endian", async ({ page }) => {
@@ -1780,24 +1796,17 @@ test.describe("full config flow with mock serial", () => {
 // ═══════════════════════════════════════════════════
 
 test.describe("edge cases and bug hunting", () => {
-  test("decodeConfig with button count claiming more items than data available", async ({ page }) => {
+  test("decodeConfig with truncated postcard data returns null", async ({ page }) => {
     await page.goto(FILE_URL);
-    // Craft hex: magic + version + channel + buttonCount=3, but only provide data for 1 button
+    // Craft hex: magic + version + channel + buttonCount=3, but far short of 78 bytes
     const result = await page.evaluate(() => {
-      // 4944494d = magic LE, 01 = version, 00 = channel, 03 = 3 buttons, then only 3 bytes for 1 button
-      const hex = "4944494d0100030200643c";
-      // button count says 3, but only 1 button's worth of data after (3 bytes: pin=2, note=0, vel=100)
-      // Wait - let's be more precise:
-      // After channel (byte 5 = 0x00), we have button count = 0x03 (3 buttons)
-      // Then we need 3*3 = 9 bytes for buttons, but we only provide 3 bytes
-      // hexDecode of "0200643c" = [0x02, 0x00, 0x64, 0x3c] - 4 bytes
-      // So we'd get 1 complete button (3 bytes) and then i+2 >= b.length on the second
+      // 4944494d = magic LE, 02 = version, 00 = channel, 03 = 3 buttons, then truncated
+      const hex = "4944494d0200030200643c";
       const decoded = decodeConfig(hex);
       return decoded;
     });
-    // Should gracefully handle: return the config with only 1 button parsed
-    expect(result).not.toBeNull();
-    expect(result.buttons.length).toBe(1);
+    // Postcard format requires full 78-byte payload; truncated returns null
+    expect(result).toBeNull();
   });
 
   test("encoding then decoding config with all zeroes", async ({ page }) => {
@@ -2035,36 +2044,26 @@ test.describe("edge cases and bug hunting", () => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
       // magic(4) + version(1) + channel(1) + buttonCount(1) = 7 bytes
-      // buttonCount = 2 but no button data follows, then nothing more
-      const hex = "4944494d010002";
+      // Postcard format needs 78 bytes total, so this is truncated
+      const hex = "4944494d020002";
       const decoded = decodeConfig(hex);
       return decoded;
     });
-    // Should return config with the button count parsed but no buttons (due to i+2 >= b.length guard)
-    expect(result).not.toBeNull();
-    expect(result.buttons).toEqual([]);
+    // Postcard format requires full fixed-size payload; truncated returns null
+    expect(result).toBeNull();
   });
 
   test("decodeConfig boundary: buffer truncated inside button data", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      // magic(4) + version(1) + channel(1) + buttonCount(1) + partial button (2 bytes instead of 3)
-      const hex = "4944494d01000102003c"; // count=1, then pin=2, note=0, only 2 of 3 bytes
-      // Actually let me be precise: "4944494d01000102003c"
-      // Bytes: 49 44 49 4d 01 00 01 02 00 3c
-      //        magic(4)    v  ch cnt pin note vel?
-      // That's 10 bytes. count=1, then need 3 bytes: pin=0x02, note=0x00, velocity=0x3c
-      // Actually that's complete! Let me truncate after note:
-      const hex2 = "4944494d010001020064"; // 10 bytes, but wait:
-      // 49 44 49 4d = magic, 01 = version, 00 = channel, 01 = count, 02 = pin, 00 = note, 64 = vel
-      // That's 11 bytes which is actually 1 complete button. Let me truncate:
-      const hex3 = "4944494d0100010200"; // 9 bytes: count=1, pin=2, note=0, no velocity
+      // magic(4) + version(1) + channel(1) + buttonCount(1) + partial button data
+      // Postcard format needs 78 bytes total, so this is truncated
+      const hex3 = "4944494d0200010200"; // 9 bytes: far short of 78
       const decoded = decodeConfig(hex3);
       return decoded;
     });
-    // i+2 >= b.length check means the button with missing velocity won't be added
-    expect(result).not.toBeNull();
-    expect(result.buttons).toEqual([]);
+    // Postcard format requires full fixed-size payload; truncated returns null
+    expect(result).toBeNull();
   });
 
   test("processMonitorBuffer handles interleaved M: and other lines", async ({ page }) => {
@@ -2096,14 +2095,20 @@ test.describe("edge cases and bug hunting", () => {
   test("decodeConfig clamps midi_channel via Math.min", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      // Craft hex with channel = 255 (0xFF)
-      const buf = [0x49, 0x44, 0x49, 0x4D, 0x01, 0xFF, // magic + ver + channel=255
-        0x00, // 0 buttons
-        0x00, // 0 touch
-        0x00, // 0 pots
-        0x00, 0x1C, 0x4A, // ldr: disabled, pin 28, cc 74
-        0x00, 0x00, 0x01, 0x0B, 0x01, 0x02, 0x30, 0x7F, 0x0D, 0x19, // accel
-      ];
+      // Craft hex with channel = 255 (0xFF) in postcard format (v2)
+      // Postcard: magic(4) + ver(1) + channel(1) + btnCount(1) + buttons[8]*3(24) +
+      //   touchCount(1) + touch[8]*3(24) + potCount(1) + pots[4]*2(8) +
+      //   ldr(2) + ldr_enabled(1) + accel(10) = 78 bytes
+      const buf = [0x49, 0x44, 0x49, 0x4D, 0x02, 0xFF]; // magic + ver 2 + channel=255
+      buf.push(0x00); // 0 buttons
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+      buf.push(0x00); // 0 touch pads
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+      buf.push(0x00); // 0 pots
+      for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+      buf.push(0x1C, 0x4A); // ldr: pin 28, cc 74
+      buf.push(0x00); // ldr_enabled: false
+      buf.push(0x00, 0x00, 0x01, 0x0B, 0x01, 0x02, 0x30, 0x7F, 0x0D, 0x19); // accel
       const hex = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
       const decoded = decodeConfig(hex);
       return decoded.midi_channel;
@@ -2254,8 +2259,8 @@ test.describe("binary format correctness", () => {
     });
     // First 8 hex chars should be 4944494d (MIDI in little-endian: 0x4D494449)
     expect(hex.substring(0, 8)).toBe("4944494d");
-    // Next 2 chars: version 01
-    expect(hex.substring(8, 10)).toBe("01");
+    // Next 2 chars: version 02
+    expect(hex.substring(8, 10)).toBe("02");
   });
 
   test("encoded config has correct length", async ({ page }) => {
@@ -2271,14 +2276,14 @@ test.describe("binary format correctness", () => {
         accel: { sda: 0, scl: 1, int_pin: 11, x_cc: 1, y_cc: 2, tap_note: 48, tap_vel: 127, dead_zone: 13, smoothing: 25 },
       };
       const hex = encodeConfig(cfg);
-      // Expected: magic(4) + version(1) + channel(1) + 
-      //   btnCount(1) + 1*3(3) +
-      //   touchCount(1) + 1*3(3) +
-      //   potCount(1) + 1*2(2) +
-      //   ldr(3) +
+      // Postcard format: magic(4) + version(1) + channel(1) +
+      //   btnCount(1) + buttons[8]*3(24) +
+      //   touchCount(1) + touch_pads[8]*3(24) +
+      //   potCount(1) + pots[4]*2(8) +
+      //   ldr(2) + ldr_enabled(1) +
       //   accel(10)
-      // = 4+1+1 + 1+3 + 1+3 + 1+2 + 3 + 10 = 30 bytes = 60 hex chars
-      return { hexLen: hex.length, expectedBytes: 30 };
+      // = 5 + 1 + 1+24 + 1+24 + 1+8 + 2+1 + 10 = 78 bytes = 156 hex chars
+      return { hexLen: hex.length, expectedBytes: 78 };
     });
     expect(result.hexLen).toBe(result.expectedBytes * 2);
   });
@@ -3275,11 +3280,20 @@ test.describe("connect error scenarios", () => {
           if (text === "VERSION") {
             response = "unknown_device 1.0\n";
           } else if (text === "GET") {
-            // Return valid config so it doesn't error
+            // Return valid config in postcard format (v2)
             const buf = [];
             const MAGIC = 0x4D494449;
             buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-            buf.push(1, 0, 0, 0, 0, 0, 0x1c, 0x4a, 0, 0, 1, 11, 1, 2, 48, 127, 13, 25);
+            buf.push(2, 0); // version 2, channel 0
+            buf.push(0); // 0 buttons
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+            buf.push(0); // 0 touch pads
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+            buf.push(0); // 0 pots
+            for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+            buf.push(0x1c, 0x4a); // ldr: pin 28, cc 74
+            buf.push(0); // ldr_enabled: false
+            buf.push(0, 0, 1, 11, 1, 2, 48, 127, 13, 25); // accel
             response = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('') + "\n";
           }
           setTimeout(() => { readBuf += response; }, 5);
@@ -3373,7 +3387,16 @@ test.describe("Web Serial disconnect event", () => {
             const buf = [];
             const MAGIC = 0x4D494449;
             buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-            buf.push(1, 0, 0, 0, 0, 0, 0x1c, 0x4a, 0, 0, 1, 11, 1, 2, 48, 127, 13, 25);
+            buf.push(2, 0); // version 2, channel 0
+            buf.push(0); // 0 buttons
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+            buf.push(0); // 0 touch pads
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+            buf.push(0); // 0 pots
+            for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+            buf.push(0x1c, 0x4a); // ldr: pin 28, cc 74
+            buf.push(0); // ldr_enabled: false
+            buf.push(0, 0, 1, 11, 1, 2, 48, 127, 13, 25); // accel
             response = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('') + "\n";
           }
           setTimeout(() => { readBuf += response; }, 5);
@@ -3633,11 +3656,15 @@ test.describe("concurrent operations and robustness", () => {
         const buf = [];
         const MAGIC = 0x4D494449;
         buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-        buf.push(1, 9); // version 1, channel 9
+        buf.push(2, 9); // version 2, channel 9
         buf.push(0); // 0 buttons
-        buf.push(0); // 0 touch
+        for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+        buf.push(0); // 0 touch pads
+        for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
         buf.push(0); // 0 pots
-        buf.push(0, 28, 74); // LDR
+        for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+        buf.push(28, 74); // ldr: pin 28, cc 74
+        buf.push(0); // ldr_enabled: false
         buf.push(0, 0, 1, 11, 1, 2, 48, 127, 13, 25); // accel
         return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
       })();
@@ -3831,7 +3858,16 @@ test.describe("additional bug hunting round 3", () => {
             const buf = [];
             const MAGIC = 0x4D494449;
             buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-            buf.push(1, 0, 0, 0, 0, 0, 0x1c, 0x4a, 0, 0, 1, 11, 1, 2, 48, 127, 13, 25);
+            buf.push(2, 0); // version 2, channel 0
+            buf.push(0); // 0 buttons
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+            buf.push(0); // 0 touch pads
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+            buf.push(0); // 0 pots
+            for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+            buf.push(0x1c, 0x4a); // ldr: pin 28, cc 74
+            buf.push(0); // ldr_enabled: false
+            buf.push(0, 0, 1, 11, 1, 2, 48, 127, 13, 25); // accel
             setTimeout(() => {
               readBuf += Array.from(buf, b => b.toString(16).padStart(2, '0')).join('') + "\n";
             }, 5);
@@ -3955,7 +3991,7 @@ test.describe("additional bug hunting round 3", () => {
   test("decodeConfig returns null for wrong magic number", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      return decodeConfig("00000000010000000000001c4a0000010b01023080190d19");
+      return decodeConfig("00000000" + "02" + "00".repeat(73));
     });
     expect(result).toBeNull();
   });
@@ -3963,15 +3999,15 @@ test.describe("additional bug hunting round 3", () => {
   test("decodeConfig returns null for wrong version", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      // Correct magic but version 2
-      return decodeConfig("4944494d020000000000001c4a0000010b01023080190d19");
+      // Correct magic but version 3 (current is 2)
+      return decodeConfig("4944494d03" + "00".repeat(73));
     });
     expect(result).toBeNull();
   });
 
   test("decodeConfig returns null for hex string shorter than 6 bytes", async ({ page }) => {
     await page.goto(FILE_URL);
-    const result = await page.evaluate(() => decodeConfig("4944494d01"));
+    const result = await page.evaluate(() => decodeConfig("4944494d02"));
     expect(result).toBeNull();
   });
 
@@ -3996,7 +4032,16 @@ test.describe("additional bug hunting round 3", () => {
             const buf = [];
             const MAGIC = 0x4D494449;
             buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-            buf.push(1, 0, 0, 0, 0, 0, 0x1c, 0x4a, 0, 0, 1, 11, 1, 2, 48, 127, 13, 25);
+            buf.push(2, 0); // version 2, channel 0
+            buf.push(0); // 0 buttons
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+            buf.push(0); // 0 touch pads
+            for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+            buf.push(0); // 0 pots
+            for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+            buf.push(0x1c, 0x4a); // ldr: pin 28, cc 74
+            buf.push(0); // ldr_enabled: false
+            buf.push(0, 0, 1, 11, 1, 2, 48, 127, 13, 25); // accel
             setTimeout(() => {
               readBuf += Array.from(buf, b => b.toString(16).padStart(2, '0')).join('') + "\n";
             }, 5);
@@ -4399,47 +4444,55 @@ test.describe("final bug hunting round 4", () => {
     await expect(page.locator("#configPanel")).toBeVisible();
   });
 
-  test("decodeConfig truncated right before accel section returns defaults", async ({ page }) => {
+  test("decodeConfig truncated right before accel section returns null", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
-      // Magic + version + channel + 0 buttons + 0 touch + 0 pots + LDR (3 bytes)
-      // But no accel data
+      // Postcard format: build everything except accel (68 bytes instead of 78)
       const buf = [];
       const MAGIC = 0x4D494449;
       buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-      buf.push(1); // version
+      buf.push(2); // version
       buf.push(0); // channel
       buf.push(0); // 0 buttons
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
       buf.push(0); // 0 touch
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
       buf.push(0); // 0 pots
-      buf.push(1, 28, 74); // LDR: enabled, pin 28, cc 74
+      for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+      buf.push(28, 74); // ldr: pin 28, cc 74
+      buf.push(1); // ldr_enabled: true
       // No accel data - truncated
       const hex = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
       const decoded = decodeConfig(hex);
       return decoded;
     });
-    // Should return config with default accel values
-    expect(result).not.toBeNull();
-    expect(result.ldr_enabled).toBe(true);
-    expect(result.accel_enabled).toBe(false); // Default
-    expect(result.accel.tap_vel).toBe(127); // Default
+    // Postcard format requires full 78-byte payload; truncated returns null
+    expect(result).toBeNull();
   });
 
-  test("decodeConfig truncated partway through accel returns defaults", async ({ page }) => {
+  test("decodeConfig truncated partway through accel returns null", async ({ page }) => {
     await page.goto(FILE_URL);
     const result = await page.evaluate(() => {
       const buf = [];
       const MAGIC = 0x4D494449;
       buf.push(MAGIC & 0xFF, (MAGIC >> 8) & 0xFF, (MAGIC >> 16) & 0xFF, (MAGIC >> 24) & 0xFF);
-      buf.push(1, 0, 0, 0, 0, 1, 28, 74); // magic, ver, ch, btns, touch, pots, ldr
+      buf.push(2); // version
+      buf.push(0); // channel
+      buf.push(0); // 0 buttons
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 button slots
+      buf.push(0); // 0 touch
+      for (let i = 0; i < 8 * 3; i++) buf.push(0); // 8 touch slots
+      buf.push(0); // 0 pots
+      for (let i = 0; i < 4 * 2; i++) buf.push(0); // 4 pot slots
+      buf.push(28, 74); // ldr: pin 28, cc 74
+      buf.push(1); // ldr_enabled: true
       buf.push(1, 4, 5); // accel: enabled, sda=4, scl=5, but missing remaining 7 fields
       const hex = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
       const decoded = decodeConfig(hex);
       return decoded;
     });
-    // i + 9 >= b.length check fails, so accel defaults are returned
-    expect(result).not.toBeNull();
-    expect(result.accel_enabled).toBe(false); // Default (didn't parse)
+    // Postcard format requires full 78-byte payload; truncated returns null
+    expect(result).toBeNull();
   });
 
   test("BUG: encodeConfig doesn't clamp negative pin values", async ({ page }) => {

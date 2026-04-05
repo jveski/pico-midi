@@ -20,6 +20,9 @@ cortex-m-rt = "0.7"
 static_cell = "2"
 portable-atomic = { version = "1", features = ["unsafe-assume-single-core"] }
 
+serde = { version = "1", default-features = false, features = ["derive"] }
+postcard = "1"
+
 defmt = "1"
 defmt-rtt = "1"
 panic-probe = { version = "1", features = ["print-defmt"] }
