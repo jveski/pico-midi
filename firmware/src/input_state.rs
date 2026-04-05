@@ -1,9 +1,3 @@
-//! Shared input state for real-time monitoring.
-//!
-//! The MIDI task writes the latest input values using atomic stores.
-//! The serial task reads a snapshot for streaming to the host.
-//! All fields are atomic so no locks are needed on single-core RP2040/RP2350.
-
 use portable_atomic::{AtomicBool, AtomicU8, Ordering};
 
 use crate::config;
@@ -31,20 +25,30 @@ impl InputState {
     pub const fn new() -> Self {
         Self {
             buttons: [
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
             ],
             touch_pads: [
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
-                AtomicBool::new(false), AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
+                AtomicBool::new(false),
             ],
             pots: [
-                AtomicU8::new(0), AtomicU8::new(0),
-                AtomicU8::new(0), AtomicU8::new(0),
+                AtomicU8::new(0),
+                AtomicU8::new(0),
+                AtomicU8::new(0),
+                AtomicU8::new(0),
             ],
             ldr: AtomicU8::new(0),
             accel_x: AtomicU8::new(64),
@@ -52,8 +56,6 @@ impl InputState {
             accel_tap: AtomicBool::new(false),
         }
     }
-
-    // ---- Writers (called from MIDI task) ----
 
     pub fn set_button(&self, index: u8, pressed: bool) {
         if (index as usize) < config::MAX_BUTTONS {
@@ -88,8 +90,6 @@ impl InputState {
     pub fn set_accel_tap(&self) {
         self.accel_tap.store(true, Ordering::Relaxed);
     }
-
-    // ---- Reader (called from serial task) ----
 
     /// Take a snapshot of the current input state.
     /// The accel_tap flag is cleared atomically on read.

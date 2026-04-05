@@ -1,13 +1,3 @@
-//! Serial protocol for configuration over USB CDC-ACM.
-//!
-//! Binary protocol using postcard + COBS framing (0x00 sentinel).
-//! Each frame is a COBS-encoded postcard message terminated by 0x00.
-//!
-//! Requests (host -> device):  postcard-serialized `Request` enum
-//! Responses (device -> host): postcard-serialized `Response` enum
-//!
-//! Monitor snapshots are sent as `Response::Monitor` at ~50ms intervals.
-
 use crate::config::{self, Config, SECTOR_SIZE};
 
 use embassy_rp::flash::{self, Flash};
@@ -50,7 +40,6 @@ pub enum Response<'a> {
     Monitor(MonitorSnapshot),
 }
 
-/// Snapshot of all live input values for the monitor display.
 #[derive(Serialize)]
 pub struct MonitorSnapshot {
     pub buttons: [bool; config::MAX_BUTTONS],
@@ -62,7 +51,6 @@ pub struct MonitorSnapshot {
     pub accel_tap: bool,
 }
 
-/// What the caller should do after handling a command.
 #[derive(PartialEq)]
 pub enum Action {
     None,
@@ -70,15 +58,7 @@ pub enum Action {
     Reboot,
 }
 
-/// Decode a COBS frame and process the request. Writes the COBS-encoded
-/// response into `resp`. Returns `(response_length, action)`.
-///
-/// `frame` must be the raw bytes *before* the 0x00 sentinel (already stripped).
-pub fn handle_frame(
-    frame: &mut [u8],
-    config: &mut Config,
-    resp: &mut [u8],
-) -> (usize, Action) {
+pub fn handle_frame(frame: &mut [u8], config: &mut Config, resp: &mut [u8]) -> (usize, Action) {
     let request = match postcard::from_bytes_cobs::<Request>(frame) {
         Ok(req) => req,
         Err(_) => {
@@ -87,34 +67,24 @@ pub fn handle_frame(
     };
 
     match request {
-        Request::Ping => {
-            encode_response(&Response::Pong, resp, Action::None)
-        }
+        Request::Ping => encode_response(&Response::Pong, resp, Action::None),
         Request::Version => {
             encode_response(&Response::Version("midictrl 0.1.0"), resp, Action::None)
         }
-        Request::GetConfig => {
-            encode_response(&Response::Config(*config), resp, Action::None)
-        }
+        Request::GetConfig => encode_response(&Response::Config(*config), resp, Action::None),
         Request::PutConfig(new_config) => {
             *config = new_config;
             encode_response(&Response::Ok, resp, Action::None)
         }
-        Request::Save => {
-            encode_response(&Response::Ok, resp, Action::Save)
-        }
+        Request::Save => encode_response(&Response::Ok, resp, Action::Save),
         Request::Reset => {
             *config = Config::default();
             encode_response(&Response::Ok, resp, Action::None)
         }
-        Request::Reboot => {
-            encode_response(&Response::Ok, resp, Action::Reboot)
-        }
+        Request::Reboot => encode_response(&Response::Ok, resp, Action::Reboot),
     }
 }
 
-/// Encode a response as a COBS frame with trailing 0x00 sentinel.
-/// Returns `(length, action)`.
 fn encode_response(response: &Response, buf: &mut [u8], action: Action) -> (usize, Action) {
     match postcard::to_slice_cobs(response, buf) {
         Ok(used) => {
@@ -133,8 +103,6 @@ fn encode_response(response: &Response, buf: &mut [u8], action: Action) -> (usiz
     }
 }
 
-/// Encode a monitor snapshot as a COBS-framed Response::Monitor.
-/// Returns the number of bytes written (including the trailing 0x00).
 pub fn encode_monitor(snapshot: MonitorSnapshot, buf: &mut [u8]) -> usize {
     let resp = Response::Monitor(snapshot);
     match postcard::to_slice_cobs(&resp, buf) {
@@ -143,7 +111,6 @@ pub fn encode_monitor(snapshot: MonitorSnapshot, buf: &mut [u8]) -> usize {
     }
 }
 
-/// Encode an error response as a COBS frame. Returns bytes written.
 pub fn encode_error(msg: &str, buf: &mut [u8]) -> usize {
     match postcard::to_slice_cobs(&Response::Error(msg), buf) {
         Ok(used) => used.len(),
@@ -151,7 +118,6 @@ pub fn encode_error(msg: &str, buf: &mut [u8]) -> usize {
     }
 }
 
-/// Save config to flash. This erases and writes the last sector.
 pub fn save_config(
     flash: &mut Flash<'static, FLASH, flash::Blocking, { config::FLASH_SIZE }>,
     config: &Config,
@@ -163,7 +129,10 @@ pub fn save_config(
     }
 
     let offset = config::CONFIG_OFFSET;
-    if flash.blocking_erase(offset, offset + SECTOR_SIZE as u32).is_err() {
+    if flash
+        .blocking_erase(offset, offset + SECTOR_SIZE as u32)
+        .is_err()
+    {
         defmt::error!("flash erase failed");
         return false;
     }
@@ -175,12 +144,14 @@ pub fn save_config(
     true
 }
 
-/// Load config from flash. Returns None if flash is blank or corrupt.
 pub fn load_config(
     flash: &mut Flash<'static, FLASH, flash::Blocking, { config::FLASH_SIZE }>,
 ) -> Option<Config> {
     let mut buf = [0u8; SECTOR_SIZE];
-    if flash.blocking_read(config::CONFIG_OFFSET, &mut buf).is_err() {
+    if flash
+        .blocking_read(config::CONFIG_OFFSET, &mut buf)
+        .is_err()
+    {
         defmt::warn!("flash read failed");
         return None;
     }

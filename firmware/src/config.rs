@@ -1,53 +1,37 @@
-//! Flash-stored device configuration.
-//!
-//! Config is stored in the last 4K sector of flash. The layout is:
-//! - 4 bytes: magic (0x4D494449 = "MIDI")
-//! - 1 byte: version
-//! - N bytes: postcard-encoded config fields
-//! - Remaining: 0xFF (erased)
-
 use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
 pub const VERSION: u8 = 3;
-
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
 pub const MAX_POTS: usize = 4;
+pub const SECTOR_SIZE: usize = 4096;
+pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
+const HEADER_SIZE: usize = 5;
 
 #[cfg(feature = "rp2040")]
 pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
 #[cfg(feature = "rp2350")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
-pub const SECTOR_SIZE: usize = 4096;
-pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
-
-/// Header: 4-byte magic + 1-byte version.
-const HEADER_SIZE: usize = 5;
-
-/// A single button definition: MIDI note, velocity.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct ButtonDef {
     pub note: u8,
     pub velocity: u8,
 }
 
-/// A single touch pad definition: MIDI note, velocity.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct TouchPadDef {
     pub note: u8,
     pub velocity: u8,
 }
 
-/// A potentiometer/LDR definition: CC number.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct PotDef {
     pub cc: u8,
 }
 
-/// Accelerometer configuration.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct AccelConfig {
     pub enabled: bool,
@@ -61,7 +45,6 @@ pub struct AccelConfig {
     pub smoothing_pct: u8,
 }
 
-/// Complete device configuration stored in flash.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct Config {
     pub midi_channel: u8,
@@ -82,25 +65,73 @@ impl Default for Config {
             midi_channel: 0,
             num_buttons: 4,
             buttons: [
-                ButtonDef { note: 60, velocity: 100 },
-                ButtonDef { note: 62, velocity: 100 },
-                ButtonDef { note: 64, velocity: 100 },
-                ButtonDef { note: 65, velocity: 100 },
-                ButtonDef { note: 0, velocity: 0 },
-                ButtonDef { note: 0, velocity: 0 },
-                ButtonDef { note: 0, velocity: 0 },
-                ButtonDef { note: 0, velocity: 0 },
+                ButtonDef {
+                    note: 60,
+                    velocity: 100,
+                },
+                ButtonDef {
+                    note: 62,
+                    velocity: 100,
+                },
+                ButtonDef {
+                    note: 64,
+                    velocity: 100,
+                },
+                ButtonDef {
+                    note: 65,
+                    velocity: 100,
+                },
+                ButtonDef {
+                    note: 0,
+                    velocity: 0,
+                },
+                ButtonDef {
+                    note: 0,
+                    velocity: 0,
+                },
+                ButtonDef {
+                    note: 0,
+                    velocity: 0,
+                },
+                ButtonDef {
+                    note: 0,
+                    velocity: 0,
+                },
             ],
             num_touch_pads: 5,
             touch_pads: [
-                TouchPadDef { note: 72, velocity: 100 },
-                TouchPadDef { note: 74, velocity: 100 },
-                TouchPadDef { note: 76, velocity: 100 },
-                TouchPadDef { note: 77, velocity: 100 },
-                TouchPadDef { note: 79, velocity: 100 },
-                TouchPadDef { note: 0, velocity: 0 },
-                TouchPadDef { note: 0, velocity: 0 },
-                TouchPadDef { note: 0, velocity: 0 },
+                TouchPadDef {
+                    note: 72,
+                    velocity: 100,
+                },
+                TouchPadDef {
+                    note: 74,
+                    velocity: 100,
+                },
+                TouchPadDef {
+                    note: 76,
+                    velocity: 100,
+                },
+                TouchPadDef {
+                    note: 77,
+                    velocity: 100,
+                },
+                TouchPadDef {
+                    note: 79,
+                    velocity: 100,
+                },
+                TouchPadDef {
+                    note: 0,
+                    velocity: 0,
+                },
+                TouchPadDef {
+                    note: 0,
+                    velocity: 0,
+                },
+                TouchPadDef {
+                    note: 0,
+                    velocity: 0,
+                },
             ],
             num_pots: 2,
             pots: [
@@ -125,8 +156,6 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Serialize config into `buf` with a magic+version header.
-    /// Returns the number of bytes written, or 0 on failure.
     pub fn encode(&self, buf: &mut [u8]) -> usize {
         if buf.len() < HEADER_SIZE {
             return 0;
@@ -140,7 +169,6 @@ impl Config {
         }
     }
 
-    /// Deserialize config from `buf`, validating the magic+version header.
     pub fn decode(buf: &[u8]) -> Option<Self> {
         if buf.len() < HEADER_SIZE + 1 {
             return None;
@@ -154,5 +182,4 @@ impl Config {
         }
         postcard::from_bytes(&buf[HEADER_SIZE..]).ok()
     }
-
 }

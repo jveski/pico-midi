@@ -1,12 +1,8 @@
-//! Hardware input drivers: buttons, analog (pots/LDR), touch pads, accelerometer.
-
 use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::I2C0;
 use embassy_time::{Instant, Timer};
-
-// ---- Buttons (digital GPIO with pull-up, active low, debounced) ----
 
 const DEBOUNCE_MS: u64 = 10;
 
@@ -25,7 +21,11 @@ impl<const N: usize> Buttons<N> {
     pub fn new(pins: [Input<'static>; N]) -> Self {
         let prev = [false; N];
         let stable_since = [Instant::now(); N];
-        Self { pins, prev, stable_since }
+        Self {
+            pins,
+            prev,
+            stable_since,
+        }
     }
 
     /// Check all buttons. Returns up to N state-change events.
@@ -39,14 +39,15 @@ impl<const N: usize> Buttons<N> {
             {
                 self.prev[i] = pressed;
                 self.stable_since[i] = now;
-                events[i] = Some(ButtonEvent { index: i as u8, pressed });
+                events[i] = Some(ButtonEvent {
+                    index: i as u8,
+                    pressed,
+                });
             }
         }
         events
     }
 }
-
-// ---- Smoothed Analog (pots, LDR) ----
 
 pub struct SmoothedAnalog<'d> {
     channel: Channel<'d>,
@@ -65,12 +66,7 @@ impl<'d> SmoothedAnalog<'d> {
         }
     }
 
-    /// Read the ADC, update smoothing, return Some(cc_value) if changed by >= threshold.
-    pub async fn poll(
-        &mut self,
-        adc: &mut Adc<'static, adc::Async>,
-        threshold: u8,
-    ) -> Option<u8> {
+    pub async fn poll(&mut self, adc: &mut Adc<'static, adc::Async>, threshold: u8) -> Option<u8> {
         let raw = adc.read(&mut self.channel).await.unwrap_or(0);
         self.smoothed = self.alpha * raw as f32 + (1.0 - self.alpha) * self.smoothed;
 
@@ -98,8 +94,6 @@ impl<'d> SmoothedAnalog<'d> {
         self.last_cc.unwrap_or(0)
     }
 }
-
-// ---- Touch Pads (charge/discharge capacitive sensing) ----
 
 /// Simple capacitive touch using GPIO charge/discharge timing.
 /// Charge the pin high, then switch to input with pull-down and count
@@ -174,14 +168,15 @@ impl<const N: usize> TouchPads<N> {
 
             if touched != self.pads[i].was_touched {
                 self.pads[i].was_touched = touched;
-                events[i] = Some(TouchEvent { index: i as u8, pressed: touched });
+                events[i] = Some(TouchEvent {
+                    index: i as u8,
+                    pressed: touched,
+                });
             }
         }
         events
     }
 }
-
-// ---- Accelerometer (LIS3DH over I2C) ----
 
 const LIS3DH_ADDR: u8 = 0x19;
 const REG_CTRL1: u8 = 0x20;
@@ -249,28 +244,44 @@ impl<'d> Accelerometer<'d> {
     }
 
     fn axis_to_cc(&self, value: f32) -> u8 {
-        let v = if value.abs() < self.dead_zone { 0.0 } else { value };
+        let v = if value.abs() < self.dead_zone {
+            0.0
+        } else {
+            value
+        };
         let normalized = (v / 9.81).clamp(-1.0, 1.0);
         ((normalized + 1.0) * 63.5) as u8
     }
 
-    /// Poll the accelerometer at 50Hz. Returns CC changes and tap events.
     pub async fn poll(&mut self) -> AccelReading {
         let now = Instant::now();
         if now.duration_since(self.last_poll).as_millis() < 20 || !self.available {
-            return AccelReading { x_cc: None, y_cc: None, tapped: false };
+            return AccelReading {
+                x_cc: None,
+                y_cc: None,
+                tapped: false,
+            };
         }
         self.last_poll = now;
 
         // Read 6 bytes: X, Y, Z as 16-bit signed LE (auto-increment via 0x80 bit)
         let mut buf = [0u8; 6];
-        if self.i2c.write_read_async(LIS3DH_ADDR, [REG_OUT_X_L | 0x80], &mut buf).await.is_err() {
+        if self
+            .i2c
+            .write_read_async(LIS3DH_ADDR, [REG_OUT_X_L | 0x80], &mut buf)
+            .await
+            .is_err()
+        {
             self.error_count += 1;
             if self.error_count > 10 {
                 self.available = false;
                 defmt::error!("LIS3DH disabled after repeated I2C failures");
             }
-            return AccelReading { x_cc: None, y_cc: None, tapped: false };
+            return AccelReading {
+                x_cc: None,
+                y_cc: None,
+                tapped: false,
+            };
         }
         self.error_count = 0;
 
@@ -302,23 +313,29 @@ impl<'d> Accelerometer<'d> {
             None
         };
 
-        // Check tap
         let mut click_src = [0u8; 1];
-        let tapped = if self.i2c.write_read_async(LIS3DH_ADDR, [REG_CLICK_SRC], &mut click_src).await.is_ok() {
+        let tapped = if self
+            .i2c
+            .write_read_async(LIS3DH_ADDR, [REG_CLICK_SRC], &mut click_src)
+            .await
+            .is_ok()
+        {
             click_src[0] & 0x10 != 0
         } else {
             false
         };
 
-        AccelReading { x_cc: x_changed, y_cc: y_changed, tapped }
+        AccelReading {
+            x_cc: x_changed,
+            y_cc: y_changed,
+            tapped,
+        }
     }
 
-    /// Return the current smoothed X-axis CC value (0-127).
     pub fn current_x_cc(&self) -> u8 {
         self.last_x_cc
     }
 
-    /// Return the current smoothed Y-axis CC value (0-127).
     pub fn current_y_cc(&self) -> u8 {
         self.last_y_cc
     }
