@@ -14,6 +14,7 @@ mod serial;
 
 use embassy_executor::Spawner;
 use embassy_futures::join::join3;
+use embassy_futures::select::{select, Either};
 use embassy_rp::adc;
 use embassy_rp::bind_interrupts;
 use embassy_rp::flash;
@@ -74,6 +75,27 @@ fn control_change(channel: u8, cc: u8, value: u8) -> [u8; 4] {
         cc & 0x7F,
         value & 0x7F,
     ]
+}
+
+/// Send a MIDI packet with a timeout to avoid blocking input polling
+/// when no MIDI host is actively reading from the device.
+async fn send_midi(midi: &mut MidiClass<'static, Driver<'static, USB>>, pkt: &[u8; 4]) {
+    const MIDI_TIMEOUT: Duration = Duration::from_millis(5);
+    let _ = select(midi.write_packet(pkt), Timer::after(MIDI_TIMEOUT)).await;
+}
+
+/// Write a byte slice over CDC-ACM serial in 64-byte chunks.
+/// Returns `true` if the entire payload was sent successfully.
+async fn send_serial(serial: &mut CdcAcmClass<'static, Driver<'static, USB>>, data: &[u8]) -> bool {
+    let mut sent = 0;
+    while sent < data.len() {
+        let end = (sent + 64).min(data.len());
+        if serial.write_packet(&data[sent..end]).await.is_err() {
+            return false;
+        }
+        sent = end;
+    }
+    true
 }
 
 bind_interrupts!(struct Irqs {
@@ -167,12 +189,14 @@ async fn main(_spawner: Spawner) {
         let mut touch = input::TouchPads::new(&mut touch_pins);
 
         // --- Pots: GP26 (ADC0), GP27 (ADC1) ---
-        let mut pot0 = input::SmoothedAnalog::new(
-            adc::Channel::new_pin(p.PIN_26, Pull::None), 0.2,
-        );
-        let mut pot1 = input::SmoothedAnalog::new(
-            adc::Channel::new_pin(p.PIN_27, Pull::None), 0.2,
-        );
+        let mut pots = [
+            input::SmoothedAnalog::new(
+                adc::Channel::new_pin(p.PIN_26, Pull::None), 0.2,
+            ),
+            input::SmoothedAnalog::new(
+                adc::Channel::new_pin(p.PIN_27, Pull::None), 0.2,
+            ),
+        ];
 
         // --- LDR: GP28 (ADC2) ---
         let mut ldr = input::SmoothedAnalog::new(
@@ -188,10 +212,6 @@ async fn main(_spawner: Spawner) {
         let mut last_led_toggle = Instant::now();
         let mut led_on = false;
 
-        // Timeout for MIDI writes: prevents blocking input polling when
-        // no MIDI host is actively reading from the device.
-        let midi_timeout = Duration::from_millis(5);
-
         loop {
             // ~1ms poll interval
             Timer::after(Duration::from_millis(1)).await;
@@ -206,10 +226,7 @@ async fn main(_spawner: Spawner) {
                     } else {
                         note_off(midi_cfg.midi_channel, def.note)
                     };
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&pkt),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &pkt).await;
                 }
                 INPUT_STATE.set_button(evt.index, evt.pressed);
             }
@@ -224,44 +241,25 @@ async fn main(_spawner: Spawner) {
                     } else {
                         note_off(midi_cfg.midi_channel, def.note)
                     };
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&pkt),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &pkt).await;
                 }
                 INPUT_STATE.set_touch(evt.index, evt.pressed);
             }
 
             // Poll pots
-            if midi_cfg.num_pots >= 1 {
-                if let Some(v) = pot0.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[0].cc, v);
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&pkt),
-                        Timer::after(midi_timeout),
-                    ).await;
+            for i in 0..(midi_cfg.num_pots as usize).min(pots.len()) {
+                if let Some(v) = pots[i].poll(&mut adc_inst, 2).await {
+                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[i].cc, v);
+                    send_midi(&mut midi_class, &pkt).await;
                 }
-                INPUT_STATE.set_pot(0, pot0.current_cc());
-            }
-            if midi_cfg.num_pots >= 2 {
-                if let Some(v) = pot1.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[1].cc, v);
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&pkt),
-                        Timer::after(midi_timeout),
-                    ).await;
-                }
-                INPUT_STATE.set_pot(1, pot1.current_cc());
+                INPUT_STATE.set_pot(i as u8, pots[i].current_cc());
             }
 
             // Poll LDR
             if midi_cfg.ldr_enabled {
                 if let Some(v) = ldr.poll(&mut adc_inst, 2).await {
                     let pkt = control_change(midi_cfg.midi_channel, midi_cfg.ldr.cc, v);
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&pkt),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &pkt).await;
                 }
                 INPUT_STATE.set_ldr(ldr.current_cc());
             }
@@ -270,26 +268,14 @@ async fn main(_spawner: Spawner) {
             if midi_cfg.accel.enabled && accel.available {
                 let r = accel.poll().await;
                 if let Some(x) = r.x_cc {
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&control_change(midi_cfg.midi_channel, midi_cfg.accel.x_cc, x)),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &control_change(midi_cfg.midi_channel, midi_cfg.accel.x_cc, x)).await;
                 }
                 if let Some(y) = r.y_cc {
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&control_change(midi_cfg.midi_channel, midi_cfg.accel.y_cc, y)),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &control_change(midi_cfg.midi_channel, midi_cfg.accel.y_cc, y)).await;
                 }
                 if r.tapped {
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&note_on(midi_cfg.midi_channel, midi_cfg.accel.tap_note, midi_cfg.accel.tap_velocity)),
-                        Timer::after(midi_timeout),
-                    ).await;
-                    let _ = embassy_futures::select::select(
-                        midi_class.write_packet(&note_off(midi_cfg.midi_channel, midi_cfg.accel.tap_note)),
-                        Timer::after(midi_timeout),
-                    ).await;
+                    send_midi(&mut midi_class, &note_on(midi_cfg.midi_channel, midi_cfg.accel.tap_note, midi_cfg.accel.tap_velocity)).await;
+                    send_midi(&mut midi_class, &note_off(midi_cfg.midi_channel, midi_cfg.accel.tap_note)).await;
                     INPUT_STATE.set_accel_tap();
                 }
                 INPUT_STATE.set_accel_x(accel.current_x_cc());
@@ -319,13 +305,13 @@ async fn main(_spawner: Spawner) {
                 // Use select to either read a packet or timeout for next monitor send.
                 let mut buf = [0u8; 64];
 
-                let read_or_tick = embassy_futures::select::select(
+                let read_or_tick = select(
                     serial_class.read_packet(&mut buf),
                     Timer::after(Duration::from_millis(10)),
                 ).await;
 
                 match read_or_tick {
-                    embassy_futures::select::Either::First(result) => {
+                    Either::First(result) => {
                         match result {
                             Ok(n) => {
                                 for &b in &buf[..n] {
@@ -338,22 +324,12 @@ async fn main(_spawner: Spawner) {
                                             // For SAVE, perform flash write before sending response
                                             if action == serial::Action::Save {
                                                 if serial::save_config(&mut flash, &cfg) {
-                                                    let ok = b"OK saved\n";
-                                                    let _ = serial_class.write_packet(ok).await;
+                                                    let _ = serial_class.write_packet(b"OK saved\n").await;
                                                 } else {
-                                                    let err = b"ERR save failed\n";
-                                                    let _ = serial_class.write_packet(err).await;
+                                                    let _ = serial_class.write_packet(b"ERR save failed\n").await;
                                                 }
                                             } else {
-                                                // Send response in 64-byte chunks
-                                                let mut sent = 0;
-                                                while sent < resp_len {
-                                                    let end = (sent + 64).min(resp_len);
-                                                    if serial_class.write_packet(&resp[sent..end]).await.is_err() {
-                                                        break;
-                                                    }
-                                                    sent = end;
-                                                }
+                                                send_serial(&mut serial_class, &resp[..resp_len]).await;
                                             }
                                             if action == serial::Action::Reboot {
                                                 // Allow USB to flush before reset
@@ -374,7 +350,7 @@ async fn main(_spawner: Spawner) {
                             }
                         }
                     }
-                    embassy_futures::select::Either::Second(()) => {}
+                    Either::Second(()) => {}
                 }
 
                 // Always send monitor snapshot at ~50ms intervals
@@ -383,14 +359,7 @@ async fn main(_spawner: Spawner) {
                     let mut resp = [0u8; 256];
                     let n = INPUT_STATE.format_snapshot(&mut resp);
                     if n > 0 {
-                        let mut sent = 0;
-                        while sent < n {
-                            let end = (sent + 64).min(n);
-                            if serial_class.write_packet(&resp[sent..end]).await.is_err() {
-                                break;
-                            }
-                            sent = end;
-                        }
+                        send_serial(&mut serial_class, &resp[..n]).await;
                     }
                 }
             }
