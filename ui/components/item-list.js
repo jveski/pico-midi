@@ -1,0 +1,115 @@
+import { noteName, num } from "./helpers.js";
+
+export class ItemList extends HTMLElement {
+  connectedCallback() {
+    if (this._init) return;
+    this._init = true;
+
+    this._type = this.dataset.type;         // "button" | "touch" | "pot"
+    this._max = parseInt(this.dataset.max, 10);
+    this._listId = this.dataset.listId;     // e.g. "buttonList"
+    this._countId = this.dataset.countId;   // e.g. "btnCount"
+    this._addId = this.dataset.addId;       // e.g. "addButton"
+    this._addLabel = this.dataset.addLabel; // e.g. "+ Add Button"
+    this._fields = this._type === "pot" ? ["pin", "cc"] : ["pin", "note", "velocity"];
+
+    this.innerHTML =
+      `<div id="${this._listId}"></div>` +
+      '<div class="list-actions">' +
+        `<button class="btn btn-sm" id="${this._addId}">${this._addLabel}</button>` +
+      '</div>';
+
+    this.querySelector(`#${this._addId}`).addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("item-add", { bubbles: true }));
+    });
+  }
+
+  render(items) {
+    const container = this.querySelector(`#${this._listId}`);
+    container.innerHTML = "";
+    this._updateBadge(items.length);
+
+    const isPot = this._type === "pot";
+    const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
+
+    items.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+
+      if (isPot) {
+        row.innerHTML =
+          `<span class="index">#${i + 1}</span>` +
+          `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
+          `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
+          `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="${this._type}" data-idx="${i}" data-field="pin">` +
+          `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">` +
+          `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
+      } else {
+        row.innerHTML =
+          `<span class="index">#${i + 1}</span>` +
+          `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
+          `<label>Pin</label><input type="number" min="0" max="29" value="${item.pin}" data-type="${this._type}" data-idx="${i}" data-field="pin">` +
+          `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
+          `<span class="note-hint">${noteName(item.note)}</span>` +
+          `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
+          `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
+      }
+      container.appendChild(row);
+    });
+
+    // Note hint live updates
+    container.querySelectorAll('input[data-field="note"]').forEach(inp => {
+      inp.addEventListener("input", () => {
+        const hint = inp.parentElement.querySelector(".note-hint");
+        if (hint) hint.textContent = noteName(parseInt(inp.value, 10) || 0);
+      });
+    });
+
+    // Remove handlers
+    container.querySelectorAll(".btn-remove").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        this.dispatchEvent(new CustomEvent("item-remove", { bubbles: true, detail: { idx } }));
+      });
+    });
+
+    this.querySelector(`#${this._addId}`).disabled = items.length >= this._max;
+  }
+
+  syncFromDOM(items) {
+    const container = this.querySelector(`#${this._listId}`);
+    container.querySelectorAll(".item-row").forEach((row, i) => {
+      if (i < items.length) {
+        for (const f of this._fields)
+          items[i][f] = num(row.querySelector(`[data-field="${f}"]`).value, items[i][f]);
+      }
+    });
+  }
+
+  readFromDOM() {
+    const items = [];
+    const isPot = this._type === "pot";
+    this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
+      if (isPot) {
+        items.push({
+          pin: num(row.querySelector('[data-field="pin"]').value, 0),
+          cc: num(row.querySelector('[data-field="cc"]').value, 0),
+        });
+      } else {
+        items.push({
+          pin: num(row.querySelector('[data-field="pin"]').value, 0),
+          note: num(row.querySelector('[data-field="note"]').value, 0),
+          velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
+        });
+      }
+    });
+    return items;
+  }
+
+  _updateBadge(count) {
+    const badge = document.getElementById(this._countId);
+    if (badge) badge.textContent = count;
+  }
+}
+
+customElements.define("item-list", ItemList);
