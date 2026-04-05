@@ -40,7 +40,7 @@ jobs:
       - name: Build rp2350 firmware
         run: |
           cargo build --release --no-default-features --features rp2350 --target thumbv8m.main-none-eabihf
-          cp target/thumbv8m.main-none-eabihf/release/midictrl.uf2 midictrl-rp2350.uf2
+          elf2uf2-rs target/thumbv8m.main-none-eabihf/release/midictrl midictrl-rp2350.uf2
 
       - name: Upload release assets
         env:
