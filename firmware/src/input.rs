@@ -144,15 +144,17 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
 
 impl<const N: usize> TouchPads<N> {
     /// Initialize touch pads, measuring baseline capacitance.
-    pub fn new(pins: &mut [Flex<'static>; N]) -> Self {
+    /// Each pad's threshold is `baseline + baseline * threshold_pcts[i] / 100`.
+    pub fn new(pins: &mut [Flex<'static>; N], threshold_pcts: &[u8; N]) -> Self {
         let pads: [TouchPad; N] = core::array::from_fn(|i| {
             let mut sum: u32 = 0;
             for _ in 0..8 {
                 sum += measure_touch_sync(&mut pins[i]);
             }
             let baseline = sum / 8;
+            let pct = threshold_pcts[i] as u32;
             TouchPad {
-                threshold: baseline + baseline / 3, // 33% above baseline
+                threshold: baseline + baseline * pct / 100,
                 was_touched: false,
             }
         });

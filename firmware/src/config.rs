@@ -2,7 +2,7 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 3;
+pub const VERSION: u8 = 4;
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
 pub const MAX_POTS: usize = 4;
@@ -25,6 +25,8 @@ pub struct ButtonDef {
 pub struct TouchPadDef {
     pub note: u8,
     pub velocity: u8,
+    /// Touch threshold as a percentage above the calibrated baseline (e.g. 33 = 33%).
+    pub threshold_pct: u8,
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
@@ -103,34 +105,42 @@ impl Default for Config {
                 TouchPadDef {
                     note: 72,
                     velocity: 100,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 74,
                     velocity: 100,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 76,
                     velocity: 100,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 77,
                     velocity: 100,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 79,
                     velocity: 100,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 0,
                     velocity: 0,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 0,
                     velocity: 0,
+                    threshold_pct: 33,
                 },
                 TouchPadDef {
                     note: 0,
                     velocity: 0,
+                    threshold_pct: 33,
                 },
             ],
             num_pots: 2,

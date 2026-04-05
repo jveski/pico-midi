@@ -114,12 +114,12 @@ export function writeConfig(w, cfg) {
       w.u8(cfg.buttons[i].note); w.u8(cfg.buttons[i].velocity);
     } else { w.u8(0); w.u8(0); }
   }
-  // TouchPadDef: { note: u8, velocity: u8 }
+  // TouchPadDef: { note: u8, velocity: u8, threshold_pct: u8 }
   w.u8(cfg.touch_pads.length);
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
     if (i < cfg.touch_pads.length) {
-      w.u8(cfg.touch_pads[i].note); w.u8(cfg.touch_pads[i].velocity);
-    } else { w.u8(0); w.u8(0); }
+      w.u8(cfg.touch_pads[i].note); w.u8(cfg.touch_pads[i].velocity); w.u8(cfg.touch_pads[i].threshold_pct);
+    } else { w.u8(0); w.u8(0); w.u8(33); }
   }
   // PotDef: { cc: u8 }
   w.u8(cfg.pots.length);
@@ -151,11 +151,11 @@ export function readConfig(r) {
     const note = r.u8(), velocity = r.u8();
     if (i < nb) cfg.buttons.push({ note, velocity });
   }
-  // TouchPadDef: { note: u8, velocity: u8 }
+  // TouchPadDef: { note: u8, velocity: u8, threshold_pct: u8 }
   const nt = r.u8();
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
-    const note = r.u8(), velocity = r.u8();
-    if (i < nt) cfg.touch_pads.push({ note, velocity });
+    const note = r.u8(), velocity = r.u8(), threshold_pct = r.u8();
+    if (i < nt) cfg.touch_pads.push({ note, velocity, threshold_pct });
   }
   // PotDef: { cc: u8 }
   const np = r.u8();
