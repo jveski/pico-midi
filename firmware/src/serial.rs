@@ -43,6 +43,7 @@ pub struct MonitorSnapshot {
     pub buttons: [bool; config::MAX_BUTTONS],
     pub touch_pads: [bool; config::MAX_TOUCH_PADS],
     pub pots: [u8; config::MAX_POTS],
+    pub encoders: [u8; config::MAX_ENCODERS],
     pub ldr: u8,
     pub accel_x: u8,
     pub accel_y: u8,
