@@ -120,10 +120,15 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_high();
     cortex_m::asm::delay(1000);
 
-    pin.set_as_input();
+    // Configure pull-down while still driving high so the output driver
+    // holds the pin; then start the timer and release to input in quick
+    // succession. This ensures we capture the full discharge time on
+    // faster chips (RP2350) where the stronger pull-downs can discharge
+    // the pad before a post-switch Instant::now() call completes.
     pin.set_pull(Pull::Down);
-
     let start = Instant::now();
+    pin.set_as_input();
+
     let mut elapsed_us;
     loop {
         elapsed_us = start.elapsed().as_micros();
@@ -142,10 +147,15 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     pin.set_high();
     Timer::after_micros(10).await;
 
-    pin.set_as_input();
+    // Configure pull-down while still driving high so the output driver
+    // holds the pin; then start the timer and release to input in quick
+    // succession. This ensures we capture the full discharge time on
+    // faster chips (RP2350) where the stronger pull-downs can discharge
+    // the pad before a post-switch Instant::now() call completes.
     pin.set_pull(Pull::Down);
-
     let start = Instant::now();
+    pin.set_as_input();
+
     let mut elapsed_us;
     loop {
         elapsed_us = start.elapsed().as_micros();
