@@ -113,20 +113,20 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 });
             }
             OP_DIV => {
-                binop(&mut stack, &mut sp, |a, b| if b == 0 { 127 } else { a / b });
+                binop(&mut stack, &mut sp, |a, b| a.checked_div(b).unwrap_or(127));
             }
             OP_MIN => binop(&mut stack, &mut sp, u8::min),
             OP_MAX => binop(&mut stack, &mut sp, u8::max),
-            OP_IF_GT => {
+            OP_IF_GT
                 // stack: ... test_val threshold then_val else_val
-                if sp >= 4 {
-                    let a = stack[sp - 4]; // test value
-                    let b = stack[sp - 3]; // threshold
-                    let c = stack[sp - 2]; // then value
-                    let d = stack[sp - 1]; // else value
-                    sp -= 3;
-                    stack[sp - 1] = if a > b { c } else { d };
-                }
+                if sp >= 4 =>
+            {
+                let a = stack[sp - 4]; // test value
+                let b = stack[sp - 3]; // threshold
+                let c = stack[sp - 2]; // then value
+                let d = stack[sp - 1]; // else value
+                sp -= 3;
+                stack[sp - 1] = if a > b { c } else { d };
             }
             _ => {} // unknown opcode: skip
         }

@@ -159,8 +159,7 @@ impl Config {
         buf[..4].copy_from_slice(&MAGIC.to_le_bytes());
         buf[4] = VERSION;
 
-        postcard::to_slice(self, &mut buf[HEADER_SIZE..])
-            .map_or(0, |used| HEADER_SIZE + used.len())
+        postcard::to_slice(self, &mut buf[HEADER_SIZE..]).map_or(0, |used| HEADER_SIZE + used.len())
     }
 
     pub fn decode(buf: &[u8]) -> Option<Self> {

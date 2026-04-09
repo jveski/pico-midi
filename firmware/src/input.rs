@@ -72,7 +72,8 @@ impl<'d> SmoothedAnalog<'d> {
         self.smoothed = self.alpha * f32::from(raw) + (1.0 - self.alpha) * self.smoothed;
 
         // Convert 12-bit (0-4095) to 7-bit (0-127)
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // smoothed is non-negative, result clamped to 127
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // smoothed is non-negative, result clamped to 127
         let cc = ((self.smoothed as u32) >> 5).min(127) as u8;
 
         match self.last_cc {
@@ -256,7 +257,9 @@ impl<'d> Accelerometer<'d> {
         };
         let normalized = (v / 9.81).clamp(-1.0, 1.0);
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Result is 0..=127
-        { ((normalized + 1.0) * 63.5) as u8 }
+        {
+            ((normalized + 1.0) * 63.5) as u8
+        }
     }
 
     pub async fn poll(&mut self) -> AccelReading {
