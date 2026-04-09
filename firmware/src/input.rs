@@ -40,6 +40,7 @@ impl<const N: usize> Buttons<N> {
                 self.prev[i] = pressed;
                 self.stable_since[i] = now;
                 *event = Some(ButtonEvent {
+                    #[allow(clippy::cast_possible_truncation)] // N <= 8
                     index: i as u8,
                     pressed,
                 });
@@ -57,7 +58,7 @@ pub struct SmoothedAnalog<'d> {
 }
 
 impl<'d> SmoothedAnalog<'d> {
-    pub fn new(channel: Channel<'d>, alpha: f32) -> Self {
+    pub const fn new(channel: Channel<'d>, alpha: f32) -> Self {
         Self {
             channel,
             smoothed: 0.0,
@@ -68,9 +69,10 @@ impl<'d> SmoothedAnalog<'d> {
 
     pub async fn poll(&mut self, adc: &mut Adc<'static, adc::Async>, threshold: u8) -> Option<u8> {
         let raw = adc.read(&mut self.channel).await.unwrap_or(0);
-        self.smoothed = self.alpha * raw as f32 + (1.0 - self.alpha) * self.smoothed;
+        self.smoothed = self.alpha * f32::from(raw) + (1.0 - self.alpha) * self.smoothed;
 
         // Convert 12-bit (0-4095) to 7-bit (0-127)
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // smoothed is non-negative, result clamped to 127
         let cc = ((self.smoothed as u32) >> 5).min(127) as u8;
 
         match self.last_cc {
@@ -152,7 +154,7 @@ impl<const N: usize> TouchPads<N> {
                 sum += measure_touch_sync(&mut pins[i]);
             }
             let baseline = sum / 8;
-            let pct = threshold_pcts[i] as u32;
+            let pct = u32::from(threshold_pcts[i]);
             TouchPad {
                 threshold: baseline + baseline * pct / 100,
                 was_touched: false,
@@ -171,6 +173,7 @@ impl<const N: usize> TouchPads<N> {
             if touched != self.pads[i].was_touched {
                 self.pads[i].was_touched = touched;
                 events[i] = Some(TouchEvent {
+                    #[allow(clippy::cast_possible_truncation)] // N <= 8
                     index: i as u8,
                     pressed: touched,
                 });
@@ -224,8 +227,8 @@ impl<'d> Accelerometer<'d> {
             y_smoothed: 0.0,
             last_x_cc: 64,
             last_y_cc: 64,
-            dead_zone: dead_zone_tenths as f32 / 10.0,
-            smoothing: smoothing_pct as f32 / 100.0,
+            dead_zone: f32::from(dead_zone_tenths) / 10.0,
+            smoothing: f32::from(smoothing_pct) / 100.0,
             last_poll: Instant::now(),
             error_count: 0,
             available,
@@ -252,7 +255,8 @@ impl<'d> Accelerometer<'d> {
             value
         };
         let normalized = (v / 9.81).clamp(-1.0, 1.0);
-        ((normalized + 1.0) * 63.5) as u8
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Result is 0..=127
+        { ((normalized + 1.0) * 63.5) as u8 }
     }
 
     pub async fn poll(&mut self) -> AccelReading {
@@ -287,8 +291,8 @@ impl<'d> Accelerometer<'d> {
         }
         self.error_count = 0;
 
-        let x_raw = i16::from_le_bytes([buf[0], buf[1]]) as f32;
-        let y_raw = i16::from_le_bytes([buf[2], buf[3]]) as f32;
+        let x_raw = f32::from(i16::from_le_bytes([buf[0], buf[1]]));
+        let y_raw = f32::from(i16::from_le_bytes([buf[2], buf[3]]));
 
         // 8g range: scale = 8g * 9.81 / 32768
         let scale = 8.0 * 9.81 / 32768.0;
@@ -334,11 +338,11 @@ impl<'d> Accelerometer<'d> {
         }
     }
 
-    pub fn current_x_cc(&self) -> u8 {
+    pub const fn current_x_cc(&self) -> u8 {
         self.last_x_cc
     }
 
-    pub fn current_y_cc(&self) -> u8 {
+    pub const fn current_y_cc(&self) -> u8 {
         self.last_y_cc
     }
 }

@@ -5,11 +5,11 @@ use crate::serial::MonitorSnapshot;
 
 /// Live input state shared between the MIDI polling task and serial monitor.
 pub struct InputState {
-    /// Button pressed states (up to MAX_BUTTONS).
+    /// Button pressed states (up to `MAX_BUTTONS`).
     buttons: [AtomicBool; config::MAX_BUTTONS],
-    /// Touch pad pressed states (up to MAX_TOUCH_PADS).
+    /// Touch pad pressed states (up to `MAX_TOUCH_PADS`).
     touch_pads: [AtomicBool; config::MAX_TOUCH_PADS],
-    /// Potentiometer CC values (up to MAX_POTS), 0-127.
+    /// Potentiometer CC values (up to `MAX_POTS`), 0-127.
     pots: [AtomicU8; config::MAX_POTS],
     /// LDR CC value, 0-127.
     ldr: AtomicU8,
@@ -113,7 +113,7 @@ impl InputState {
     }
 
     /// Take a snapshot of the current input state.
-    /// The accel_tap flag is cleared atomically on read.
+    /// The `accel_tap` flag is cleared atomically on read.
     pub fn snapshot(&self) -> MonitorSnapshot {
         let mut buttons = [false; config::MAX_BUTTONS];
         for (i, button) in buttons.iter_mut().enumerate() {

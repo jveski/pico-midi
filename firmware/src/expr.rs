@@ -49,6 +49,22 @@ const OP_IF_GT: u8 = 0x20;
 
 const STACK_SIZE: usize = 8;
 
+/// Push a value onto the stack if there is room.
+const fn stack_push(stack: &mut [u8; STACK_SIZE], sp: &mut usize, val: u8) {
+    if *sp < STACK_SIZE {
+        stack[*sp] = val;
+        *sp += 1;
+    }
+}
+
+/// Pop two values and apply a binary operation, pushing the result.
+fn binop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8) -> u8) {
+    if *sp >= 2 {
+        *sp -= 1;
+        stack[*sp - 1] = f(stack[*sp - 1], stack[*sp]);
+    }
+}
+
 /// Evaluate a bytecode program.  Returns `fallback` if the program is empty
 /// or malformed.
 pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8) -> u8 {
@@ -68,10 +84,7 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 if pc >= code.len() {
                     break;
                 }
-                if sp < STACK_SIZE {
-                    stack[sp] = code[pc];
-                    sp += 1;
-                }
+                stack_push(&mut stack, &mut sp, code[pc]);
             }
             OP_LOAD_POT => {
                 pc += 1;
@@ -84,70 +97,26 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 } else {
                     0
                 };
-                if sp < STACK_SIZE {
-                    stack[sp] = v;
-                    sp += 1;
-                }
+                stack_push(&mut stack, &mut sp, v);
             }
-            OP_LOAD_LDR => {
-                if sp < STACK_SIZE {
-                    stack[sp] = inputs.ldr;
-                    sp += 1;
-                }
-            }
-            OP_LOAD_ACCEL_X => {
-                if sp < STACK_SIZE {
-                    stack[sp] = inputs.accel_x;
-                    sp += 1;
-                }
-            }
-            OP_LOAD_ACCEL_Y => {
-                if sp < STACK_SIZE {
-                    stack[sp] = inputs.accel_y;
-                    sp += 1;
-                }
-            }
-            OP_ADD => {
-                if sp >= 2 {
-                    sp -= 1;
-                    stack[sp - 1] = stack[sp - 1].saturating_add(stack[sp]);
-                }
-            }
-            OP_SUB => {
-                if sp >= 2 {
-                    sp -= 1;
-                    stack[sp - 1] = stack[sp - 1].saturating_sub(stack[sp]);
-                }
-            }
+            OP_LOAD_LDR => stack_push(&mut stack, &mut sp, inputs.ldr),
+            OP_LOAD_ACCEL_X => stack_push(&mut stack, &mut sp, inputs.accel_x),
+            OP_LOAD_ACCEL_Y => stack_push(&mut stack, &mut sp, inputs.accel_y),
+            OP_ADD => binop(&mut stack, &mut sp, u8::saturating_add),
+            OP_SUB => binop(&mut stack, &mut sp, u8::saturating_sub),
             OP_MUL => {
-                if sp >= 2 {
-                    sp -= 1;
-                    let r = (stack[sp - 1] as u16).saturating_mul(stack[sp] as u16);
-                    stack[sp - 1] = r.min(127) as u8;
-                }
+                binop(&mut stack, &mut sp, |a, b| {
+                    let r = u16::from(a).saturating_mul(u16::from(b));
+                    #[allow(clippy::cast_possible_truncation)] // Clamped to 127
+                    let val = r.min(127) as u8;
+                    val
+                });
             }
             OP_DIV => {
-                if sp >= 2 {
-                    sp -= 1;
-                    stack[sp - 1] = if stack[sp] == 0 {
-                        127
-                    } else {
-                        stack[sp - 1] / stack[sp]
-                    };
-                }
+                binop(&mut stack, &mut sp, |a, b| if b == 0 { 127 } else { a / b });
             }
-            OP_MIN => {
-                if sp >= 2 {
-                    sp -= 1;
-                    stack[sp - 1] = stack[sp - 1].min(stack[sp]);
-                }
-            }
-            OP_MAX => {
-                if sp >= 2 {
-                    sp -= 1;
-                    stack[sp - 1] = stack[sp - 1].max(stack[sp]);
-                }
-            }
+            OP_MIN => binop(&mut stack, &mut sp, u8::min),
+            OP_MAX => binop(&mut stack, &mut sp, u8::max),
             OP_IF_GT => {
                 // stack: ... test_val threshold then_val else_val
                 if sp >= 4 {

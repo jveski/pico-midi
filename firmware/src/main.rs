@@ -1,5 +1,7 @@
 #![no_std]
 #![no_main]
+// Embassy uses a single-threaded executor; futures do not need to be Send.
+#![allow(clippy::future_not_send)]
 
 mod config;
 mod expr;
@@ -40,8 +42,9 @@ bind_interrupts!(struct Irqs {
 });
 
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
-    let p = embassy_rp::init(Default::default());
+async fn main(spawner: Spawner) {
+    let _ = spawner; // unused but required by embassy macro signature
+    let p = embassy_rp::init(embassy_rp::config::Config::default());
 
     // ---- Load config from flash ----
     let mut flash =
@@ -219,6 +222,7 @@ async fn main(_spawner: Spawner) {
                     let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[i].cc, v);
                     send_midi(&mut midi_class, &pkt).await;
                 }
+                #[allow(clippy::cast_possible_truncation)] // num_pots <= 4
                 INPUT_STATE.set_pot(i as u8, pots[i].current_cc());
             }
 
@@ -376,7 +380,7 @@ async fn main(_spawner: Spawner) {
 }
 
 #[inline]
-fn note_on(channel: u8, note: u8, velocity: u8) -> [u8; 4] {
+const fn note_on(channel: u8, note: u8, velocity: u8) -> [u8; 4] {
     [
         CIN_NOTE_ON,
         0x90 | (channel & 0x0F),
@@ -386,12 +390,12 @@ fn note_on(channel: u8, note: u8, velocity: u8) -> [u8; 4] {
 }
 
 #[inline]
-fn note_off(channel: u8, note: u8) -> [u8; 4] {
+const fn note_off(channel: u8, note: u8) -> [u8; 4] {
     [CIN_NOTE_OFF, 0x80 | (channel & 0x0F), note & 0x7F, 0]
 }
 
 #[inline]
-fn control_change(channel: u8, cc: u8, value: u8) -> [u8; 4] {
+const fn control_change(channel: u8, cc: u8, value: u8) -> [u8; 4] {
     [CIN_CC, 0xB0 | (channel & 0x0F), cc & 0x7F, value & 0x7F]
 }
 

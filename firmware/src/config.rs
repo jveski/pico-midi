@@ -8,6 +8,7 @@ pub const MAX_TOUCH_PADS: usize = 8;
 pub const MAX_POTS: usize = 4;
 pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
+#[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
 
@@ -16,7 +17,7 @@ pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
 #[cfg(feature = "rp2350")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
-/// A compact bytecode expression (up to MAX_EXPR bytes).
+/// A compact bytecode expression (up to `MAX_EXPR` bytes).
 /// When `len == 0` the static value is used instead.
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct Expr {
@@ -158,10 +159,8 @@ impl Config {
         buf[..4].copy_from_slice(&MAGIC.to_le_bytes());
         buf[4] = VERSION;
 
-        match postcard::to_slice(self, &mut buf[HEADER_SIZE..]) {
-            Ok(used) => HEADER_SIZE + used.len(),
-            Err(_) => 0,
-        }
+        postcard::to_slice(self, &mut buf[HEADER_SIZE..])
+            .map_or(0, |used| HEADER_SIZE + used.len())
     }
 
     pub fn decode(buf: &[u8]) -> Option<Self> {

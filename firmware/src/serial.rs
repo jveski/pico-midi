@@ -51,18 +51,15 @@ pub struct MonitorSnapshot {
     pub accel_tap: bool,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum Action {
     None,
     Save,
 }
 
 pub fn handle_frame(frame: &mut [u8], config: &mut Config, resp: &mut [u8]) -> (usize, Action) {
-    let request = match postcard::from_bytes_cobs::<Request>(frame) {
-        Ok(req) => req,
-        Err(_) => {
-            return encode_response(&Response::Error("bad frame"), resp, Action::None);
-        }
+    let Ok(request) = postcard::from_bytes_cobs::<Request>(frame) else {
+        return encode_response(&Response::Error("bad frame"), resp, Action::None);
     };
 
     match request {
@@ -103,17 +100,11 @@ fn encode_response(response: &Response, buf: &mut [u8], action: Action) -> (usiz
 
 pub fn encode_monitor(snapshot: MonitorSnapshot, buf: &mut [u8]) -> usize {
     let resp = Response::Monitor(snapshot);
-    match postcard::to_slice_cobs(&resp, buf) {
-        Ok(used) => used.len(),
-        Err(_) => 0,
-    }
+    postcard::to_slice_cobs(&resp, buf).map_or(0, |used| used.len())
 }
 
 pub fn encode_error(msg: &str, buf: &mut [u8]) -> usize {
-    match postcard::to_slice_cobs(&Response::Error(msg), buf) {
-        Ok(used) => used.len(),
-        Err(_) => 0,
-    }
+    postcard::to_slice_cobs(&Response::Error(msg), buf).map_or(0, |used| used.len())
 }
 
 pub fn save_config(
@@ -127,6 +118,7 @@ pub fn save_config(
     }
 
     let offset = config::CONFIG_OFFSET;
+    #[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
     if flash
         .blocking_erase(offset, offset + SECTOR_SIZE as u32)
         .is_err()
