@@ -2,11 +2,10 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 5;
+pub const VERSION: u8 = 4;
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
 pub const MAX_POTS: usize = 4;
-pub const MAX_ENCODERS: usize = 2;
 pub const SECTOR_SIZE: usize = 4096;
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
@@ -36,11 +35,6 @@ pub struct PotDef {
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
-pub struct EncoderDef {
-    pub cc: u8,
-}
-
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct AccelConfig {
     pub enabled: bool,
     pub x_cc: u8,
@@ -62,8 +56,6 @@ pub struct Config {
     pub touch_pads: [TouchPadDef; MAX_TOUCH_PADS],
     pub num_pots: u8,
     pub pots: [PotDef; MAX_POTS],
-    pub num_encoders: u8,
-    pub encoders: [EncoderDef; MAX_ENCODERS],
     pub ldr: PotDef,
     pub ldr_enabled: bool,
     pub accel: AccelConfig,
@@ -158,8 +150,6 @@ impl Default for Config {
                 PotDef { cc: 0 },
                 PotDef { cc: 0 },
             ],
-            num_encoders: 0,
-            encoders: [EncoderDef { cc: 0 }, EncoderDef { cc: 0 }],
             ldr_enabled: true,
             ldr: PotDef { cc: 74 },
             accel: AccelConfig {

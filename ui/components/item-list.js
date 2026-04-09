@@ -1,17 +1,17 @@
-import { noteName, num, pinLabel, BUTTON_PINS, TOUCH_PINS, POT_PINS, ENCODER_PINS } from "./helpers.js";
+import { noteName, num, pinLabel, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
 
 export class ItemList extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
 
-    this._type = this.dataset.type;         // "button" | "touch" | "pot" | "encoder"
+    this._type = this.dataset.type;         // "button" | "touch" | "pot"
     this._max = parseInt(this.dataset.max, 10);
     this._listId = this.dataset.listId;     // e.g. "buttonList"
     this._countId = this.dataset.countId;   // e.g. "btnCount"
     this._addId = this.dataset.addId;       // e.g. "addButton"
     this._addLabel = this.dataset.addLabel; // e.g. "+ Add Button"
-    this._fields = this._type === "pot" || this._type === "encoder" ? ["cc"] : this._type === "touch" ? ["note", "velocity", "threshold_pct"] : ["note", "velocity"];
+    this._fields = this._type === "pot" ? ["cc"] : this._type === "touch" ? ["note", "velocity", "threshold_pct"] : ["note", "velocity"];
 
     this.innerHTML =
       `<div id="${this._listId}"></div>` +
@@ -29,9 +29,9 @@ export class ItemList extends HTMLElement {
     container.innerHTML = "";
     this._updateBadge(items.length);
 
-    const isAnalog = this._type === "pot" || this._type === "encoder";
-    const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : this._type === "encoder" ? "monEnc" : "";
-    const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : this._type === "encoder" ? ENCODER_PINS : POT_PINS;
+    const isPot = this._type === "pot";
+    const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
+    const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : POT_PINS;
 
     items.forEach((item, i) => {
       const row = document.createElement("div");
@@ -40,14 +40,12 @@ export class ItemList extends HTMLElement {
       const pin = i < pinMap.length ? pinLabel(pinMap[i]) : "";
       const pinHtml = `<span class="pin-label">${pin}</span>`;
 
-      if (isAnalog) {
-        const barId = this._type === "encoder" ? `monEncBar${i}` : `monPotBar${i}`;
-        const valId = this._type === "encoder" ? `monEncVal${i}` : `monPotVal${i}`;
+      if (isPot) {
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
           pinHtml +
-          `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="${barId}"></div></div>` +
-          `<span class="monitor-value" id="${valId}" style="min-width:24px">0</span>` +
+          `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
+          `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
           `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       } else if (this._type === "touch") {
@@ -104,10 +102,10 @@ export class ItemList extends HTMLElement {
 
   readFromDOM() {
     const items = [];
-    const isAnalog = this._type === "pot" || this._type === "encoder";
+    const isPot = this._type === "pot";
     const isTouch = this._type === "touch";
     this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
-      if (isAnalog) {
+      if (isPot) {
         items.push({
           cc: num(row.querySelector('[data-field="cc"]').value, 0),
         });

@@ -26,11 +26,6 @@ export class ConfigPanel extends HTMLElement {
         '<item-list data-type="pot" data-max="4" data-list-id="potList" data-count-id="potCount" data-add-id="addPot" data-add-label="+ Add Pot"></item-list>' +
       '</collapsible-card>' +
 
-      // Encoders
-      '<collapsible-card data-section="encoders" data-title="Encoders" data-badge-id="encCount">' +
-        '<item-list data-type="encoder" data-max="2" data-list-id="encoderList" data-count-id="encCount" data-add-id="addEncoder" data-add-label="+ Add Encoder"></item-list>' +
-      '</collapsible-card>' +
-
       // LDR
       '<collapsible-card data-section="ldr" data-title="LDR (Light Sensor)">' +
         '<ldr-section></ldr-section>' +
@@ -45,7 +40,6 @@ export class ConfigPanel extends HTMLElement {
   get buttonList() { return this.querySelector('item-list[data-type="button"]'); }
   get touchList() { return this.querySelector('item-list[data-type="touch"]'); }
   get potList() { return this.querySelector('item-list[data-type="pot"]'); }
-  get encoderList() { return this.querySelector('item-list[data-type="encoder"]'); }
   get ldrSection() { return this.querySelector("ldr-section"); }
   get accelSection() { return this.querySelector("accel-section"); }
   get midiChannel() { return this.querySelector("midi-channel"); }

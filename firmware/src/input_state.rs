@@ -11,8 +11,6 @@ pub struct InputState {
     touch_pads: [AtomicBool; config::MAX_TOUCH_PADS],
     /// Potentiometer CC values (up to MAX_POTS), 0-127.
     pots: [AtomicU8; config::MAX_POTS],
-    /// Encoder CC values (up to MAX_ENCODERS), 0-127.
-    encoders: [AtomicU8; config::MAX_ENCODERS],
     /// LDR CC value, 0-127.
     ldr: AtomicU8,
     /// Accelerometer X-axis CC value, 0-127.
@@ -52,7 +50,6 @@ impl InputState {
                 AtomicU8::new(0),
                 AtomicU8::new(0),
             ],
-            encoders: [AtomicU8::new(64), AtomicU8::new(64)],
             ldr: AtomicU8::new(0),
             accel_x: AtomicU8::new(64),
             accel_y: AtomicU8::new(64),
@@ -75,12 +72,6 @@ impl InputState {
     pub fn set_pot(&self, index: u8, value: u8) {
         if (index as usize) < config::MAX_POTS {
             self.pots[index as usize].store(value, Ordering::Relaxed);
-        }
-    }
-
-    pub fn set_encoder(&self, index: u8, value: u8) {
-        if (index as usize) < config::MAX_ENCODERS {
-            self.encoders[index as usize].store(value, Ordering::Relaxed);
         }
     }
 
@@ -118,16 +109,10 @@ impl InputState {
             *pot = self.pots[i].load(Ordering::Relaxed);
         }
 
-        let mut encoders = [0u8; config::MAX_ENCODERS];
-        for (i, enc) in encoders.iter_mut().enumerate() {
-            *enc = self.encoders[i].load(Ordering::Relaxed);
-        }
-
         MonitorSnapshot {
             buttons,
             touch_pads,
             pots,
-            encoders,
             ldr: self.ldr.load(Ordering::Relaxed),
             accel_x: self.accel_x.load(Ordering::Relaxed),
             accel_y: self.accel_y.load(Ordering::Relaxed),

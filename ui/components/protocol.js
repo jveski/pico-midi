@@ -102,7 +102,6 @@ export const RESP_MONITOR = 5;
 export const MAX_BUTTONS = 8;
 export const MAX_TOUCH_PADS = 8;
 export const MAX_POTS = 4;
-export const MAX_ENCODERS = 2;
 
 // ── Config Serialization ──
 
@@ -129,13 +128,6 @@ export function writeConfig(w, cfg) {
       w.u8(cfg.pots[i].cc);
     } else { w.u8(0); }
   }
-  // EncoderDef: { cc: u8 }
-  w.u8(cfg.encoders.length);
-  for (let i = 0; i < MAX_ENCODERS; i++) {
-    if (i < cfg.encoders.length) {
-      w.u8(cfg.encoders[i].cc);
-    } else { w.u8(0); }
-  }
   // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
   w.u8(cfg.ldr.cc);
   w.bool(cfg.ldr_enabled);
@@ -148,7 +140,7 @@ export function writeConfig(w, cfg) {
 
 export function readConfig(r) {
   const cfg = {
-    midi_channel: 0, buttons: [], touch_pads: [], pots: [], encoders: [],
+    midi_channel: 0, buttons: [], touch_pads: [], pots: [],
     ldr_enabled: false, ldr: { cc: 0 },
     accel: { enabled: false, x_cc: 0, y_cc: 0, tap_note: 0, tap_velocity: 1, dead_zone_tenths: 0, smoothing_pct: 0 },
   };
@@ -171,12 +163,6 @@ export function readConfig(r) {
     const cc = r.u8();
     if (i < np) cfg.pots.push({ cc });
   }
-  // EncoderDef: { cc: u8 }
-  const ne = r.u8();
-  for (let i = 0; i < MAX_ENCODERS; i++) {
-    const cc = r.u8();
-    if (i < ne) cfg.encoders.push({ cc });
-  }
   // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
   cfg.ldr = { cc: r.u8() };
   cfg.ldr_enabled = r.bool();
@@ -191,11 +177,10 @@ export function readConfig(r) {
 }
 
 export function readMonitorSnapshot(r) {
-  const snap = { buttons: [], touch_pads: [], pots: [], encoders: [], ldr: 0, accel_x: 0, accel_y: 0, accel_tap: false };
+  const snap = { buttons: [], touch_pads: [], pots: [], ldr: 0, accel_x: 0, accel_y: 0, accel_tap: false };
   for (let i = 0; i < MAX_BUTTONS; i++) snap.buttons.push(r.bool());
   for (let i = 0; i < MAX_TOUCH_PADS; i++) snap.touch_pads.push(r.bool());
   for (let i = 0; i < MAX_POTS; i++) snap.pots.push(r.u8());
-  for (let i = 0; i < MAX_ENCODERS; i++) snap.encoders.push(r.u8());
   snap.ldr = r.u8();
   snap.accel_x = r.u8();
   snap.accel_y = r.u8();

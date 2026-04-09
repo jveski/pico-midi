@@ -30,14 +30,10 @@ export const TOUCH_PINS = [6, 7, 8, 9, 10, 15, 16, 17];
 /** GPIO (ADC) pins assigned to each pot index in firmware. */
 export const POT_PINS = [26, 27];
 
-/** GPIO pin pairs [A, B] assigned to each encoder index in firmware. */
-export const ENCODER_PINS = [[18, 19], [20, 21]];
-
 /** GPIO (ADC) pin for the LDR in firmware. */
 export const LDR_PIN = 28;
 
-/** Format a GPIO pin number (or pair) as a label, e.g. "GP2" or "GP18/19". */
+/** Format a GPIO pin number as a label, e.g. "GP2". */
 export function pinLabel(n) {
-  if (Array.isArray(n)) return "GP" + n[0] + "/" + n[1];
   return n != null ? "GP" + n : "";
 }

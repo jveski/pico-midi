@@ -2,9 +2,9 @@ import {
   cobsDecode, buildRequest, parseResponse, readMonitorSnapshot,
   PostcardReader,
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
-  RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS, MAX_ENCODERS,
+  RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
 } from "./protocol.js";
-import { sleep, num, clamp, BUTTON_PINS, TOUCH_PINS, POT_PINS, ENCODER_PINS } from "./helpers.js";
+import { sleep, num, clamp, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
 
 // ── State ──
 
@@ -218,9 +218,6 @@ function applyMonitorData(snap) {
   for (let i = 0; i < snap.pots.length && i < MAX_POTS; i++) {
     updateMonitorBar("monPotBar" + i, "monPotVal" + i, snap.pots[i]);
   }
-  for (let i = 0; i < snap.encoders.length && i < MAX_ENCODERS; i++) {
-    updateMonitorBar("monEncBar" + i, "monEncVal" + i, snap.encoders[i]);
-  }
   updateMonitorBar("monLdrBar", "monLdrVal", snap.ldr);
   updateMonitorBar("monAccelXBar", "monAccelXVal", snap.accel_x);
   updateMonitorBar("monAccelYBar", "monAccelYVal", snap.accel_y);
@@ -263,7 +260,6 @@ function renderConfig() {
   panel.buttonList.render(config.buttons);
   panel.touchList.render(config.touch_pads);
   panel.potList.render(config.pots);
-  panel.encoderList.render(config.encoders);
   panel.ldrSection.render(config);
   panel.accelSection.render(config);
 }
@@ -289,11 +285,6 @@ function readConfigFromUI() {
   // Pots
   config.pots = panel.potList.readFromDOM().map(p => ({
     cc: clamp(p.cc, 0, 127),
-  }));
-
-  // Encoders
-  config.encoders = panel.encoderList.readFromDOM().map(e => ({
-    cc: clamp(e.cc, 0, 127),
   }));
 
   config.ldr_enabled = document.getElementById("ldrEnabled").checked;
@@ -370,9 +361,6 @@ function handleItemAdd(e) {
   } else if (type === "pot" && config.pots.length < POT_PINS.length) {
     config.pots.push({ cc: 0 });
     list.render(config.pots);
-  } else if (type === "encoder" && config.encoders.length < ENCODER_PINS.length) {
-    config.encoders.push({ cc: 0 });
-    list.render(config.encoders);
   }
 }
 
@@ -384,7 +372,6 @@ function handleItemRemove(e) {
 
   const items = type === "button" ? config.buttons :
                 type === "touch" ? config.touch_pads :
-                type === "encoder" ? config.encoders :
                 config.pots;
 
   // Sync DOM values before removing

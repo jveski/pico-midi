@@ -49,12 +49,11 @@ async fn main(_spawner: Spawner) {
         Config::default()
     });
     defmt::info!(
-        "config loaded: ch={} buttons={} touch={} pots={} encoders={}",
+        "config loaded: ch={} buttons={} touch={} pots={}",
         cfg.midi_channel,
         cfg.num_buttons,
         cfg.num_touch_pads,
-        cfg.num_pots,
-        cfg.num_encoders
+        cfg.num_pots
     );
 
     // ---- USB composite device setup ----
@@ -134,18 +133,6 @@ async fn main(_spawner: Spawner) {
         // --- LDR: GP28 (ADC2) ---
         let mut ldr = input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_28, Pull::None), 0.15);
 
-        // --- Encoders: (GP18,GP19), (GP20,GP21) ---
-        let mut encoders = input::Encoders::new(
-            [
-                Input::new(p.PIN_18, Pull::Up),
-                Input::new(p.PIN_20, Pull::Up),
-            ],
-            [
-                Input::new(p.PIN_19, Pull::Up),
-                Input::new(p.PIN_21, Pull::Up),
-            ],
-        );
-
         // --- Accelerometer: I2C0, SCL=GP1, SDA=GP0 ---
         let i2c0 = i2c::I2c::new_async(p.I2C0, p.PIN_1, p.PIN_0, Irqs, i2c::Config::default());
         let mut accel = input::Accelerometer::new(
@@ -208,20 +195,6 @@ async fn main(_spawner: Spawner) {
                     send_midi(&mut midi_class, &pkt).await;
                 }
                 INPUT_STATE.set_ldr(ldr.current_cc());
-            }
-
-            // Poll encoders
-            let ne = (midi_cfg.num_encoders as usize).min(2);
-            for evt in encoders.poll().into_iter().flatten() {
-                if (evt.index as usize) < ne {
-                    let def = &midi_cfg.encoders[evt.index as usize];
-                    let pkt = control_change(midi_cfg.midi_channel, def.cc, evt.cc);
-                    send_midi(&mut midi_class, &pkt).await;
-                }
-                INPUT_STATE.set_encoder(evt.index, evt.cc);
-            }
-            for i in 0..ne {
-                INPUT_STATE.set_encoder(i as u8, encoders.current_cc(i));
             }
 
             // Poll accelerometer
