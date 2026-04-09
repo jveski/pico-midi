@@ -150,6 +150,13 @@ async fn main(spawner: Spawner) {
         let mut last_led_toggle = Instant::now();
         let mut led_on = false;
 
+        // Track the note value that was sent in note_on so that note_off
+        // releases the correct note even when an expression changes the
+        // computed note between press and release (e.g. pot modulation).
+        // A value of `None` means the button/pad is not currently held.
+        let mut active_button_note: [Option<u8>; 8] = [None; 8];
+        let mut active_touch_note: [Option<u8>; 8] = [None; 8];
+
         loop {
             // ~1ms poll interval
             Timer::after(Duration::from_millis(1)).await;
@@ -166,22 +173,28 @@ async fn main(spawner: Spawner) {
             let nb = (midi_cfg.num_buttons as usize).min(8);
             for evt in buttons.poll().into_iter().flatten() {
                 if (evt.index as usize) < nb {
-                    let def = &midi_cfg.buttons[evt.index as usize];
-                    let note = expr::eval(
-                        &def.note_expr.code,
-                        def.note_expr.len,
-                        &expr_inputs,
-                        def.note,
-                    );
-                    let vel = expr::eval(
-                        &def.velocity_expr.code,
-                        def.velocity_expr.len,
-                        &expr_inputs,
-                        def.velocity,
-                    );
+                    let idx = evt.index as usize;
                     let pkt = if evt.pressed {
+                        let def = &midi_cfg.buttons[idx];
+                        let note = expr::eval(
+                            &def.note_expr.code,
+                            def.note_expr.len,
+                            &expr_inputs,
+                            def.note,
+                        );
+                        let vel = expr::eval(
+                            &def.velocity_expr.code,
+                            def.velocity_expr.len,
+                            &expr_inputs,
+                            def.velocity,
+                        );
+                        active_button_note[idx] = Some(note);
                         note_on(midi_cfg.midi_channel, note, vel)
                     } else {
+                        // Release the exact note that was pressed, not the
+                        // current expression value which may have changed.
+                        let note = active_button_note[idx].unwrap_or(midi_cfg.buttons[idx].note);
+                        active_button_note[idx] = None;
                         note_off(midi_cfg.midi_channel, note)
                     };
                     send_midi(&mut midi_class, &pkt).await;
@@ -193,22 +206,26 @@ async fn main(spawner: Spawner) {
             let nt = (midi_cfg.num_touch_pads as usize).min(8);
             for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
                 if (evt.index as usize) < nt {
-                    let def = &midi_cfg.touch_pads[evt.index as usize];
-                    let note = expr::eval(
-                        &def.note_expr.code,
-                        def.note_expr.len,
-                        &expr_inputs,
-                        def.note,
-                    );
-                    let vel = expr::eval(
-                        &def.velocity_expr.code,
-                        def.velocity_expr.len,
-                        &expr_inputs,
-                        def.velocity,
-                    );
+                    let idx = evt.index as usize;
                     let pkt = if evt.pressed {
+                        let def = &midi_cfg.touch_pads[idx];
+                        let note = expr::eval(
+                            &def.note_expr.code,
+                            def.note_expr.len,
+                            &expr_inputs,
+                            def.note,
+                        );
+                        let vel = expr::eval(
+                            &def.velocity_expr.code,
+                            def.velocity_expr.len,
+                            &expr_inputs,
+                            def.velocity,
+                        );
+                        active_touch_note[idx] = Some(note);
                         note_on(midi_cfg.midi_channel, note, vel)
                     } else {
+                        let note = active_touch_note[idx].unwrap_or(midi_cfg.touch_pads[idx].note);
+                        active_touch_note[idx] = None;
                         note_off(midi_cfg.midi_channel, note)
                     };
                     send_midi(&mut midi_class, &pkt).await;

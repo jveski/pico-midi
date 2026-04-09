@@ -14,6 +14,7 @@ let rxBuf = [], rxFrames = [];
 let cmdLock = Promise.resolve();
 let config = null;
 let monitorTapTimer = null;
+let exprApplyTimer = null;
 
 // Expression source text is stored alongside config but not serialized to
 // the device — only the compiled bytecode is sent. We keep the source
@@ -38,6 +39,7 @@ export function init(refs) {
 
   configPanel.addEventListener("item-add", handleItemAdd);
   configPanel.addEventListener("item-remove", handleItemRemove);
+  configPanel.addEventListener("expr-change", debouncedApplyConfig);
 
   if (!("serial" in navigator)) {
     document.getElementById("unsupported").style.display = "block";
@@ -398,6 +400,11 @@ async function applyConfig() {
     toast("Apply failed: " + e.message, "error");
     return false;
   }
+}
+
+function debouncedApplyConfig() {
+  clearTimeout(exprApplyTimer);
+  exprApplyTimer = setTimeout(() => applyConfig(), 150);
 }
 
 async function saveConfig() {

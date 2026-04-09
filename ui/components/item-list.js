@@ -97,7 +97,8 @@ export class ItemList extends HTMLElement {
       });
     });
 
-    // Expression validation on input
+    // Expression validation on input — also notify parent so config can
+    // be applied to the device in realtime (without requiring a save).
     container.querySelectorAll(".expr-input").forEach(inp => {
       inp.addEventListener("input", () => {
         const field = inp.dataset.field;
@@ -106,6 +107,9 @@ export class ItemList extends HTMLElement {
         const { error } = compileExpr(inp.value);
         if (errEl) errEl.textContent = error || "";
         inp.classList.toggle("expr-invalid", !!error);
+        if (!error) {
+          this.dispatchEvent(new CustomEvent("expr-change", { bubbles: true }));
+        }
       });
     });
 
