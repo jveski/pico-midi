@@ -1,4 +1,5 @@
 import { noteName, num, pinLabel, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
+import { compileExpr, disassemble } from "./expr.js";
 
 export class ItemList extends HTMLElement {
   connectedCallback() {
@@ -30,6 +31,7 @@ export class ItemList extends HTMLElement {
     this._updateBadge(items.length);
 
     const isPot = this._type === "pot";
+    const hasExpr = !isPot; // buttons and touch pads support expressions
     const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
     const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : POT_PINS;
 
@@ -68,6 +70,22 @@ export class ItemList extends HTMLElement {
           `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       }
+
+      // Add expression fields for buttons and touch pads
+      if (hasExpr) {
+        const exprRow = document.createElement("div");
+        exprRow.className = "expr-row";
+        const noteExprSrc = item.note_expr_src || "";
+        const velExprSrc = item.velocity_expr_src || "";
+        exprRow.innerHTML =
+          `<span class="expr-label">expr</span>` +
+          `<label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" value="${this._escAttr(noteExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="note_expr_src">` +
+          `<span class="expr-error" data-idx="${i}" data-field="note_expr_err"></span>` +
+          `<label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" value="${this._escAttr(velExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="velocity_expr_src">` +
+          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>`;
+        row.appendChild(exprRow);
+      }
+
       container.appendChild(row);
     });
 
@@ -76,6 +94,18 @@ export class ItemList extends HTMLElement {
       inp.addEventListener("input", () => {
         const hint = inp.parentElement.querySelector(".note-hint");
         if (hint) hint.textContent = noteName(parseInt(inp.value, 10) || 0);
+      });
+    });
+
+    // Expression validation on input
+    container.querySelectorAll(".expr-input").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const field = inp.dataset.field;
+        const errField = field.replace("_src", "_err");
+        const errEl = inp.parentElement.querySelector(`[data-field="${errField}"][data-idx="${inp.dataset.idx}"]`);
+        const { error } = compileExpr(inp.value);
+        if (errEl) errEl.textContent = error || "";
+        inp.classList.toggle("expr-invalid", !!error);
       });
     });
 
@@ -90,12 +120,21 @@ export class ItemList extends HTMLElement {
     this.querySelector(`#${this._addId}`).disabled = items.length >= this._max || items.length >= pinMap.length;
   }
 
+  _escAttr(s) {
+    return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
   syncFromDOM(items) {
     const container = this.querySelector(`#${this._listId}`);
     container.querySelectorAll(".item-row").forEach((row, i) => {
       if (i < items.length) {
         for (const f of this._fields)
           items[i][f] = num(row.querySelector(`[data-field="${f}"]`).value, items[i][f]);
+        // Sync expression source text
+        const noteExprInput = row.querySelector('[data-field="note_expr_src"]');
+        if (noteExprInput) items[i].note_expr_src = noteExprInput.value;
+        const velExprInput = row.querySelector('[data-field="velocity_expr_src"]');
+        if (velExprInput) items[i].velocity_expr_src = velExprInput.value;
       }
     });
   }
@@ -114,11 +153,15 @@ export class ItemList extends HTMLElement {
           note: num(row.querySelector('[data-field="note"]').value, 0),
           velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
           threshold_pct: num(row.querySelector('[data-field="threshold_pct"]').value, 33),
+          note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
+          velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         });
       } else {
         items.push({
           note: num(row.querySelector('[data-field="note"]').value, 0),
           velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
+          note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
+          velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         });
       }
     });

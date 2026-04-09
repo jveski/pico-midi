@@ -67,6 +67,16 @@ a.btn { text-decoration: none; }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
 .list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
+.expr-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 0 28px; flex-wrap: wrap; width: 100%; }
+.expr-row label { font-size: 11px; color: var(--dim); min-width: 28px; }
+.expr-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; min-width: 28px; }
+.expr-input { padding: 3px 8px; font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 140px; outline: none; }
+.expr-input:focus { border-color: var(--fg); }
+.expr-input.expr-invalid { border-color: var(--red); }
+.expr-input::placeholder { color: #444; }
+.expr-error { font-size: 10px; color: var(--red); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row { flex-wrap: wrap; }
+
 .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .toggle-row label { color: var(--dim); }
 .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }

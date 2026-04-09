@@ -2,10 +2,11 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 4;
+pub const VERSION: u8 = 5;
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
 pub const MAX_POTS: usize = 4;
+pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
@@ -15,10 +16,29 @@ pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
 #[cfg(feature = "rp2350")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
+/// A compact bytecode expression (up to MAX_EXPR bytes).
+/// When `len == 0` the static value is used instead.
+#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+pub struct Expr {
+    pub len: u8,
+    pub code: [u8; MAX_EXPR],
+}
+
+impl Expr {
+    pub const fn empty() -> Self {
+        Self {
+            len: 0,
+            code: [0; MAX_EXPR],
+        }
+    }
+}
+
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct ButtonDef {
     pub note: u8,
     pub velocity: u8,
+    pub note_expr: Expr,
+    pub velocity_expr: Expr,
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
@@ -27,6 +47,8 @@ pub struct TouchPadDef {
     pub velocity: u8,
     /// Touch threshold as a percentage above the calibrated baseline (e.g. 33 = 33%).
     pub threshold_pct: u8,
+    pub note_expr: Expr,
+    pub velocity_expr: Expr,
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
@@ -61,87 +83,50 @@ pub struct Config {
     pub accel: AccelConfig,
 }
 
+const fn default_button(note: u8, velocity: u8) -> ButtonDef {
+    ButtonDef {
+        note,
+        velocity,
+        note_expr: Expr::empty(),
+        velocity_expr: Expr::empty(),
+    }
+}
+
+const fn default_touch(note: u8, velocity: u8, threshold_pct: u8) -> TouchPadDef {
+    TouchPadDef {
+        note,
+        velocity,
+        threshold_pct,
+        note_expr: Expr::empty(),
+        velocity_expr: Expr::empty(),
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             midi_channel: 0,
             num_buttons: 4,
             buttons: [
-                ButtonDef {
-                    note: 60,
-                    velocity: 100,
-                },
-                ButtonDef {
-                    note: 62,
-                    velocity: 100,
-                },
-                ButtonDef {
-                    note: 64,
-                    velocity: 100,
-                },
-                ButtonDef {
-                    note: 65,
-                    velocity: 100,
-                },
-                ButtonDef {
-                    note: 0,
-                    velocity: 0,
-                },
-                ButtonDef {
-                    note: 0,
-                    velocity: 0,
-                },
-                ButtonDef {
-                    note: 0,
-                    velocity: 0,
-                },
-                ButtonDef {
-                    note: 0,
-                    velocity: 0,
-                },
+                default_button(60, 100),
+                default_button(62, 100),
+                default_button(64, 100),
+                default_button(65, 100),
+                default_button(0, 0),
+                default_button(0, 0),
+                default_button(0, 0),
+                default_button(0, 0),
             ],
             num_touch_pads: 5,
             touch_pads: [
-                TouchPadDef {
-                    note: 72,
-                    velocity: 100,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 74,
-                    velocity: 100,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 76,
-                    velocity: 100,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 77,
-                    velocity: 100,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 79,
-                    velocity: 100,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 0,
-                    velocity: 0,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 0,
-                    velocity: 0,
-                    threshold_pct: 33,
-                },
-                TouchPadDef {
-                    note: 0,
-                    velocity: 0,
-                    threshold_pct: 33,
-                },
+                default_touch(72, 100, 33),
+                default_touch(74, 100, 33),
+                default_touch(76, 100, 33),
+                default_touch(77, 100, 33),
+                default_touch(79, 100, 33),
+                default_touch(0, 0, 33),
+                default_touch(0, 0, 33),
+                default_touch(0, 0, 33),
             ],
             num_pots: 2,
             pots: [

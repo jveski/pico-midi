@@ -2,6 +2,7 @@
 #![no_main]
 
 mod config;
+mod expr;
 mod input;
 mod input_state;
 mod serial;
@@ -25,6 +26,7 @@ use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 use config::Config;
+use expr::ExprInputs;
 use input_state::InputState;
 
 const CIN_NOTE_OFF: u8 = 0x08;
@@ -149,15 +151,35 @@ async fn main(_spawner: Spawner) {
             // ~1ms poll interval
             Timer::after(Duration::from_millis(1)).await;
 
+            // Build expression inputs from current state
+            let expr_inputs = ExprInputs {
+                pots: INPUT_STATE.pots_snapshot(),
+                ldr: INPUT_STATE.ldr_value(),
+                accel_x: INPUT_STATE.accel_x_value(),
+                accel_y: INPUT_STATE.accel_y_value(),
+            };
+
             // Poll buttons
             let nb = (midi_cfg.num_buttons as usize).min(8);
             for evt in buttons.poll().into_iter().flatten() {
                 if (evt.index as usize) < nb {
                     let def = &midi_cfg.buttons[evt.index as usize];
+                    let note = expr::eval(
+                        &def.note_expr.code,
+                        def.note_expr.len,
+                        &expr_inputs,
+                        def.note,
+                    );
+                    let vel = expr::eval(
+                        &def.velocity_expr.code,
+                        def.velocity_expr.len,
+                        &expr_inputs,
+                        def.velocity,
+                    );
                     let pkt = if evt.pressed {
-                        note_on(midi_cfg.midi_channel, def.note, def.velocity)
+                        note_on(midi_cfg.midi_channel, note, vel)
                     } else {
-                        note_off(midi_cfg.midi_channel, def.note)
+                        note_off(midi_cfg.midi_channel, note)
                     };
                     send_midi(&mut midi_class, &pkt).await;
                 }
@@ -169,10 +191,22 @@ async fn main(_spawner: Spawner) {
             for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
                 if (evt.index as usize) < nt {
                     let def = &midi_cfg.touch_pads[evt.index as usize];
+                    let note = expr::eval(
+                        &def.note_expr.code,
+                        def.note_expr.len,
+                        &expr_inputs,
+                        def.note,
+                    );
+                    let vel = expr::eval(
+                        &def.velocity_expr.code,
+                        def.velocity_expr.len,
+                        &expr_inputs,
+                        def.velocity,
+                    );
                     let pkt = if evt.pressed {
-                        note_on(midi_cfg.midi_channel, def.note, def.velocity)
+                        note_on(midi_cfg.midi_channel, note, vel)
                     } else {
-                        note_off(midi_cfg.midi_channel, def.note)
+                        note_off(midi_cfg.midi_channel, note)
                     };
                     send_midi(&mut midi_class, &pkt).await;
                 }
@@ -253,7 +287,7 @@ async fn main(_spawner: Spawner) {
             serial_class.wait_connection().await;
             defmt::info!("serial connected");
 
-            let mut frame_buf = [0u8; 256];
+            let mut frame_buf = [0u8; 1024];
             let mut frame_pos = 0usize;
             let mut last_monitor_send = Instant::now();
 

@@ -91,6 +91,27 @@ impl InputState {
         self.accel_tap.store(true, Ordering::Relaxed);
     }
 
+    /// Snapshot all pot values for expression evaluation.
+    pub fn pots_snapshot(&self) -> [u8; config::MAX_POTS] {
+        let mut v = [0u8; config::MAX_POTS];
+        for (i, p) in v.iter_mut().enumerate() {
+            *p = self.pots[i].load(Ordering::Relaxed);
+        }
+        v
+    }
+
+    pub fn ldr_value(&self) -> u8 {
+        self.ldr.load(Ordering::Relaxed)
+    }
+
+    pub fn accel_x_value(&self) -> u8 {
+        self.accel_x.load(Ordering::Relaxed)
+    }
+
+    pub fn accel_y_value(&self) -> u8 {
+        self.accel_y.load(Ordering::Relaxed)
+    }
+
     /// Take a snapshot of the current input state.
     /// The accel_tap flag is cleared atomically on read.
     pub fn snapshot(&self) -> MonitorSnapshot {
@@ -104,18 +125,13 @@ impl InputState {
             *touch_pad = self.touch_pads[i].load(Ordering::Relaxed);
         }
 
-        let mut pots = [0u8; config::MAX_POTS];
-        for (i, pot) in pots.iter_mut().enumerate() {
-            *pot = self.pots[i].load(Ordering::Relaxed);
-        }
-
         MonitorSnapshot {
             buttons,
             touch_pads,
-            pots,
-            ldr: self.ldr.load(Ordering::Relaxed),
-            accel_x: self.accel_x.load(Ordering::Relaxed),
-            accel_y: self.accel_y.load(Ordering::Relaxed),
+            pots: self.pots_snapshot(),
+            ldr: self.ldr_value(),
+            accel_x: self.accel_x_value(),
+            accel_y: self.accel_y_value(),
             accel_tap: self.accel_tap.swap(false, Ordering::Relaxed),
         }
     }

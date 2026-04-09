@@ -5,6 +5,7 @@ import {
   RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
 } from "./protocol.js";
 import { sleep, num, clamp, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
+import { compileExpr, disassemble } from "./expr.js";
 
 // ── State ──
 
@@ -13,6 +14,11 @@ let rxBuf = [], rxFrames = [];
 let cmdLock = Promise.resolve();
 let config = null;
 let monitorTapTimer = null;
+
+// Expression source text is stored alongside config but not serialized to
+// the device — only the compiled bytecode is sent. We keep the source
+// in the config objects as `note_expr_src` / `velocity_expr_src` strings
+// and persist them to localStorage so they survive page reloads.
 
 // ── DOM refs (set by init) ──
 
@@ -231,6 +237,42 @@ function applyMonitorData(snap) {
   }
 }
 
+// ── Expression Source Persistence ──
+// The device only stores bytecode, not expression source text. We keep the
+// human-readable source in localStorage keyed by button/touch index so users
+// can edit it after reconnecting.
+
+function saveExprSources() {
+  if (!config) return;
+  const data = {
+    buttons: config.buttons.map(b => ({ note: b.note_expr_src || "", vel: b.velocity_expr_src || "" })),
+    touch: config.touch_pads.map(t => ({ note: t.note_expr_src || "", vel: t.velocity_expr_src || "" })),
+  };
+  try { localStorage.setItem("picomidi_expr", JSON.stringify(data)); } catch {}
+}
+
+function loadExprSources() {
+  try {
+    const data = JSON.parse(localStorage.getItem("picomidi_expr") || "{}");
+    if (config && data.buttons) {
+      config.buttons.forEach((b, i) => {
+        if (data.buttons[i]) {
+          b.note_expr_src = data.buttons[i].note || "";
+          b.velocity_expr_src = data.buttons[i].vel || "";
+        }
+      });
+    }
+    if (config && data.touch) {
+      config.touch_pads.forEach((t, i) => {
+        if (data.touch[i]) {
+          t.note_expr_src = data.touch[i].note || "";
+          t.velocity_expr_src = data.touch[i].vel || "";
+        }
+      });
+    }
+  } catch {}
+}
+
 // ── Config Operations ──
 
 async function refreshConfig() {
@@ -239,6 +281,16 @@ async function refreshConfig() {
     const resp = await sendRequest(REQ_GET_CONFIG);
     if (resp.type === "config") {
       config = resp.value;
+      // Initialize expr source strings (empty by default from device)
+      config.buttons.forEach(b => {
+        b.note_expr_src = b.note_expr_src || "";
+        b.velocity_expr_src = b.velocity_expr_src || "";
+      });
+      config.touch_pads.forEach(t => {
+        t.note_expr_src = t.note_expr_src || "";
+        t.velocity_expr_src = t.velocity_expr_src || "";
+      });
+      loadExprSources();
       renderConfig();
       toast("Config loaded", "success");
     } else if (resp.type === "error") {
@@ -265,22 +317,51 @@ function renderConfig() {
 }
 
 function readConfigFromUI() {
-  if (!config) return;
+  if (!config) return null;
   const panel = configPanel;
   config.midi_channel = clamp(num(panel.midiChannel.value, 0), 0, 15);
 
-  // Buttons
-  config.buttons = panel.buttonList.readFromDOM().map(b => ({
-    note: clamp(b.note, 0, 127),
-    velocity: clamp(b.velocity, 1, 127),
-  }));
+  // Buttons — compile expressions to bytecode
+  config.buttons = panel.buttonList.readFromDOM().map(b => {
+    const noteResult = compileExpr(b.note_expr_src);
+    const velResult = compileExpr(b.velocity_expr_src);
+    if (noteResult.error) return { error: `Button note expr: ${noteResult.error}` };
+    if (velResult.error) return { error: `Button velocity expr: ${velResult.error}` };
+    return {
+      note: clamp(b.note, 0, 127),
+      velocity: clamp(b.velocity, 1, 127),
+      note_expr: Array.from(noteResult.code),
+      velocity_expr: Array.from(velResult.code),
+      note_expr_src: b.note_expr_src,
+      velocity_expr_src: b.velocity_expr_src,
+    };
+  });
 
-  // Touch pads
-  config.touch_pads = panel.touchList.readFromDOM().map(t => ({
-    note: clamp(t.note, 0, 127),
-    velocity: clamp(t.velocity, 1, 127),
-    threshold_pct: clamp(t.threshold_pct, 1, 255),
-  }));
+  // Check for compilation errors
+  for (const b of config.buttons) {
+    if (b.error) { toast(b.error, "error"); return null; }
+  }
+
+  // Touch pads — compile expressions to bytecode
+  config.touch_pads = panel.touchList.readFromDOM().map(t => {
+    const noteResult = compileExpr(t.note_expr_src);
+    const velResult = compileExpr(t.velocity_expr_src);
+    if (noteResult.error) return { error: `Touch note expr: ${noteResult.error}` };
+    if (velResult.error) return { error: `Touch velocity expr: ${velResult.error}` };
+    return {
+      note: clamp(t.note, 0, 127),
+      velocity: clamp(t.velocity, 1, 127),
+      threshold_pct: clamp(t.threshold_pct, 1, 255),
+      note_expr: Array.from(noteResult.code),
+      velocity_expr: Array.from(velResult.code),
+      note_expr_src: t.note_expr_src,
+      velocity_expr_src: t.velocity_expr_src,
+    };
+  });
+
+  for (const t of config.touch_pads) {
+    if (t.error) { toast(t.error, "error"); return null; }
+  }
 
   // Pots
   config.pots = panel.potList.readFromDOM().map(p => ({
@@ -301,12 +382,16 @@ function readConfigFromUI() {
     dead_zone_tenths: clamp(num(document.getElementById("accelDeadZone").value, 0), 0, 255),
     smoothing_pct: clamp(num(document.getElementById("accelSmoothing").value, 0), 0, 100),
   };
+
+  return config;
 }
 
 async function applyConfig() {
   try {
-    readConfigFromUI();
-    const resp = await sendRequest(REQ_PUT_CONFIG, config);
+    const cfg = readConfigFromUI();
+    if (!cfg) return false;
+    saveExprSources();
+    const resp = await sendRequest(REQ_PUT_CONFIG, cfg);
     if (resp.type === "ok") return true;
     throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
   } catch (e) {
@@ -335,6 +420,7 @@ async function resetConfig() {
   try {
     const resp = await sendRequest(REQ_RESET);
     if (resp.type === "ok") {
+      try { localStorage.removeItem("picomidi_expr"); } catch {}
       await refreshConfig();
       toast("Defaults restored", "info");
     }
@@ -353,10 +439,10 @@ function handleItemAdd(e) {
   const type = list.dataset.type;
 
   if (type === "button" && config.buttons.length < BUTTON_PINS.length) {
-    config.buttons.push({ note: 60, velocity: 100 });
+    config.buttons.push({ note: 60, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: "", velocity_expr_src: "" });
     list.render(config.buttons);
   } else if (type === "touch" && config.touch_pads.length < TOUCH_PINS.length) {
-    config.touch_pads.push({ note: 72, velocity: 100, threshold_pct: 33 });
+    config.touch_pads.push({ note: 72, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: "", velocity_expr_src: "" });
     list.render(config.touch_pads);
   } else if (type === "pot" && config.pots.length < POT_PINS.length) {
     config.pots.push({ cc: 0 });

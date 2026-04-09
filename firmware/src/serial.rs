@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Commands sent from the host to the device.
 #[derive(Deserialize)]
+#[allow(clippy::large_enum_variant)] // no_std: can't Box
 pub enum Request {
     /// Echo request.
     Ping,
@@ -23,6 +24,7 @@ pub enum Request {
 
 /// Responses sent from the device to the host.
 #[derive(Serialize)]
+#[allow(clippy::large_enum_variant)] // no_std: can't Box
 pub enum Response<'a> {
     /// Echo reply.
     Pong,
