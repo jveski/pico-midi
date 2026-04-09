@@ -45,6 +45,11 @@ export class CollapsibleCard extends HTMLElement {
       header.classList.toggle("collapsed", collapsed);
     });
 
+    if (this.dataset.collapsed != null) {
+      body.classList.add("collapsed");
+      header.classList.add("collapsed");
+    }
+
     card.appendChild(header);
     card.appendChild(body);
     this.appendChild(card);

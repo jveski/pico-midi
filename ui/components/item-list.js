@@ -12,7 +12,6 @@ export class ItemList extends HTMLElement {
     this._countId = this.dataset.countId;   // e.g. "btnCount"
     this._addId = this.dataset.addId;       // e.g. "addButton"
     this._addLabel = this.dataset.addLabel; // e.g. "+ Add Button"
-    this._fields = this._type === "pot" ? ["cc"] : this._type === "touch" ? ["note", "velocity", "threshold_pct"] : ["note", "velocity"];
 
     this.innerHTML =
       `<div id="${this._listId}"></div>` +
@@ -51,51 +50,41 @@ export class ItemList extends HTMLElement {
           `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       } else if (this._type === "touch") {
+        // Touch pads: expression inputs for note & velocity, plus numeric threshold
+        const noteExprSrc = item.note_expr_src || String(item.note);
+        const velExprSrc = item.velocity_expr_src || String(item.velocity);
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
           pinHtml +
           `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
-          `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
-          `<span class="note-hint">${noteName(item.note)}</span>` +
-          `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
+          `<label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" value="${this._escAttr(noteExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="note_expr_src">` +
+          `<span class="note-hint" data-idx="${i}"></span>` +
+          `<span class="expr-error" data-idx="${i}" data-field="note_expr_err"></span>` +
+          `<label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" value="${this._escAttr(velExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="velocity_expr_src">` +
+          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>` +
           `<label>Thr%</label><input type="number" min="1" max="255" value="${item.threshold_pct}" data-type="${this._type}" data-idx="${i}" data-field="threshold_pct">` +
           `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       } else {
+        // Buttons: expression inputs for note & velocity
+        const noteExprSrc = item.note_expr_src || String(item.note);
+        const velExprSrc = item.velocity_expr_src || String(item.velocity);
         row.innerHTML =
           `<span class="index">#${i + 1}</span>` +
           pinHtml +
           `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
-          `<label>Note</label><input type="number" min="0" max="127" value="${item.note}" data-type="${this._type}" data-idx="${i}" data-field="note">` +
-          `<span class="note-hint">${noteName(item.note)}</span>` +
-          `<label>Vel</label><input type="number" min="1" max="127" value="${item.velocity}" data-type="${this._type}" data-idx="${i}" data-field="velocity">` +
-          `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
-      }
-
-      // Add expression fields for buttons and touch pads
-      if (hasExpr) {
-        const exprRow = document.createElement("div");
-        exprRow.className = "expr-row";
-        const noteExprSrc = item.note_expr_src || "";
-        const velExprSrc = item.velocity_expr_src || "";
-        exprRow.innerHTML =
-          `<span class="expr-label">expr</span>` +
           `<label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" value="${this._escAttr(noteExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="note_expr_src">` +
+          `<span class="note-hint" data-idx="${i}"></span>` +
           `<span class="expr-error" data-idx="${i}" data-field="note_expr_err"></span>` +
           `<label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" value="${this._escAttr(velExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="velocity_expr_src">` +
-          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>`;
-        row.appendChild(exprRow);
+          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>` +
+          `<button class="btn-remove" data-type="${this._type}" data-idx="${i}">Remove</button>`;
       }
 
       container.appendChild(row);
     });
 
-    // Note hint live updates
-    container.querySelectorAll('input[data-field="note"]').forEach(inp => {
-      inp.addEventListener("input", () => {
-        const hint = inp.parentElement.querySelector(".note-hint");
-        if (hint) hint.textContent = noteName(parseInt(inp.value, 10) || 0);
-      });
-    });
+    // Note hint updates — show note name when value is a plain number
+    this._updateNoteHints(container);
 
     // Expression validation on input — also notify parent so config can
     // be applied to the device in realtime (without requiring a save).
@@ -107,6 +96,16 @@ export class ItemList extends HTMLElement {
         const { error } = compileExpr(inp.value);
         if (errEl) errEl.textContent = error || "";
         inp.classList.toggle("expr-invalid", !!error);
+
+        // Update note hint if this is a note expression field
+        if (field === "note_expr_src") {
+          const hint = inp.parentElement.querySelector(`.note-hint[data-idx="${inp.dataset.idx}"]`);
+          if (hint) {
+            const v = parseInt(inp.value, 10);
+            hint.textContent = (!error && String(v) === inp.value.trim()) ? noteName(v) : "";
+          }
+        }
+
         if (!error) {
           this.dispatchEvent(new CustomEvent("expr-change", { bubbles: true }));
         }
@@ -128,12 +127,27 @@ export class ItemList extends HTMLElement {
     return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   }
 
+  /** Show note name hints for note expression fields that contain plain numbers. */
+  _updateNoteHints(container) {
+    container.querySelectorAll('input[data-field="note_expr_src"]').forEach(inp => {
+      const hint = container.querySelector(`.note-hint[data-idx="${inp.dataset.idx}"]`);
+      if (hint) {
+        const v = parseInt(inp.value, 10);
+        hint.textContent = (String(v) === inp.value.trim()) ? noteName(v) : "";
+      }
+    });
+  }
+
   syncFromDOM(items) {
     const container = this.querySelector(`#${this._listId}`);
     container.querySelectorAll(".item-row").forEach((row, i) => {
       if (i < items.length) {
-        for (const f of this._fields)
-          items[i][f] = num(row.querySelector(`[data-field="${f}"]`).value, items[i][f]);
+        // Sync threshold for touch pads
+        const thrInput = row.querySelector('[data-field="threshold_pct"]');
+        if (thrInput) items[i].threshold_pct = num(thrInput.value, items[i].threshold_pct);
+        // Sync CC for pots
+        const ccInput = row.querySelector('[data-field="cc"]');
+        if (ccInput) items[i].cc = num(ccInput.value, items[i].cc);
         // Sync expression source text
         const noteExprInput = row.querySelector('[data-field="note_expr_src"]');
         if (noteExprInput) items[i].note_expr_src = noteExprInput.value;
@@ -154,16 +168,12 @@ export class ItemList extends HTMLElement {
         });
       } else if (isTouch) {
         items.push({
-          note: num(row.querySelector('[data-field="note"]').value, 0),
-          velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
           threshold_pct: num(row.querySelector('[data-field="threshold_pct"]').value, 33),
           note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
           velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         });
       } else {
         items.push({
-          note: num(row.querySelector('[data-field="note"]').value, 0),
-          velocity: num(row.querySelector('[data-field="velocity"]').value, 100),
           note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
           velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         });

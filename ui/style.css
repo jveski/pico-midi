@@ -7,7 +7,7 @@
 }
 
 body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; font-size: 13px; }
-.container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+.container { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
 collapsible-card { display: block; }
 
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
@@ -67,14 +67,11 @@ a.btn { text-decoration: none; }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
 .list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
-.expr-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 0 28px; flex-wrap: wrap; width: 100%; }
-.expr-row label { font-size: 11px; color: var(--dim); min-width: 28px; }
-.expr-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; min-width: 28px; }
-.expr-input { padding: 3px 8px; font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 140px; outline: none; }
+.expr-input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 240px; outline: none; }
 .expr-input:focus { border-color: var(--fg); }
 .expr-input.expr-invalid { border-color: var(--red); }
 .expr-input::placeholder { color: #444; }
-.expr-error { font-size: 10px; color: var(--red); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expr-error { font-size: 10px; color: var(--red); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-row { flex-wrap: wrap; }
 
 .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -138,3 +135,19 @@ a.btn { text-decoration: none; }
 .download-item:hover .download-desc { color: var(--bg); }
 .download-name { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
 .download-desc { font-size: 11px; color: var(--dim); }
+
+/* Expression reference docs */
+.expr-ref p { color: var(--dim); margin-bottom: 12px; line-height: 1.7; }
+.expr-ref strong { color: var(--fg); }
+.expr-ref h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; color: var(--fg); }
+.expr-ref h3:first-child { margin-top: 0; }
+.expr-ref table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.expr-ref th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border); }
+.expr-ref td { font-size: 12px; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border); color: var(--dim); }
+.expr-ref td code, .expr-ref p code { color: var(--fg); }
+.expr-ref .expr-examples { list-style: none; margin-bottom: 12px; }
+.expr-ref .expr-examples li { padding: 3px 0; color: var(--dim); font-size: 12px; }
+.expr-ref .expr-examples code { color: var(--fg); }
+.expr-ref .expr-notes { list-style: disc; padding-left: 18px; color: var(--dim); font-size: 12px; }
+.expr-ref .expr-notes li { margin-bottom: 4px; line-height: 1.6; }
+.expr-ref .expr-notes code { color: var(--fg); }

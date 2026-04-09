@@ -318,20 +318,30 @@ function renderConfig() {
   panel.accelSection.render(config);
 }
 
+/**
+ * Extract a static fallback value from an expression source string.
+ * If the expression is a plain integer (e.g. "60"), return that number.
+ * Otherwise return the provided default.
+ */
+function staticFromExpr(src, fallback) {
+  const v = parseInt(src, 10);
+  return (String(v) === (src || "").trim()) ? v : fallback;
+}
+
 function readConfigFromUI() {
   if (!config) return null;
   const panel = configPanel;
   config.midi_channel = clamp(num(panel.midiChannel.value, 0), 0, 15);
 
-  // Buttons — compile expressions to bytecode
+  // Buttons — compile expression text to bytecode; extract static fallback
   config.buttons = panel.buttonList.readFromDOM().map(b => {
     const noteResult = compileExpr(b.note_expr_src);
     const velResult = compileExpr(b.velocity_expr_src);
     if (noteResult.error) return { error: `Button note expr: ${noteResult.error}` };
     if (velResult.error) return { error: `Button velocity expr: ${velResult.error}` };
     return {
-      note: clamp(b.note, 0, 127),
-      velocity: clamp(b.velocity, 1, 127),
+      note: clamp(staticFromExpr(b.note_expr_src, 60), 0, 127),
+      velocity: clamp(staticFromExpr(b.velocity_expr_src, 100), 1, 127),
       note_expr: Array.from(noteResult.code),
       velocity_expr: Array.from(velResult.code),
       note_expr_src: b.note_expr_src,
@@ -344,15 +354,15 @@ function readConfigFromUI() {
     if (b.error) { toast(b.error, "error"); return null; }
   }
 
-  // Touch pads — compile expressions to bytecode
+  // Touch pads — compile expression text to bytecode; extract static fallback
   config.touch_pads = panel.touchList.readFromDOM().map(t => {
     const noteResult = compileExpr(t.note_expr_src);
     const velResult = compileExpr(t.velocity_expr_src);
     if (noteResult.error) return { error: `Touch note expr: ${noteResult.error}` };
     if (velResult.error) return { error: `Touch velocity expr: ${velResult.error}` };
     return {
-      note: clamp(t.note, 0, 127),
-      velocity: clamp(t.velocity, 1, 127),
+      note: clamp(staticFromExpr(t.note_expr_src, 60), 0, 127),
+      velocity: clamp(staticFromExpr(t.velocity_expr_src, 100), 1, 127),
       threshold_pct: clamp(t.threshold_pct, 1, 255),
       note_expr: Array.from(noteResult.code),
       velocity_expr: Array.from(velResult.code),
