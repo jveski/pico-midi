@@ -123,11 +123,16 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_input();
     pin.set_pull(Pull::Down);
 
-    let mut count: u32 = 0;
-    while pin.is_high() && count < 10_000 {
-        count += 1;
+    let start = Instant::now();
+    let mut elapsed_us;
+    loop {
+        elapsed_us = start.elapsed().as_micros();
+        if !pin.is_high() || elapsed_us >= 500 {
+            break;
+        }
     }
-    count
+    #[allow(clippy::cast_possible_truncation)]
+    { elapsed_us as u32 }
 }
 
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
@@ -138,16 +143,21 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_input();
     pin.set_pull(Pull::Down);
 
-    let mut count: u32 = 0;
-    while pin.is_high() && count < 5_000 {
-        count += 1;
+    let start = Instant::now();
+    let mut elapsed_us;
+    loop {
+        elapsed_us = start.elapsed().as_micros();
+        if !pin.is_high() || elapsed_us >= 500 {
+            break;
+        }
     }
-    count
+    #[allow(clippy::cast_possible_truncation)]
+    { elapsed_us as u32 }
 }
 
 impl<const N: usize> TouchPads<N> {
     /// Initialize touch pads, measuring baseline capacitance.
-    /// Each pad's threshold is `baseline + baseline * threshold_pcts[i] / 100`.
+    /// Each pad's threshold is `baseline + max(baseline * threshold_pcts[i] / 100, 2)`.
     pub fn new(pins: &mut [Flex<'static>; N], threshold_pcts: &[u8; N]) -> Self {
         let pads: [TouchPad; N] = core::array::from_fn(|i| {
             let mut sum: u32 = 0;
@@ -156,8 +166,9 @@ impl<const N: usize> TouchPads<N> {
             }
             let baseline = sum / 8;
             let pct = u32::from(threshold_pcts[i]);
+            let margin = (baseline * pct / 100).max(2);
             TouchPad {
-                threshold: baseline + baseline * pct / 100,
+                threshold: baseline + margin,
                 was_touched: false,
             }
         });
