@@ -132,7 +132,9 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
         }
     }
     #[allow(clippy::cast_possible_truncation)]
-    { elapsed_us as u32 }
+    {
+        elapsed_us as u32
+    }
 }
 
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
@@ -152,7 +154,9 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
         }
     }
     #[allow(clippy::cast_possible_truncation)]
-    { elapsed_us as u32 }
+    {
+        elapsed_us as u32
+    }
 }
 
 impl<const N: usize> TouchPads<N> {
