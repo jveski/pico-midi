@@ -65,6 +65,8 @@ export class ConfigPanel extends HTMLElement {
             '<tr><th>Function</th><th>Description</th></tr>' +
             '<tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>' +
             '<tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>' +
+            '<tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>' +
+            '<tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>' +
           '</table>' +
 
           '<h3>Conditionals</h3>' +
@@ -77,6 +79,8 @@ export class ConfigPanel extends HTMLElement {
             '<li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>' +
             '<li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>' +
             '<li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>' +
+            '<li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>' +
+            '<li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>' +
           '</ul>' +
 
           '<h3>Notes</h3>' +

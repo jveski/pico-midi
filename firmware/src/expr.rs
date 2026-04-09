@@ -21,6 +21,8 @@
 //! | 0x13   | --        | a b -> a/b   | Integer divide         |
 //! | 0x14   | --        | a b -> min   | Minimum                |
 //! | 0x15   | --        | a b -> max   | Maximum                |
+//! | 0x16   | --        | a b c -> r   | Clamp a to [b, c]      |
+//! | 0x17   | --        | a b c -> r   | Lerp from a to b by c  |
 //! | 0x20   | --        | a b c d -> r | If a > b then c else d |
 
 use crate::config::MAX_EXPR;
@@ -45,6 +47,8 @@ const OP_MUL: u8 = 0x12;
 const OP_DIV: u8 = 0x13;
 const OP_MIN: u8 = 0x14;
 const OP_MAX: u8 = 0x15;
+const OP_CLAMP: u8 = 0x16;
+const OP_LERP: u8 = 0x17;
 const OP_IF_GT: u8 = 0x20;
 
 const STACK_SIZE: usize = 8;
@@ -62,6 +66,14 @@ fn binop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8) ->
     if *sp >= 2 {
         *sp -= 1;
         stack[*sp - 1] = f(stack[*sp - 1], stack[*sp]);
+    }
+}
+
+/// Pop three values and apply a ternary operation, pushing the result.
+fn triop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8, u8) -> u8) {
+    if *sp >= 3 {
+        *sp -= 2;
+        stack[*sp - 1] = f(stack[*sp - 1], stack[*sp], stack[*sp + 1]);
     }
 }
 
@@ -117,6 +129,19 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
             }
             OP_MIN => binop(&mut stack, &mut sp, u8::min),
             OP_MAX => binop(&mut stack, &mut sp, u8::max),
+            OP_CLAMP => triop(&mut stack, &mut sp, |val, lo, hi| {
+                let (lo, hi) = (lo.min(hi), lo.max(hi));
+                val.clamp(lo, hi)
+            }),
+            OP_LERP => triop(&mut stack, &mut sp, |a, b, t| {
+                // lerp(a, b, t): linearly interpolate from a to b, where t=0 → a, t=127 → b
+                let a = i16::from(a);
+                let b = i16::from(b);
+                let t = i16::from(t);
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let val = (a + (b - a) * t / 127).clamp(0, 127) as u8;
+                val
+            }),
             OP_IF_GT
                 // stack: ... test_val threshold then_val else_val
                 if sp >= 4 =>

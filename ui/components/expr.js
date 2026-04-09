@@ -4,10 +4,11 @@
 //   expr     = ternary
 //   ternary  = compare (('?' compare ':' compare)?)
 //   compare  = additive (('>' additive)?)
-//   additive = term (('+' | '-') term)*
-//   term     = call | atom
+//   additive       = multiplicative (('+' | '-') multiplicative)*
+//   multiplicative = atom (('*' | '/') atom)*
+//   atom     = NUMBER | VARIABLE | call | '(' expr ')'
 //   call     = ('min' | 'max') '(' expr ',' expr ')'
-//   atom     = NUMBER | VARIABLE | '(' expr ')'
+//            | ('clamp' | 'lerp') '(' expr ',' expr ',' expr ')'
 //
 // Variables: pot0-pot3, ldr, accel_x, accel_y
 //
@@ -15,6 +16,8 @@
 //   pot0 + 24
 //   pot0 > 64 ? 60 : 48
 //   min(pot0, 100)
+//   clamp(pot0, 20, 100)
+//   lerp(36, 84, pot0)
 //   pot0 * 2
 
 const OP_PUSH       = 0x01;
@@ -28,6 +31,8 @@ const OP_MUL        = 0x12;
 const OP_DIV        = 0x13;
 const OP_MIN        = 0x14;
 const OP_MAX        = 0x15;
+const OP_CLAMP      = 0x16;
+const OP_LERP       = 0x17;
 const OP_IF_GT      = 0x20;
 
 export const MAX_EXPR = 16;
@@ -153,14 +158,19 @@ class Compiler {
     const w = this.word();
     if (!w) throw new Error(`Unexpected character at position ${this.pos}`);
 
-    // Function call: min(...) or max(...)
-    if ((w === "min" || w === "max") && this.peek() === "(") {
+    // Function call: min(a,b), max(a,b), clamp(val,lo,hi), lerp(a,b,t)
+    if ((w === "min" || w === "max" || w === "clamp" || w === "lerp") && this.peek() === "(") {
       this.eat("(");
       this.expr();
       this.eat(",");
       this.expr();
+      if (w === "clamp" || w === "lerp") {
+        this.eat(",");
+        this.expr();
+      }
       this.eat(")");
-      this.emit(w === "min" ? OP_MIN : OP_MAX);
+      const ops = { min: OP_MIN, max: OP_MAX, clamp: OP_CLAMP, lerp: OP_LERP };
+      this.emit(ops[w]);
       return;
     }
 
@@ -216,6 +226,8 @@ export function disassemble(code) {
       case OP_DIV:      parts.push("/"); break;
       case OP_MIN:      parts.push("min"); break;
       case OP_MAX:      parts.push("max"); break;
+      case OP_CLAMP:    parts.push("clamp"); break;
+      case OP_LERP:     parts.push("lerp"); break;
       case OP_IF_GT:    parts.push("if>"); break;
       default:          parts.push(`?${code[i].toString(16)}`);
     }
