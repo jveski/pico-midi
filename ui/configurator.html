@@ -7,22 +7,18 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
+<connect-banner></connect-banner>
+
+<div class="container has-connect-banner">
   <header>
     <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
-    <status-bar></status-bar>
   </header>
 
   <div id="unsupported">
     Web Serial API is not available in this browser. Use Chrome or Edge 89+ on desktop.
   </div>
 
-  <app-toolbar></app-toolbar>
   <config-panel></config-panel>
-
-  <div id="emptyState" class="empty-state">
-    <p>Connect a pico-midi device via USB to configure it.</p>
-  </div>
 
 </div>
 
@@ -32,8 +28,7 @@
 
 <script type="module">
 import "./components/collapsible-card.js";
-import "./components/status-bar.js";
-import "./components/app-toolbar.js";
+import "./components/connect-banner.js";
 import "./components/toast-notification.js";
 import "./components/midi-channel.js";
 import "./components/item-list.js";
@@ -44,11 +39,10 @@ import "./components/save-banner.js";
 import { init } from "./components/app.js";
 
 init({
-  statusBar: document.querySelector("status-bar"),
-  toolbar: document.querySelector("app-toolbar"),
+  connectBanner: document.querySelector("connect-banner"),
+  container: document.querySelector(".container"),
   configPanel: document.querySelector("config-panel"),
   saveBanner: document.querySelector("save-banner"),
-  emptyState: document.getElementById("emptyState"),
   toast: document.querySelector("toast-notification"),
 });
 </script>

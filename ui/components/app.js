@@ -24,17 +24,16 @@ let dirty = false;
 
 // ── DOM refs (set by init) ──
 
-let statusBar, toolbar, configPanel, saveBanner, emptyState, toastEl;
+let connectBanner, container, configPanel, saveBanner, toastEl;
 
 export function init(refs) {
-  statusBar = refs.statusBar;
-  toolbar = refs.toolbar;
+  connectBanner = refs.connectBanner;
+  container = refs.container;
   configPanel = refs.configPanel;
   saveBanner = refs.saveBanner;
-  emptyState = refs.emptyState;
   toastEl = refs.toast;
 
-  toolbar.btnConnect.addEventListener("click", connect);
+  connectBanner.btnConnect.addEventListener("click", connect);
   saveBanner.btnSave.addEventListener("click", saveConfig);
 
   configPanel.btnExport.addEventListener("click", exportProject);
@@ -47,7 +46,7 @@ export function init(refs) {
 
   if (!("serial" in navigator)) {
     document.getElementById("unsupported").style.display = "block";
-    toolbar.btnConnect.disabled = true;
+    connectBanner.btnConnect.disabled = true;
   } else {
     navigator.serial.addEventListener("disconnect", (e) => {
       if (port && (e.target === port || e.port === port)) {
@@ -56,6 +55,10 @@ export function init(refs) {
       }
     });
   }
+
+  // Show config panel with defaults (disabled) on initial load
+  setConnected(false);
+  renderDefaultConfig();
 }
 
 // ── Toast ──
@@ -67,10 +70,9 @@ function toast(msg, type) {
 // ── Connection ──
 
 function setConnected(connected) {
-  statusBar.connected = connected;
-  toolbar.connected = connected;
-  configPanel.style.display = connected ? "" : "none";
-  emptyState.style.display = connected ? "none" : "";
+  connectBanner.visible = !connected;
+  container.classList.toggle("has-connect-banner", !connected);
+  configPanel.disabled = !connected;
   if (!connected) {
     dirty = false;
     saveBanner.visible = false;
@@ -78,7 +80,7 @@ function setConnected(connected) {
 }
 
 function setToolbarBusy(busy) {
-  toolbar.busy = busy;
+  connectBanner.btnConnect.disabled = busy;
   saveBanner.busy = busy;
   configPanel.projectBusy = busy;
 }
@@ -95,6 +97,42 @@ function clearDirty() {
   saveBanner.visible = false;
 }
 
+/** Build a default config object with firmware defaults for preview. */
+function defaultConfig() {
+  const buttons = [];
+  for (let i = 0; i < MAX_BUTTONS; i++) {
+    buttons.push({ note: 60 + i, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: String(60 + i), velocity_expr_src: "100" });
+  }
+  const touch_pads = [];
+  for (let i = 0; i < MAX_TOUCH_PADS; i++) {
+    touch_pads.push({ note: 48 + i, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: String(48 + i), velocity_expr_src: "100" });
+  }
+  const pots = [];
+  for (let i = 0; i < MAX_POTS; i++) {
+    pots.push({ cc: i === 0 ? 1 : 7 });
+  }
+  return {
+    midi_channel: 0,
+    buttons,
+    touch_pads,
+    pots,
+    ldr_enabled: false,
+    ldr: { cc: 74 },
+    accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
+  };
+}
+
+function renderDefaultConfig() {
+  const defaults = defaultConfig();
+  const panel = configPanel;
+  panel.midiChannel.value = defaults.midi_channel;
+  panel.buttonList.render(defaults.buttons);
+  panel.touchList.render(defaults.touch_pads);
+  panel.potList.render(defaults.pots);
+  panel.ldrSection.render(defaults);
+  panel.accelSection.render(defaults);
+}
+
 async function connect() {
   try {
     port = await navigator.serial.requestPort();
@@ -109,8 +147,6 @@ async function connect() {
     if (resp.type === "version") {
       if (!resp.value.startsWith("midictrl")) {
         toast("Unexpected device: " + resp.value, "error");
-      } else {
-        statusBar.text = resp.value;
       }
     } else {
       toast("Unexpected response", "error");

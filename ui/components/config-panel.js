@@ -3,7 +3,6 @@ export class ConfigPanel extends HTMLElement {
     if (this._init) return;
     this._init = true;
     this.id = "configPanel";
-    this.style.display = "none";
 
     this.innerHTML =
       // Buttons
@@ -134,6 +133,19 @@ export class ConfigPanel extends HTMLElement {
     this.btnExport.disabled = v;
     this.btnImport.disabled = v;
     this.btnReset.disabled = v;
+  }
+
+  set disabled(v) {
+    const on = !!v;
+    this.classList.toggle("disabled", on);
+    // inert prevents all keyboard/focus/assistive-technology interaction
+    this.querySelectorAll(".card-body").forEach(body => {
+      body.inert = on;
+    });
+  }
+
+  get disabled() {
+    return this.classList.contains("disabled");
   }
 }
 

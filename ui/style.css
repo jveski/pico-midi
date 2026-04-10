@@ -8,6 +8,7 @@
 
 body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; font-size: 13px; }
 .container { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+.container.has-connect-banner { padding-top: 72px; }
 collapsible-card { display: block; }
 
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
@@ -15,10 +16,6 @@ header h1 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter
 header h1 a { color: var(--fg); text-decoration: none; }
 header h1 a:hover { color: var(--dim); }
 header h1 span { color: var(--dim); font-weight: 400; }
-
-.status-bar { display: flex; align-items: center; gap: 8px; color: var(--dim); }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
-.status-dot.connected { background: var(--green); }
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
@@ -33,8 +30,6 @@ a.btn { text-decoration: none; }
 .btn-primary:hover { background: var(--dim); }
 .btn-primary:disabled:hover { background: var(--fg); color: var(--bg); }
 .btn-sm { padding: 3px 10px; font-size: 11px; }
-
-.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
 
 #unsupported { display: none; border: 1px solid var(--red); padding: 16px; margin-bottom: 20px; color: var(--red); }
 
@@ -62,12 +57,9 @@ a.btn { text-decoration: none; }
 .item-row input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 64px; outline: none; }
 .item-row input:focus { border-color: var(--fg); }
 .item-row label { font-size: 11px; color: var(--dim); min-width: 28px; }
-.item-row .btn-remove { margin-left: auto; padding: 2px 8px; font-size: 11px; font-family: var(--mono); text-transform: uppercase; color: var(--red); background: transparent; border: 1px solid transparent; cursor: pointer; }
-.item-row .btn-remove:hover { border-color: var(--red); }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
 .pin-label.clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
 .pin-label.clickable:hover { color: var(--green); }
-.list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
 .expr-input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 240px; outline: none; }
 .expr-input:focus { border-color: var(--fg); }
@@ -92,9 +84,6 @@ a.btn { text-decoration: none; }
 .toast.success { background: var(--green); color: var(--bg); }
 .toast.error { background: var(--red); color: var(--bg); }
 .toast.info { background: var(--fg); color: var(--bg); }
-
-.empty-state { padding: 40px 20px; text-align: center; color: var(--dim); }
-.empty-state p { margin-bottom: 12px; }
 
 .monitor-row { display: flex; align-items: center; gap: 10px; height: 28px; margin-top: 6px; }
 .monitor-indicator { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: #111; flex-shrink: 0; transition: background 0.08s, border-color 0.08s; }
@@ -158,6 +147,30 @@ a.btn { text-decoration: none; }
 .project-actions-inline { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
 .project-actions-inline h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 10px; }
 .project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Connect banner (floating top bar) */
+.connect-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding: 12px 24px;
+  background: #111; border-bottom: 1px solid var(--border);
+  transform: translateY(-100%); opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  pointer-events: none;
+}
+.connect-banner.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.connect-banner-text { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+
+/* Disabled config panel (when no device connected) */
+config-panel.disabled input,
+config-panel.disabled select,
+config-panel.disabled .toggle { opacity: 0.35; pointer-events: none; }
+config-panel.disabled .project-actions-inline { opacity: 0.35; pointer-events: none; }
+config-panel.disabled .pin-label.clickable { pointer-events: none; cursor: default; }
+config-panel.disabled .monitor-indicator,
+config-panel.disabled .monitor-bar-track,
+config-panel.disabled .monitor-value,
+config-panel.disabled .monitor-tap { opacity: 0.35; }
 
 /* Save banner (floating bottom bar) */
 .save-banner {
