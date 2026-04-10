@@ -101,7 +101,7 @@ export const RESP_MONITOR = 5;
 
 export const MAX_BUTTONS = 8;
 export const MAX_TOUCH_PADS = 8;
-export const MAX_POTS = 4;
+export const MAX_POTS = 2;
 export const MAX_EXPR = 16;
 
 // ── Expression Serialization ──
@@ -129,39 +129,22 @@ function readExpr(r) {
 export function writeConfig(w, cfg) {
   w.u8(cfg.midi_channel);
   // ButtonDef: { note: u8, velocity: u8, note_expr: Expr, velocity_expr: Expr }
-  w.u8(cfg.buttons.length);
   for (let i = 0; i < MAX_BUTTONS; i++) {
-    if (i < cfg.buttons.length) {
-      const b = cfg.buttons[i];
-      w.u8(b.note); w.u8(b.velocity);
-      writeExpr(w, b.note_expr);
-      writeExpr(w, b.velocity_expr);
-    } else {
-      w.u8(0); w.u8(0);
-      writeExpr(w, null);
-      writeExpr(w, null);
-    }
+    const b = cfg.buttons[i];
+    w.u8(b.note); w.u8(b.velocity);
+    writeExpr(w, b.note_expr);
+    writeExpr(w, b.velocity_expr);
   }
   // TouchPadDef: { note: u8, velocity: u8, threshold_pct: u8, note_expr: Expr, velocity_expr: Expr }
-  w.u8(cfg.touch_pads.length);
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
-    if (i < cfg.touch_pads.length) {
-      const t = cfg.touch_pads[i];
-      w.u8(t.note); w.u8(t.velocity); w.u8(t.threshold_pct);
-      writeExpr(w, t.note_expr);
-      writeExpr(w, t.velocity_expr);
-    } else {
-      w.u8(0); w.u8(0); w.u8(33);
-      writeExpr(w, null);
-      writeExpr(w, null);
-    }
+    const t = cfg.touch_pads[i];
+    w.u8(t.note); w.u8(t.velocity); w.u8(t.threshold_pct);
+    writeExpr(w, t.note_expr);
+    writeExpr(w, t.velocity_expr);
   }
   // PotDef: { cc: u8 }
-  w.u8(cfg.pots.length);
   for (let i = 0; i < MAX_POTS; i++) {
-    if (i < cfg.pots.length) {
-      w.u8(cfg.pots[i].cc);
-    } else { w.u8(0); }
+    w.u8(cfg.pots[i].cc);
   }
   // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
   w.u8(cfg.ldr.cc);
@@ -181,26 +164,23 @@ export function readConfig(r) {
   };
   cfg.midi_channel = r.u8();
   // ButtonDef: { note: u8, velocity: u8, note_expr: Expr, velocity_expr: Expr }
-  const nb = r.u8();
   for (let i = 0; i < MAX_BUTTONS; i++) {
     const note = r.u8(), velocity = r.u8();
     const note_expr = readExpr(r);
     const velocity_expr = readExpr(r);
-    if (i < nb) cfg.buttons.push({ note, velocity, note_expr: note_expr.code, velocity_expr: velocity_expr.code });
+    cfg.buttons.push({ note, velocity, note_expr: note_expr.code, velocity_expr: velocity_expr.code });
   }
   // TouchPadDef: { note: u8, velocity: u8, threshold_pct: u8, note_expr: Expr, velocity_expr: Expr }
-  const nt = r.u8();
   for (let i = 0; i < MAX_TOUCH_PADS; i++) {
     const note = r.u8(), velocity = r.u8(), threshold_pct = r.u8();
     const note_expr = readExpr(r);
     const velocity_expr = readExpr(r);
-    if (i < nt) cfg.touch_pads.push({ note, velocity, threshold_pct, note_expr: note_expr.code, velocity_expr: velocity_expr.code });
+    cfg.touch_pads.push({ note, velocity, threshold_pct, note_expr: note_expr.code, velocity_expr: velocity_expr.code });
   }
   // PotDef: { cc: u8 }
-  const np = r.u8();
   for (let i = 0; i < MAX_POTS; i++) {
     const cc = r.u8();
-    if (i < np) cfg.pots.push({ cc });
+    cfg.pots.push({ cc });
   }
   // ldr: PotDef { cc: u8 }, then ldr_enabled: bool
   cfg.ldr = { cc: r.u8() };

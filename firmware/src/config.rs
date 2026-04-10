@@ -2,10 +2,10 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 5;
+pub const VERSION: u8 = 6;
 pub const MAX_BUTTONS: usize = 8;
 pub const MAX_TOUCH_PADS: usize = 8;
-pub const MAX_POTS: usize = 4;
+pub const MAX_POTS: usize = 2;
 pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
 #[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
@@ -73,11 +73,8 @@ pub struct AccelConfig {
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct Config {
     pub midi_channel: u8,
-    pub num_buttons: u8,
     pub buttons: [ButtonDef; MAX_BUTTONS],
-    pub num_touch_pads: u8,
     pub touch_pads: [TouchPadDef; MAX_TOUCH_PADS],
-    pub num_pots: u8,
     pub pots: [PotDef; MAX_POTS],
     pub ldr: PotDef,
     pub ldr_enabled: bool,
@@ -107,34 +104,29 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             midi_channel: 0,
-            num_buttons: 4,
             buttons: [
-                default_button(60, 100),
-                default_button(62, 100),
-                default_button(64, 100),
-                default_button(65, 100),
-                default_button(0, 0),
-                default_button(0, 0),
-                default_button(0, 0),
-                default_button(0, 0),
+                default_button(60, 100), // C4
+                default_button(62, 100), // D4
+                default_button(64, 100), // E4
+                default_button(65, 100), // F4
+                default_button(67, 100), // G4
+                default_button(69, 100), // A4
+                default_button(71, 100), // B4
+                default_button(72, 100), // C5
             ],
-            num_touch_pads: 5,
             touch_pads: [
-                default_touch(72, 100, 33),
-                default_touch(74, 100, 33),
-                default_touch(76, 100, 33),
-                default_touch(77, 100, 33),
-                default_touch(79, 100, 33),
-                default_touch(0, 0, 33),
-                default_touch(0, 0, 33),
-                default_touch(0, 0, 33),
+                default_touch(48, 100, 33), // C3
+                default_touch(50, 100, 33), // D3
+                default_touch(52, 100, 33), // E3
+                default_touch(53, 100, 33), // F3
+                default_touch(55, 100, 33), // G3
+                default_touch(57, 100, 33), // A3
+                default_touch(59, 100, 33), // B3
+                default_touch(60, 100, 33), // C4
             ],
-            num_pots: 2,
             pots: [
-                PotDef { cc: 7 },
-                PotDef { cc: 10 },
-                PotDef { cc: 0 },
-                PotDef { cc: 0 },
+                PotDef { cc: 7 },  // Volume
+                PotDef { cc: 10 }, // Pan
             ],
             ldr_enabled: true,
             ldr: PotDef { cc: 74 },

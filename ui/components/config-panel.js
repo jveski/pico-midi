@@ -13,17 +13,17 @@ export class ConfigPanel extends HTMLElement {
 
       // Buttons
       '<collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">' +
-        '<item-list data-type="button" data-max="8" data-list-id="buttonList" data-count-id="btnCount" data-add-id="addButton" data-add-label="+ Add Button"></item-list>' +
+        '<item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount"></item-list>' +
       '</collapsible-card>' +
 
       // Touch Pads
       '<collapsible-card data-section="touch" data-title="Touch Pads" data-badge-id="touchCount">' +
-        '<item-list data-type="touch" data-max="8" data-list-id="touchList" data-count-id="touchCount" data-add-id="addTouch" data-add-label="+ Add Touch Pad"></item-list>' +
+        '<item-list data-type="touch" data-list-id="touchList" data-count-id="touchCount"></item-list>' +
       '</collapsible-card>' +
 
       // Pots
       '<collapsible-card data-section="pots" data-title="Potentiometers" data-badge-id="potCount">' +
-        '<item-list data-type="pot" data-max="4" data-list-id="potList" data-count-id="potCount" data-add-id="addPot" data-add-label="+ Add Pot"></item-list>' +
+        '<item-list data-type="pot" data-list-id="potList" data-count-id="potCount"></item-list>' +
       '</collapsible-card>' +
 
       // LDR
@@ -45,7 +45,7 @@ export class ConfigPanel extends HTMLElement {
           '<h3>Variables</h3>' +
           '<table>' +
             '<tr><th>Variable</th><th>Description</th></tr>' +
-            '<tr><td><code>pot0</code> &ndash; <code>pot3</code></td><td>Potentiometer values (0&ndash;127)</td></tr>' +
+            '<tr><td><code>pot0</code> &ndash; <code>pot1</code></td><td>Potentiometer values (0&ndash;127)</td></tr>' +
             '<tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>' +
             '<tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>' +
             '<tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>' +

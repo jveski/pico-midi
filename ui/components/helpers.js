@@ -22,7 +22,7 @@ export function sleep(ms) {
 // ── Hardware pin mappings (mirrors firmware main.rs) ──
 
 /** GPIO pins assigned to each button index in firmware. */
-export const BUTTON_PINS = [2, 3, 4, 5, 11, 12, 13, 14];
+export const BUTTON_PINS = [0, 1, 4, 5, 11, 12, 13, 14];
 
 /** GPIO pins assigned to each touch pad index in firmware. */
 export const TOUCH_PINS = [6, 7, 8, 9, 10, 15, 16, 17];

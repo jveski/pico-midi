@@ -4,8 +4,8 @@ import {
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
   RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
 } from "./protocol.js";
-import { sleep, num, clamp, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
-import { compileExpr, disassemble } from "./expr.js";
+import { sleep, num, clamp } from "./helpers.js";
+import { compileExpr } from "./expr.js";
 
 // ── State ──
 
@@ -40,8 +40,6 @@ export function init(refs) {
   projectSection.btnReset.addEventListener("click", resetConfig);
   projectSection.addEventListener("project-import", handleProjectImport);
 
-  configPanel.addEventListener("item-add", handleItemAdd);
-  configPanel.addEventListener("item-remove", handleItemRemove);
   configPanel.addEventListener("expr-change", debouncedApplyConfig);
 
   if (!("serial" in navigator)) {
@@ -586,9 +584,9 @@ function validateProject(p) {
   if (!p || typeof p !== "object") return false;
   if (p._format !== "pico-midi-project") return false;
   if (typeof p.midi_channel !== "number") return false;
-  if (!Array.isArray(p.buttons) || p.buttons.length > MAX_BUTTONS) return false;
-  if (!Array.isArray(p.touch_pads) || p.touch_pads.length > MAX_TOUCH_PADS) return false;
-  if (!Array.isArray(p.pots) || p.pots.length > MAX_POTS) return false;
+  if (!Array.isArray(p.buttons) || p.buttons.length !== MAX_BUTTONS) return false;
+  if (!Array.isArray(p.touch_pads) || p.touch_pads.length !== MAX_TOUCH_PADS) return false;
+  if (!Array.isArray(p.pots) || p.pots.length !== MAX_POTS) return false;
   if (!p.ldr || typeof p.ldr.cc !== "number") return false;
   if (!p.accel || typeof p.accel.enabled !== "boolean") return false;
 
@@ -607,37 +605,4 @@ function validateProject(p) {
   return true;
 }
 
-// ── Item Add/Remove Handlers ──
-
-function handleItemAdd(e) {
-  if (!config) return;
-  const list = e.target;
-  const type = list.dataset.type;
-
-  if (type === "button" && config.buttons.length < BUTTON_PINS.length) {
-    config.buttons.push({ note: 60, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: "", velocity_expr_src: "" });
-    list.render(config.buttons);
-  } else if (type === "touch" && config.touch_pads.length < TOUCH_PINS.length) {
-    config.touch_pads.push({ note: 72, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: "", velocity_expr_src: "" });
-    list.render(config.touch_pads);
-  } else if (type === "pot" && config.pots.length < POT_PINS.length) {
-    config.pots.push({ cc: 0 });
-    list.render(config.pots);
-  }
-}
-
-function handleItemRemove(e) {
-  if (!config) return;
-  const list = e.target;
-  const type = list.dataset.type;
-  const idx = e.detail.idx;
-
-  const items = type === "button" ? config.buttons :
-                type === "touch" ? config.touch_pads :
-                config.pots;
-
-  // Sync DOM values before removing
-  list.syncFromDOM(items);
-  items.splice(idx, 1);
-  list.render(items);
-}
+// ── (Item counts are fixed; add/remove functionality removed) ──

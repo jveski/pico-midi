@@ -27,11 +27,11 @@
 //! | 0x17   | --        | a b c -> r   | Lerp from a to b by c  |
 //! | 0x20   | --        | a b c d -> r | If a > b then c else d |
 
-use crate::config::MAX_EXPR;
+use crate::config::{MAX_EXPR, MAX_POTS};
 
 /// Inputs available to expressions — a snapshot of live controller state.
 pub struct ExprInputs {
-    pub pots: [u8; 4],
+    pub pots: [u8; MAX_POTS],
     pub ldr: u8,
     pub accel_x: u8,
     pub accel_y: u8,

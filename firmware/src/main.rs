@@ -54,11 +54,8 @@ async fn main(spawner: Spawner) {
         Config::default()
     });
     defmt::info!(
-        "config loaded: ch={} buttons={} touch={} pots={}",
-        cfg.midi_channel,
-        cfg.num_buttons,
-        cfg.num_touch_pads,
-        cfg.num_pots
+        "config loaded: ch={}",
+        cfg.midi_channel
     );
 
     // ---- USB composite device setup ----
@@ -170,76 +167,70 @@ async fn main(spawner: Spawner) {
             };
 
             // Poll buttons
-            let nb = (midi_cfg.num_buttons as usize).min(8);
             for evt in buttons.poll().into_iter().flatten() {
-                if (evt.index as usize) < nb {
-                    let idx = evt.index as usize;
-                    let pkt = if evt.pressed {
-                        let def = &midi_cfg.buttons[idx];
-                        let note = expr::eval(
-                            &def.note_expr.code,
-                            def.note_expr.len,
-                            &expr_inputs,
-                            def.note,
-                        );
-                        let vel = expr::eval(
-                            &def.velocity_expr.code,
-                            def.velocity_expr.len,
-                            &expr_inputs,
-                            def.velocity,
-                        );
-                        active_button_note[idx] = Some(note);
-                        note_on(midi_cfg.midi_channel, note, vel)
-                    } else {
-                        // Release the exact note that was pressed, not the
-                        // current expression value which may have changed.
-                        let note = active_button_note[idx].unwrap_or(midi_cfg.buttons[idx].note);
-                        active_button_note[idx] = None;
-                        note_off(midi_cfg.midi_channel, note)
-                    };
-                    send_midi(&mut midi_class, &pkt).await;
-                }
+                let idx = evt.index as usize;
+                let pkt = if evt.pressed {
+                    let def = &midi_cfg.buttons[idx];
+                    let note = expr::eval(
+                        &def.note_expr.code,
+                        def.note_expr.len,
+                        &expr_inputs,
+                        def.note,
+                    );
+                    let vel = expr::eval(
+                        &def.velocity_expr.code,
+                        def.velocity_expr.len,
+                        &expr_inputs,
+                        def.velocity,
+                    );
+                    active_button_note[idx] = Some(note);
+                    note_on(midi_cfg.midi_channel, note, vel)
+                } else {
+                    // Release the exact note that was pressed, not the
+                    // current expression value which may have changed.
+                    let note = active_button_note[idx].unwrap_or(midi_cfg.buttons[idx].note);
+                    active_button_note[idx] = None;
+                    note_off(midi_cfg.midi_channel, note)
+                };
+                send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_button(evt.index, evt.pressed);
             }
 
             // Poll touch pads
-            let nt = (midi_cfg.num_touch_pads as usize).min(8);
             for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
-                if (evt.index as usize) < nt {
-                    let idx = evt.index as usize;
-                    let pkt = if evt.pressed {
-                        let def = &midi_cfg.touch_pads[idx];
-                        let note = expr::eval(
-                            &def.note_expr.code,
-                            def.note_expr.len,
-                            &expr_inputs,
-                            def.note,
-                        );
-                        let vel = expr::eval(
-                            &def.velocity_expr.code,
-                            def.velocity_expr.len,
-                            &expr_inputs,
-                            def.velocity,
-                        );
-                        active_touch_note[idx] = Some(note);
-                        note_on(midi_cfg.midi_channel, note, vel)
-                    } else {
-                        let note = active_touch_note[idx].unwrap_or(midi_cfg.touch_pads[idx].note);
-                        active_touch_note[idx] = None;
-                        note_off(midi_cfg.midi_channel, note)
-                    };
-                    send_midi(&mut midi_class, &pkt).await;
-                }
+                let idx = evt.index as usize;
+                let pkt = if evt.pressed {
+                    let def = &midi_cfg.touch_pads[idx];
+                    let note = expr::eval(
+                        &def.note_expr.code,
+                        def.note_expr.len,
+                        &expr_inputs,
+                        def.note,
+                    );
+                    let vel = expr::eval(
+                        &def.velocity_expr.code,
+                        def.velocity_expr.len,
+                        &expr_inputs,
+                        def.velocity,
+                    );
+                    active_touch_note[idx] = Some(note);
+                    note_on(midi_cfg.midi_channel, note, vel)
+                } else {
+                    let note = active_touch_note[idx].unwrap_or(midi_cfg.touch_pads[idx].note);
+                    active_touch_note[idx] = None;
+                    note_off(midi_cfg.midi_channel, note)
+                };
+                send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_touch(evt.index, evt.pressed);
             }
 
             // Poll pots
-            for i in 0..(midi_cfg.num_pots as usize).min(pots.len()) {
+            for i in 0..pots.len() {
                 if let Some(v) = pots[i].poll(&mut adc_inst, 2).await {
                     let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[i].cc, v);
                     send_midi(&mut midi_class, &pkt).await;
                 }
-                #[allow(clippy::cast_possible_truncation)] // num_pots <= 4
+                #[allow(clippy::cast_possible_truncation)] // index fits in u8
                 INPUT_STATE.set_pot(i as u8, pots[i].current_cc());
             }
 
