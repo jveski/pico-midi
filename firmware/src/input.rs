@@ -1,5 +1,5 @@
 use embassy_rp::adc::{self, Adc, Channel};
-use embassy_rp::gpio::{Flex, Input, Pull};
+use embassy_rp::gpio::{Drive, Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::I2C1;
 use embassy_time::{Instant, Timer};
@@ -136,6 +136,11 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
             break;
         }
     }
+
+    // Remove pull-down after measurement so it doesn't parasitically
+    // discharge the pad between measurements.
+    pin.set_pull(Pull::None);
+
     #[allow(clippy::cast_possible_truncation)]
     {
         elapsed_us as u32
@@ -163,6 +168,11 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
             break;
         }
     }
+
+    // Remove pull-down after measurement so it doesn't parasitically
+    // discharge the pad between measurements.
+    pin.set_pull(Pull::None);
+
     #[allow(clippy::cast_possible_truncation)]
     {
         elapsed_us as u32
@@ -173,6 +183,25 @@ impl<const N: usize> TouchPads<N> {
     /// Initialize touch pads, measuring baseline capacitance.
     /// Each pad's threshold is `baseline + max(baseline * threshold_pcts[i] / 100, 2)`.
     pub fn new(pins: &mut [Flex<'static>; N], threshold_pcts: &[u8; N]) -> Self {
+        // embassy-rp's Flex::new() uses a register `write` (not `modify`) on the
+        // pad control register, starting from zero.  This silently disables the
+        // Schmitt trigger and reduces drive strength to 2 mA — both of which
+        // differ from the hardware reset defaults (Schmitt enabled, 4 mA).
+        //
+        // On RP2040 the weaker ~50 kΩ pull-down produces a slow enough discharge
+        // that the input buffer reads cleanly even without hysteresis.  On RP2350
+        // the much stronger ~28 kΩ pull-down causes sub-microsecond discharges
+        // where the voltage blasts through the input threshold zone; without
+        // Schmitt hysteresis the input oscillates at the crossing, producing noisy
+        // timing measurements that appear as inverted / phantom touches.
+        //
+        // Re-enable the Schmitt trigger and restore 4 mA drive on every touch pin
+        // so both platforms get clean, reliable readings.
+        for pin in pins.iter_mut() {
+            pin.set_schmitt(true);
+            pin.set_drive_strength(Drive::_4mA);
+        }
+
         let pads: [TouchPad; N] = core::array::from_fn(|i| {
             let mut sum: u32 = 0;
             for _ in 0..8 {
