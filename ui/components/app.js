@@ -23,19 +23,22 @@ let exprApplyTimer = null;
 
 // ── DOM refs (set by init) ──
 
-let statusBar, toolbar, configPanel, emptyState, toastEl;
+let statusBar, toolbar, configPanel, projectSection, emptyState, toastEl;
 
 export function init(refs) {
   statusBar = refs.statusBar;
   toolbar = refs.toolbar;
   configPanel = refs.configPanel;
+  projectSection = refs.projectSection;
   emptyState = refs.emptyState;
   toastEl = refs.toast;
 
   toolbar.btnConnect.addEventListener("click", connect);
-  toolbar.btnRefresh.addEventListener("click", refreshConfig);
   toolbar.btnSave.addEventListener("click", saveConfig);
-  toolbar.btnReset.addEventListener("click", resetConfig);
+
+  projectSection.btnExport.addEventListener("click", exportProject);
+  projectSection.btnReset.addEventListener("click", resetConfig);
+  projectSection.addEventListener("project-import", handleProjectImport);
 
   configPanel.addEventListener("item-add", handleItemAdd);
   configPanel.addEventListener("item-remove", handleItemRemove);
@@ -66,11 +69,13 @@ function setConnected(connected) {
   statusBar.connected = connected;
   toolbar.connected = connected;
   configPanel.style.display = connected ? "" : "none";
+  projectSection.style.display = connected ? "" : "none";
   emptyState.style.display = connected ? "none" : "";
 }
 
 function setToolbarBusy(busy) {
   toolbar.busy = busy;
+  projectSection.busy = busy;
 }
 
 async function connect() {
@@ -446,6 +451,160 @@ async function resetConfig() {
   } finally {
     setToolbarBusy(false);
   }
+}
+
+// ── Project Export / Import ──
+
+function exportProject() {
+  // Read current UI state into config (so unsaved edits are captured)
+  const cfg = readConfigFromUI();
+  if (!cfg) return;
+
+  // Build a clean JSON-serializable project object
+  const project = {
+    _format: "pico-midi-project",
+    _version: 1,
+    midi_channel: cfg.midi_channel,
+    buttons: cfg.buttons.map(b => ({
+      note: b.note,
+      velocity: b.velocity,
+      note_expr: Array.from(b.note_expr),
+      velocity_expr: Array.from(b.velocity_expr),
+      note_expr_src: b.note_expr_src || "",
+      velocity_expr_src: b.velocity_expr_src || "",
+    })),
+    touch_pads: cfg.touch_pads.map(t => ({
+      note: t.note,
+      velocity: t.velocity,
+      threshold_pct: t.threshold_pct,
+      note_expr: Array.from(t.note_expr),
+      velocity_expr: Array.from(t.velocity_expr),
+      note_expr_src: t.note_expr_src || "",
+      velocity_expr_src: t.velocity_expr_src || "",
+    })),
+    pots: cfg.pots.map(p => ({ cc: p.cc })),
+    ldr_enabled: cfg.ldr_enabled,
+    ldr: { cc: cfg.ldr.cc },
+    accel: {
+      enabled: cfg.accel.enabled,
+      x_cc: cfg.accel.x_cc,
+      y_cc: cfg.accel.y_cc,
+      tap_note: cfg.accel.tap_note,
+      tap_velocity: cfg.accel.tap_velocity,
+      dead_zone_tenths: cfg.accel.dead_zone_tenths,
+      smoothing_pct: cfg.accel.smoothing_pct,
+    },
+  };
+
+  const json = JSON.stringify(project, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pico-midi-project.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("Project exported", "success");
+}
+
+async function handleProjectImport(e) {
+  const file = e.detail.file;
+  let project;
+  try {
+    const text = await file.text();
+    project = JSON.parse(text);
+  } catch {
+    toast("Invalid JSON file", "error");
+    return;
+  }
+
+  // Validate the project structure
+  if (!validateProject(project)) {
+    toast("Invalid project file", "error");
+    return;
+  }
+
+  setToolbarBusy(true);
+  try {
+    // Apply imported config to the in-memory config object
+    config = {
+      midi_channel: clamp(project.midi_channel, 0, 15),
+      buttons: project.buttons.map(b => ({
+        note: clamp(b.note, 0, 127),
+        velocity: clamp(b.velocity, 1, 127),
+        note_expr: Array.from(b.note_expr),
+        velocity_expr: Array.from(b.velocity_expr),
+        note_expr_src: b.note_expr_src || "",
+        velocity_expr_src: b.velocity_expr_src || "",
+      })),
+      touch_pads: project.touch_pads.map(t => ({
+        note: clamp(t.note, 0, 127),
+        velocity: clamp(t.velocity, 1, 127),
+        threshold_pct: clamp(t.threshold_pct, 1, 255),
+        note_expr: Array.from(t.note_expr),
+        velocity_expr: Array.from(t.velocity_expr),
+        note_expr_src: t.note_expr_src || "",
+        velocity_expr_src: t.velocity_expr_src || "",
+      })),
+      pots: project.pots.map(p => ({ cc: clamp(p.cc, 0, 127) })),
+      ldr_enabled: !!project.ldr_enabled,
+      ldr: { cc: clamp(project.ldr.cc, 0, 127) },
+      accel: {
+        enabled: !!project.accel.enabled,
+        x_cc: clamp(project.accel.x_cc, 0, 127),
+        y_cc: clamp(project.accel.y_cc, 0, 127),
+        tap_note: clamp(project.accel.tap_note, 0, 127),
+        tap_velocity: clamp(project.accel.tap_velocity, 1, 127),
+        dead_zone_tenths: clamp(project.accel.dead_zone_tenths, 0, 255),
+        smoothing_pct: clamp(project.accel.smoothing_pct, 0, 100),
+      },
+    };
+
+    // Render the imported config to the UI
+    renderConfig();
+
+    // Save expression sources to localStorage
+    saveExprSources();
+
+    // Send the config to the device
+    const resp = await sendRequest(REQ_PUT_CONFIG, config);
+    if (resp.type === "ok") {
+      toast("Project imported", "success");
+    } else {
+      throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
+    }
+  } catch (e) {
+    toast("Import failed: " + e.message, "error");
+  } finally {
+    setToolbarBusy(false);
+  }
+}
+
+function validateProject(p) {
+  if (!p || typeof p !== "object") return false;
+  if (p._format !== "pico-midi-project") return false;
+  if (typeof p.midi_channel !== "number") return false;
+  if (!Array.isArray(p.buttons) || p.buttons.length > MAX_BUTTONS) return false;
+  if (!Array.isArray(p.touch_pads) || p.touch_pads.length > MAX_TOUCH_PADS) return false;
+  if (!Array.isArray(p.pots) || p.pots.length > MAX_POTS) return false;
+  if (!p.ldr || typeof p.ldr.cc !== "number") return false;
+  if (!p.accel || typeof p.accel.enabled !== "boolean") return false;
+
+  for (const b of p.buttons) {
+    if (typeof b.note !== "number" || typeof b.velocity !== "number") return false;
+    if (!Array.isArray(b.note_expr) || !Array.isArray(b.velocity_expr)) return false;
+  }
+  for (const t of p.touch_pads) {
+    if (typeof t.note !== "number" || typeof t.velocity !== "number") return false;
+    if (typeof t.threshold_pct !== "number") return false;
+    if (!Array.isArray(t.note_expr) || !Array.isArray(t.velocity_expr)) return false;
+  }
+  for (const p2 of p.pots) {
+    if (typeof p2.cc !== "number") return false;
+  }
+  return true;
 }
 
 // ── Item Add/Remove Handlers ──

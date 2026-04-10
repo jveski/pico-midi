@@ -19,6 +19,7 @@
 
   <app-toolbar></app-toolbar>
   <config-panel></config-panel>
+  <project-section></project-section>
 
   <div id="emptyState" class="empty-state">
     <p>Connect a pico-midi device via USB to configure it.</p>
@@ -37,12 +38,14 @@ import "./components/midi-channel.js";
 import "./components/item-list.js";
 import "./components/toggle-section.js";
 import "./components/config-panel.js";
+import "./components/project-section.js";
 import { init } from "./components/app.js";
 
 init({
   statusBar: document.querySelector("status-bar"),
   toolbar: document.querySelector("app-toolbar"),
   configPanel: document.querySelector("config-panel"),
+  projectSection: document.querySelector("project-section"),
   emptyState: document.getElementById("emptyState"),
   toast: document.querySelector("toast-notification"),
 });
