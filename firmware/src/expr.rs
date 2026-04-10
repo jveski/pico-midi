@@ -1,8 +1,10 @@
 //! Tiny stack-machine bytecode evaluator for dynamic MIDI mappings.
 //!
 //! Expressions are compiled to bytecode in the browser UI and evaluated
-//! on the microcontroller.  The VM operates on `u8` values (0-127) using
-//! saturating arithmetic so results always stay in MIDI range.
+//! on the microcontroller.  The VM operates on `u16` values internally so
+//! that intermediate arithmetic (especially multiply) can exceed 127
+//! without premature saturation.  Only the **final** result is clamped to
+//! the MIDI range 0-127.
 //!
 //! # Bytecode format
 //!
@@ -54,7 +56,7 @@ const OP_IF_GT: u8 = 0x20;
 const STACK_SIZE: usize = 8;
 
 /// Push a value onto the stack if there is room.
-const fn stack_push(stack: &mut [u8; STACK_SIZE], sp: &mut usize, val: u8) {
+const fn stack_push(stack: &mut [u16; STACK_SIZE], sp: &mut usize, val: u16) {
     if *sp < STACK_SIZE {
         stack[*sp] = val;
         *sp += 1;
@@ -62,7 +64,7 @@ const fn stack_push(stack: &mut [u8; STACK_SIZE], sp: &mut usize, val: u8) {
 }
 
 /// Pop two values and apply a binary operation, pushing the result.
-fn binop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8) -> u8) {
+fn binop(stack: &mut [u16; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u16, u16) -> u16) {
     if *sp >= 2 {
         *sp -= 1;
         stack[*sp - 1] = f(stack[*sp - 1], stack[*sp]);
@@ -70,7 +72,7 @@ fn binop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8) ->
 }
 
 /// Pop three values and apply a ternary operation, pushing the result.
-fn triop(stack: &mut [u8; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u8, u8, u8) -> u8) {
+fn triop(stack: &mut [u16; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u16, u16, u16) -> u16) {
     if *sp >= 3 {
         *sp -= 2;
         stack[*sp - 1] = f(stack[*sp - 1], stack[*sp], stack[*sp + 1]);
@@ -85,7 +87,7 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
         return fallback;
     }
     let code = &program[..len.min(MAX_EXPR)];
-    let mut stack = [0u8; STACK_SIZE];
+    let mut stack = [0u16; STACK_SIZE];
     let mut sp: usize = 0;
     let mut pc: usize = 0;
 
@@ -96,7 +98,7 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 if pc >= code.len() {
                     break;
                 }
-                stack_push(&mut stack, &mut sp, code[pc]);
+                stack_push(&mut stack, &mut sp, u16::from(code[pc]));
             }
             OP_LOAD_POT => {
                 pc += 1;
@@ -109,37 +111,39 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 } else {
                     0
                 };
-                stack_push(&mut stack, &mut sp, v);
+                stack_push(&mut stack, &mut sp, u16::from(v));
             }
-            OP_LOAD_LDR => stack_push(&mut stack, &mut sp, inputs.ldr),
-            OP_LOAD_ACCEL_X => stack_push(&mut stack, &mut sp, inputs.accel_x),
-            OP_LOAD_ACCEL_Y => stack_push(&mut stack, &mut sp, inputs.accel_y),
-            OP_ADD => binop(&mut stack, &mut sp, u8::saturating_add),
-            OP_SUB => binop(&mut stack, &mut sp, u8::saturating_sub),
+            OP_LOAD_LDR => stack_push(&mut stack, &mut sp, u16::from(inputs.ldr)),
+            OP_LOAD_ACCEL_X => stack_push(&mut stack, &mut sp, u16::from(inputs.accel_x)),
+            OP_LOAD_ACCEL_Y => stack_push(&mut stack, &mut sp, u16::from(inputs.accel_y)),
+            OP_ADD => binop(&mut stack, &mut sp, u16::saturating_add),
+            OP_SUB => binop(&mut stack, &mut sp, u16::saturating_sub),
             OP_MUL => {
                 binop(&mut stack, &mut sp, |a, b| {
-                    let r = u16::from(a).saturating_mul(u16::from(b));
-                    #[allow(clippy::cast_possible_truncation)] // Clamped to 127
-                    let val = r.min(127) as u8;
+                    let r = u32::from(a).saturating_mul(u32::from(b));
+                    #[allow(clippy::cast_possible_truncation)]
+                    let val = r.min(u16::MAX as u32) as u16;
                     val
                 });
             }
             OP_DIV => {
-                binop(&mut stack, &mut sp, |a, b| a.checked_div(b).unwrap_or(127));
+                binop(&mut stack, &mut sp, |a, b| {
+                    a.checked_div(b).unwrap_or(u16::MAX)
+                });
             }
-            OP_MIN => binop(&mut stack, &mut sp, u8::min),
-            OP_MAX => binop(&mut stack, &mut sp, u8::max),
+            OP_MIN => binop(&mut stack, &mut sp, u16::min),
+            OP_MAX => binop(&mut stack, &mut sp, u16::max),
             OP_CLAMP => triop(&mut stack, &mut sp, |val, lo, hi| {
                 let (lo, hi) = (lo.min(hi), lo.max(hi));
                 val.clamp(lo, hi)
             }),
             OP_LERP => triop(&mut stack, &mut sp, |a, b, t| {
                 // lerp(a, b, t): linearly interpolate from a to b, where t=0 → a, t=127 → b
-                let a = i16::from(a);
-                let b = i16::from(b);
-                let t = i16::from(t);
+                let a = i32::from(a);
+                let b = i32::from(b);
+                let t = i32::from(t);
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let val = (a + (b - a) * t / 127).clamp(0, 127) as u8;
+                let val = (a + (b - a) * t / 127).clamp(0, i32::from(u16::MAX)) as u16;
                 val
             }),
             OP_IF_GT
@@ -159,7 +163,9 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
     }
 
     if sp > 0 {
-        stack[sp - 1].min(127)
+        #[allow(clippy::cast_possible_truncation)]
+        let result = stack[sp - 1].min(127) as u8;
+        result
     } else {
         fallback
     }

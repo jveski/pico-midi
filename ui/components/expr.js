@@ -149,7 +149,7 @@ class Compiler {
     // Number literal
     if (/[0-9]/.test(ch)) {
       const n = this.number();
-      this.emit(OP_PUSH, Math.max(0, Math.min(127, n)));
+      this.emit(OP_PUSH, Math.max(0, Math.min(255, n)));
       return;
     }
 
