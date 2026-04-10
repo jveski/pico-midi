@@ -135,12 +135,9 @@ async fn main(spawner: Spawner) {
 
         // --- Accelerometer: I2C1, SCL=GP3, SDA=GP2 ---
         let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
-        let mut accel = input::Accelerometer::new(
-            i2c1,
-            cfg.borrow().accel.dead_zone_tenths,
-            cfg.borrow().accel.smoothing_pct,
-        )
-        .await;
+        let accel_dead_zone = cfg.borrow().accel.dead_zone_tenths;
+        let accel_smoothing = cfg.borrow().accel.smoothing_pct;
+        let mut accel = input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing).await;
 
         let mut last_led_toggle = Instant::now();
         let mut led_on = false;
@@ -164,9 +161,7 @@ async fn main(spawner: Spawner) {
             accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
 
             // Update touch thresholds if changed via the configurator.
-            touch.update_thresholds(
-                &core::array::from_fn(|i| cur.touch_pads[i].threshold_pct),
-            );
+            touch.update_thresholds(&core::array::from_fn(|i| cur.touch_pads[i].threshold_pct));
 
             // Build expression inputs from current state
             let expr_inputs = ExprInputs {
@@ -273,11 +268,7 @@ async fn main(spawner: Spawner) {
                 if r.tapped {
                     send_midi(
                         &mut midi_class,
-                        &note_on(
-                            cur.midi_channel,
-                            cur.accel.tap_note,
-                            cur.accel.tap_velocity,
-                        ),
+                        &note_on(cur.midi_channel, cur.accel.tap_note, cur.accel.tap_velocity),
                     )
                     .await;
                     send_midi(
