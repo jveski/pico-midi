@@ -34,6 +34,15 @@ export class ConfigPanel extends HTMLElement {
       // General
       '<collapsible-card data-section="general" data-title="General">' +
         '<midi-channel></midi-channel>' +
+        '<div class="project-actions-inline">' +
+          '<h3>Project</h3>' +
+          '<div class="project-actions">' +
+            '<button class="btn" id="btnExport">Export Project</button>' +
+            '<button class="btn" id="btnImport">Import Project</button>' +
+            '<button class="btn" id="btnReset">Reset Defaults</button>' +
+          '</div>' +
+          '<input type="file" id="importFile" accept=".json" style="display:none">' +
+        '</div>' +
       '</collapsible-card>' +
 
       // Expression Reference
@@ -90,9 +99,25 @@ export class ConfigPanel extends HTMLElement {
             '<li>Division by zero returns 127</li>' +
             '<li>Expressions compile to a max of 16 bytes of bytecode</li>' +
             '<li>Parentheses <code>()</code> can be used for grouping</li>' +
-          '</ul>' +
+           '</ul>' +
         '</div>' +
       '</collapsible-card>';
+
+    this._wireProjectActions();
+  }
+
+  _wireProjectActions() {
+    this.querySelector("#btnImport").addEventListener("click", () => {
+      this.querySelector("#importFile").click();
+    });
+
+    this.querySelector("#importFile").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this.dispatchEvent(new CustomEvent("project-import", { detail: { file }, bubbles: true }));
+      }
+      e.target.value = "";
+    });
   }
 
   get buttonList() { return this.querySelector('item-list[data-type="button"]'); }
@@ -101,6 +126,15 @@ export class ConfigPanel extends HTMLElement {
   get ldrSection() { return this.querySelector("ldr-section"); }
   get accelSection() { return this.querySelector("accel-section"); }
   get midiChannel() { return this.querySelector("midi-channel"); }
+  get btnExport() { return this.querySelector("#btnExport"); }
+  get btnImport() { return this.querySelector("#btnImport"); }
+  get btnReset() { return this.querySelector("#btnReset"); }
+
+  set projectBusy(v) {
+    this.btnExport.disabled = v;
+    this.btnImport.disabled = v;
+    this.btnReset.disabled = v;
+  }
 }
 
 customElements.define("config-panel", ConfigPanel);

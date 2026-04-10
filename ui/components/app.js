@@ -15,6 +15,7 @@ let cmdLock = Promise.resolve();
 let config = null;
 let monitorTapTimer = null;
 let exprApplyTimer = null;
+let dirty = false;
 
 // Expression source text is stored alongside config but not serialized to
 // the device — only the compiled bytecode is sent. We keep the source
@@ -23,24 +24,26 @@ let exprApplyTimer = null;
 
 // ── DOM refs (set by init) ──
 
-let statusBar, toolbar, configPanel, projectSection, emptyState, toastEl;
+let statusBar, toolbar, configPanel, saveBanner, emptyState, toastEl;
 
 export function init(refs) {
   statusBar = refs.statusBar;
   toolbar = refs.toolbar;
   configPanel = refs.configPanel;
-  projectSection = refs.projectSection;
+  saveBanner = refs.saveBanner;
   emptyState = refs.emptyState;
   toastEl = refs.toast;
 
   toolbar.btnConnect.addEventListener("click", connect);
-  toolbar.btnSave.addEventListener("click", saveConfig);
+  saveBanner.btnSave.addEventListener("click", saveConfig);
 
-  projectSection.btnExport.addEventListener("click", exportProject);
-  projectSection.btnReset.addEventListener("click", resetConfig);
-  projectSection.addEventListener("project-import", handleProjectImport);
+  configPanel.btnExport.addEventListener("click", exportProject);
+  configPanel.btnReset.addEventListener("click", resetConfig);
+  configPanel.addEventListener("project-import", handleProjectImport);
 
-  configPanel.addEventListener("expr-change", debouncedApplyConfig);
+  configPanel.addEventListener("expr-change", () => { markDirty(); debouncedApplyConfig(); });
+  configPanel.addEventListener("input", markDirty);
+  configPanel.addEventListener("change", markDirty);
 
   if (!("serial" in navigator)) {
     document.getElementById("unsupported").style.display = "block";
@@ -67,13 +70,29 @@ function setConnected(connected) {
   statusBar.connected = connected;
   toolbar.connected = connected;
   configPanel.style.display = connected ? "" : "none";
-  projectSection.style.display = connected ? "" : "none";
   emptyState.style.display = connected ? "none" : "";
+  if (!connected) {
+    dirty = false;
+    saveBanner.visible = false;
+  }
 }
 
 function setToolbarBusy(busy) {
   toolbar.busy = busy;
-  projectSection.busy = busy;
+  saveBanner.busy = busy;
+  configPanel.projectBusy = busy;
+}
+
+function markDirty() {
+  if (!dirty && config) {
+    dirty = true;
+    saveBanner.visible = true;
+  }
+}
+
+function clearDirty() {
+  dirty = false;
+  saveBanner.visible = false;
 }
 
 async function connect() {
@@ -297,6 +316,7 @@ async function refreshConfig() {
       });
       loadExprSources();
       renderConfig();
+      clearDirty();
       toast("Config loaded", "success");
     } else if (resp.type === "error") {
       throw new Error(resp.message);
@@ -425,7 +445,10 @@ async function saveConfig() {
   try {
     if (!await applyConfig()) return;
     const resp = await sendRequest(REQ_SAVE);
-    if (resp.type === "ok") toast("Saved to flash", "success");
+    if (resp.type === "ok") {
+      clearDirty();
+      toast("Saved to flash", "success");
+    }
     else toast("Save failed: " + (resp.message || resp.type), "error");
   } catch (e) {
     toast("Save failed", "error");
@@ -442,6 +465,7 @@ async function resetConfig() {
     if (resp.type === "ok") {
       try { localStorage.removeItem("picomidi_expr"); } catch {}
       await refreshConfig();
+      markDirty();
       toast("Defaults restored", "info");
     }
   } catch (e) {
@@ -569,6 +593,7 @@ async function handleProjectImport(e) {
     // Send the config to the device
     const resp = await sendRequest(REQ_PUT_CONFIG, config);
     if (resp.type === "ok") {
+      markDirty();
       toast("Project imported", "success");
     } else {
       throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
