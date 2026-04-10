@@ -109,6 +109,77 @@
       </div>
     </collapsible-card>
 
+    <!-- Wiring Guide -->
+    <collapsible-card data-title="Wiring Guide" data-collapsed>
+      <div class="wiring-ref">
+        <p>How to connect components to the Raspberry Pi Pico GPIO pins.
+          All digital inputs use internal pull-ups &mdash; no external resistors needed.
+          Click any <span class="pin-label" style="display:inline">GP</span> label in the configurator to see its position on the board.</p>
+
+        <h3>Buttons</h3>
+        <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
+          The firmware activates the internal pull-up, so the pin reads high when open and low when pressed.
+          Any of the 21 digital pins can be used: GP0&ndash;GP1, GP4&ndash;GP22.</p>
+        <div class="wiring-diagram">
+          <span>GPIO pin</span> &larr;&mdash; [switch] &mdash;&rarr; <span>GND</span>
+        </div>
+
+        <h3>Touch Pads</h3>
+        <p>Connect a conductive pad (copper tape, bare PCB, foil) directly to a digital GPIO pin.
+          No connection to GND &mdash; the firmware senses capacitance changes when you touch the pad.
+          Uses the same digital pin pool as buttons (GP0&ndash;GP1, GP4&ndash;GP22). Works best on RP2350.</p>
+        <div class="wiring-diagram">
+          <span>GPIO pin</span> &larr;&mdash; [conductive pad]
+        </div>
+
+        <h3>Potentiometers</h3>
+        <p>Wire the outer legs to <strong>3V3</strong> and <strong>GND</strong>, and the wiper (middle leg)
+          to an analog pin: <strong>GP26</strong>, <strong>GP27</strong>, or <strong>GP28</strong>.
+          Max 3 pots. Values are read as 0&ndash;127.</p>
+        <div class="wiring-diagram">
+          <span>3V3</span> &larr;&mdash; [pot outer] &mdash; [pot wiper] &mdash;&rarr; <span>ADC pin</span><br>
+          <span>GND</span> &larr;&mdash; [pot outer]
+        </div>
+
+        <h3>LDR (Light Sensor)</h3>
+        <p>Wire the LDR and a fixed resistor (e.g. 10k) as a voltage divider between
+          <strong>3V3</strong> and <strong>GND</strong>, with the midpoint going to an analog pin
+          (GP26&ndash;GP28). Shares the analog pin pool with pots.</p>
+        <div class="wiring-diagram">
+          <span>3V3</span> &larr;&mdash; [LDR] &mdash; midpoint &mdash;&rarr; <span>ADC pin</span><br>
+          <span>GND</span> &larr;&mdash; [10k resistor] &mdash; midpoint
+        </div>
+
+        <h3>Accelerometer</h3>
+        <p>Uses an I2C accelerometer (LIS3DH) on fixed pins:
+          <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
+          Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.</p>
+        <div class="wiring-diagram">
+          <span>GP3 (SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
+          <span>GP2 (SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
+          <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
+          <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
+        </div>
+
+        <h3>Pin Summary</h3>
+        <table>
+          <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
+          <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
+          <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
+          <tr><td>I2C (accelerometer)</td><td>GP2 (SDA), GP3 (SCL)</td><td>fixed</td></tr>
+        </table>
+
+        <h3>Tips</h3>
+        <ul class="wiring-tips">
+          <li>GP2 and GP3 are reserved for the accelerometer &mdash; don't assign them to buttons or touch pads</li>
+          <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
+          <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
+          <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
+          <li>Use <strong>Export Project</strong> to back up your configuration as a JSON file</li>
+        </ul>
+      </div>
+    </collapsible-card>
+
     <!-- Expression Reference -->
     <collapsible-card data-title="Expression Reference" data-collapsed>
       <div class="expr-ref">
