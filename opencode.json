@@ -1,0 +1,13 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"command": {
+		"check": {
+			"description": "Run clippy on both targets and fmt check, fix all errors",
+			"template": "Run the following commands in the firmware/ directory and fix ALL errors. Iterate until every command passes.\n1. cargo fmt --check (fix any formatting issues with cargo fmt)\n2. cargo clippy --features rp2040 --target thumbv6m-none-eabi -- -D warnings\n3. cargo clippy --no-default-features --features rp2350 --target thumbv8m.main-none-eabihf -- -D warnings\nFix any issues found, then commit and push."
+		},
+		"ship": {
+			"description": "Review, lint, commit, and push",
+			"template": "Use a subagent to review all uncommitted changes for correctness. Fix any issues found. Then run clippy and fmt for both RP2040 and RP2350 targets in the firmware/ directory. Fix all lint errors. Then commit all changes with a descriptive message and push to main."
+		}
+	}
+}
