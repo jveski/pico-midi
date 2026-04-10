@@ -1,4 +1,19 @@
-import { noteName, pinLabel, LDR_PIN, ACCEL_SCL_PIN, ACCEL_SDA_PIN } from "./helpers.js";
+import { num, clamp, noteName, wirePinClicks, toggleFieldsVisibility } from "./helpers.js";
+
+// ── Shared monitor-bar helper ──
+
+function buildMonitorBars(container, bars) {
+  const tpl = document.getElementById("tpl-monitor-bar-row");
+  for (const { label, barId, valId, defaultVal } of bars) {
+    const row = tpl.content.firstElementChild.cloneNode(true);
+    row.querySelector(".monitor-label").textContent = label;
+    row.querySelector(".monitor-bar-fill").id = barId;
+    const valEl = row.querySelector(".monitor-value");
+    valEl.id = valId;
+    if (defaultVal != null) valEl.textContent = defaultVal;
+    container.appendChild(row);
+  }
+}
 
 export class LdrSection extends HTMLElement {
   connectedCallback() {
@@ -12,10 +27,7 @@ export class LdrSection extends HTMLElement {
     });
 
     // Pin label click → open pinout modal
-    this.querySelector(".pin-label.clickable").addEventListener("click", () => {
-      const modal = document.querySelector("pinout-modal");
-      if (modal) modal.show(LDR_PIN);
-    });
+    wirePinClicks(this);
   }
 
   render(config) {
@@ -25,9 +37,15 @@ export class LdrSection extends HTMLElement {
     this._buildMonitor(config);
   }
 
+  readFromDOM() {
+    return {
+      ldr_enabled: this.querySelector("#ldrEnabled").checked,
+      ldr: { cc: clamp(num(this.querySelector("#ldrCc").value, 0), 0, 127) },
+    };
+  }
+
   _updateVisibility() {
-    this.querySelector("#ldrFields").style.display =
-      this.querySelector("#ldrEnabled").checked ? "" : "none";
+    toggleFieldsVisibility(this, "ldrEnabled", "ldrFields");
   }
 
   _buildMonitor(config) {
@@ -35,12 +53,9 @@ export class LdrSection extends HTMLElement {
     container.innerHTML = "";
     const enabled = config ? config.ldr_enabled : this.querySelector("#ldrEnabled").checked;
     if (!enabled) return;
-    const tpl = document.getElementById("tpl-monitor-bar-row");
-    const row = tpl.content.firstElementChild.cloneNode(true);
-    row.querySelector(".monitor-label").textContent = "Value";
-    row.querySelector(".monitor-bar-fill").id = "monLdrBar";
-    row.querySelector(".monitor-value").id = "monLdrVal";
-    container.appendChild(row);
+    buildMonitorBars(container, [
+      { label: "Value", barId: "monLdrBar", valId: "monLdrVal" },
+    ]);
   }
 }
 
@@ -60,13 +75,7 @@ export class AccelSection extends HTMLElement {
     this.querySelector("#accelSmoothing").addEventListener("input", () => this._updateHints());
 
     // Pin label click → open pinout modal
-    this.querySelectorAll(".pin-label.clickable").forEach(span => {
-      span.addEventListener("click", () => {
-        const gpio = parseInt(span.dataset.gpio, 10);
-        const modal = document.querySelector("pinout-modal");
-        if (modal && !isNaN(gpio)) modal.show(gpio);
-      });
-    });
+    wirePinClicks(this);
   }
 
   render(config) {
@@ -82,9 +91,20 @@ export class AccelSection extends HTMLElement {
     this._buildMonitor(config);
   }
 
+  readFromDOM() {
+    return {
+      enabled: this.querySelector("#accelEnabled").checked,
+      x_cc: clamp(num(this.querySelector("#accelXCc").value, 0), 0, 127),
+      y_cc: clamp(num(this.querySelector("#accelYCc").value, 0), 0, 127),
+      tap_note: clamp(num(this.querySelector("#accelTapNote").value, 0), 0, 127),
+      tap_velocity: clamp(num(this.querySelector("#accelTapVel").value, 1), 1, 127),
+      dead_zone_tenths: clamp(num(this.querySelector("#accelDeadZone").value, 0), 0, 255),
+      smoothing_pct: clamp(num(this.querySelector("#accelSmoothing").value, 0), 0, 100),
+    };
+  }
+
   _updateVisibility() {
-    this.querySelector("#accelFields").style.display =
-      this.querySelector("#accelEnabled").checked ? "" : "none";
+    toggleFieldsVisibility(this, "accelEnabled", "accelFields");
   }
 
   _updateHints() {
@@ -102,18 +122,10 @@ export class AccelSection extends HTMLElement {
     const enabled = config ? config.accel.enabled : this.querySelector("#accelEnabled").checked;
     if (!enabled) return;
 
-    const barTpl = document.getElementById("tpl-monitor-bar-row");
-
-    [["Tilt X", "monAccelXBar", "monAccelXVal", "64"],
-     ["Tilt Y", "monAccelYBar", "monAccelYVal", "64"]].forEach(([label, barId, valId, def]) => {
-      const row = barTpl.content.firstElementChild.cloneNode(true);
-      row.querySelector(".monitor-label").textContent = label;
-      row.querySelector(".monitor-bar-fill").id = barId;
-      const valEl = row.querySelector(".monitor-value");
-      valEl.id = valId;
-      valEl.textContent = def;
-      container.appendChild(row);
-    });
+    buildMonitorBars(container, [
+      { label: "Tilt X", barId: "monAccelXBar", valId: "monAccelXVal", defaultVal: "64" },
+      { label: "Tilt Y", barId: "monAccelYBar", valId: "monAccelYVal", defaultVal: "64" },
+    ]);
 
     const tapTpl = document.getElementById("tpl-monitor-tap-row");
     const tapRow = tapTpl.content.firstElementChild.cloneNode(true);

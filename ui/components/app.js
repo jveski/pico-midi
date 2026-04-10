@@ -301,6 +301,14 @@ function applyMonitorData(snap) {
 // human-readable source in localStorage keyed by button/touch index so users
 // can edit it after reconnecting.
 
+/** Ensure note_expr_src / velocity_expr_src are initialized on each item. */
+function initExprSources(items) {
+  items.forEach(item => {
+    item.note_expr_src = item.note_expr_src || "";
+    item.velocity_expr_src = item.velocity_expr_src || "";
+  });
+}
+
 function saveExprSources() {
   if (!config) return;
   const data = {
@@ -313,22 +321,17 @@ function saveExprSources() {
 function loadExprSources() {
   try {
     const data = JSON.parse(localStorage.getItem("picomidi_expr") || "{}");
-    if (config && data.buttons) {
-      config.buttons.forEach((b, i) => {
-        if (data.buttons[i]) {
-          b.note_expr_src = data.buttons[i].note || "";
-          b.velocity_expr_src = data.buttons[i].vel || "";
+    const applyData = (items, stored) => {
+      if (!items || !stored) return;
+      items.forEach((item, i) => {
+        if (stored[i]) {
+          item.note_expr_src = stored[i].note || "";
+          item.velocity_expr_src = stored[i].vel || "";
         }
       });
-    }
-    if (config && data.touch) {
-      config.touch_pads.forEach((t, i) => {
-        if (data.touch[i]) {
-          t.note_expr_src = data.touch[i].note || "";
-          t.velocity_expr_src = data.touch[i].vel || "";
-        }
-      });
-    }
+    };
+    applyData(config.buttons, data.buttons);
+    applyData(config.touch_pads, data.touch);
   } catch {}
 }
 
@@ -341,14 +344,8 @@ async function refreshConfig() {
     if (resp.type === "config") {
       config = resp.value;
       // Initialize expr source strings (empty by default from device)
-      config.buttons.forEach(b => {
-        b.note_expr_src = b.note_expr_src || "";
-        b.velocity_expr_src = b.velocity_expr_src || "";
-      });
-      config.touch_pads.forEach(t => {
-        t.note_expr_src = t.note_expr_src || "";
-        t.velocity_expr_src = t.velocity_expr_src || "";
-      });
+      initExprSources(config.buttons);
+      initExprSources(config.touch_pads);
       loadExprSources();
       renderConfig();
       clearDirty();
@@ -386,49 +383,43 @@ function staticFromExpr(src, fallback) {
   return (String(v) === (src || "").trim()) ? v : fallback;
 }
 
+/**
+ * Compile expression fields on a button/touch item from the DOM.
+ * Returns the compiled item, or { error } on failure.
+ */
+function compileInputItem(item, label, extraFields = {}) {
+  const noteResult = compileExpr(item.note_expr_src);
+  const velResult = compileExpr(item.velocity_expr_src);
+  if (noteResult.error) return { error: `${label} note expr: ${noteResult.error}` };
+  if (velResult.error) return { error: `${label} velocity expr: ${velResult.error}` };
+  return {
+    note: clamp(staticFromExpr(item.note_expr_src, 60), 0, 127),
+    velocity: clamp(staticFromExpr(item.velocity_expr_src, 100), 1, 127),
+    note_expr: Array.from(noteResult.code),
+    velocity_expr: Array.from(velResult.code),
+    note_expr_src: item.note_expr_src,
+    velocity_expr_src: item.velocity_expr_src,
+    ...extraFields,
+  };
+}
+
 function readConfigFromUI() {
   if (!config) return null;
   const panel = configPanel;
   config.midi_channel = clamp(num(panel.midiChannel.value, 0), 0, 15);
 
-  // Buttons — compile expression text to bytecode; extract static fallback
-  config.buttons = panel.buttonList.readFromDOM().map(b => {
-    const noteResult = compileExpr(b.note_expr_src);
-    const velResult = compileExpr(b.velocity_expr_src);
-    if (noteResult.error) return { error: `Button note expr: ${noteResult.error}` };
-    if (velResult.error) return { error: `Button velocity expr: ${velResult.error}` };
-    return {
-      note: clamp(staticFromExpr(b.note_expr_src, 60), 0, 127),
-      velocity: clamp(staticFromExpr(b.velocity_expr_src, 100), 1, 127),
-      note_expr: Array.from(noteResult.code),
-      velocity_expr: Array.from(velResult.code),
-      note_expr_src: b.note_expr_src,
-      velocity_expr_src: b.velocity_expr_src,
-    };
-  });
-
-  // Check for compilation errors
+  // Buttons — compile expression text to bytecode
+  config.buttons = panel.buttonList.readFromDOM().map(b =>
+    compileInputItem(b, "Button")
+  );
   for (const b of config.buttons) {
     if (b.error) { toast(b.error, "error"); return null; }
   }
 
-  // Touch pads — compile expression text to bytecode; extract static fallback
-  config.touch_pads = panel.touchList.readFromDOM().map(t => {
-    const noteResult = compileExpr(t.note_expr_src);
-    const velResult = compileExpr(t.velocity_expr_src);
-    if (noteResult.error) return { error: `Touch note expr: ${noteResult.error}` };
-    if (velResult.error) return { error: `Touch velocity expr: ${velResult.error}` };
-    return {
-      note: clamp(staticFromExpr(t.note_expr_src, 60), 0, 127),
-      velocity: clamp(staticFromExpr(t.velocity_expr_src, 100), 1, 127),
-      threshold_pct: clamp(t.threshold_pct, 1, 255),
-      note_expr: Array.from(noteResult.code),
-      velocity_expr: Array.from(velResult.code),
-      note_expr_src: t.note_expr_src,
-      velocity_expr_src: t.velocity_expr_src,
-    };
-  });
-
+  // Touch pads — compile expression text to bytecode
+  config.touch_pads = panel.touchList.readFromDOM().map(t =>
+    compileInputItem(t, "Touch", { threshold_pct: clamp(t.threshold_pct, 1, 255) })
+  );
   for (const t of config.touch_pads) {
     if (t.error) { toast(t.error, "error"); return null; }
   }
@@ -438,20 +429,12 @@ function readConfigFromUI() {
     cc: clamp(p.cc, 0, 127),
   }));
 
-  config.ldr_enabled = document.getElementById("ldrEnabled").checked;
-  config.ldr = {
-    cc: clamp(num(document.getElementById("ldrCc").value, 0), 0, 127),
-  };
+  // LDR & Accel — delegate to their components
+  const ldrData = panel.ldrSection.readFromDOM();
+  config.ldr_enabled = ldrData.ldr_enabled;
+  config.ldr = ldrData.ldr;
 
-  config.accel = {
-    enabled: document.getElementById("accelEnabled").checked,
-    x_cc: clamp(num(document.getElementById("accelXCc").value, 0), 0, 127),
-    y_cc: clamp(num(document.getElementById("accelYCc").value, 0), 0, 127),
-    tap_note: clamp(num(document.getElementById("accelTapNote").value, 0), 0, 127),
-    tap_velocity: clamp(num(document.getElementById("accelTapVel").value, 1), 1, 127),
-    dead_zone_tenths: clamp(num(document.getElementById("accelDeadZone").value, 0), 0, 255),
-    smoothing_pct: clamp(num(document.getElementById("accelSmoothing").value, 0), 0, 100),
-  };
+  config.accel = panel.accelSection.readFromDOM();
 
   return config;
 }
@@ -512,6 +495,19 @@ async function resetConfig() {
 
 // ── Project Export / Import ──
 
+/** Normalize a button/touch item to a clean JSON-serializable shape. */
+function normalizeInputItem(item, extraFields = {}) {
+  return {
+    note: clamp(item.note, 0, 127),
+    velocity: clamp(item.velocity, 1, 127),
+    note_expr: Array.from(item.note_expr),
+    velocity_expr: Array.from(item.velocity_expr),
+    note_expr_src: item.note_expr_src || "",
+    velocity_expr_src: item.velocity_expr_src || "",
+    ...extraFields,
+  };
+}
+
 function exportProject() {
   // Read current UI state into config (so unsaved edits are captured)
   const cfg = readConfigFromUI();
@@ -522,35 +518,12 @@ function exportProject() {
     _format: "pico-midi-project",
     _version: 1,
     midi_channel: cfg.midi_channel,
-    buttons: cfg.buttons.map(b => ({
-      note: b.note,
-      velocity: b.velocity,
-      note_expr: Array.from(b.note_expr),
-      velocity_expr: Array.from(b.velocity_expr),
-      note_expr_src: b.note_expr_src || "",
-      velocity_expr_src: b.velocity_expr_src || "",
-    })),
-    touch_pads: cfg.touch_pads.map(t => ({
-      note: t.note,
-      velocity: t.velocity,
-      threshold_pct: t.threshold_pct,
-      note_expr: Array.from(t.note_expr),
-      velocity_expr: Array.from(t.velocity_expr),
-      note_expr_src: t.note_expr_src || "",
-      velocity_expr_src: t.velocity_expr_src || "",
-    })),
+    buttons: cfg.buttons.map(b => normalizeInputItem(b)),
+    touch_pads: cfg.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: t.threshold_pct })),
     pots: cfg.pots.map(p => ({ cc: p.cc })),
     ldr_enabled: cfg.ldr_enabled,
     ldr: { cc: cfg.ldr.cc },
-    accel: {
-      enabled: cfg.accel.enabled,
-      x_cc: cfg.accel.x_cc,
-      y_cc: cfg.accel.y_cc,
-      tap_note: cfg.accel.tap_note,
-      tap_velocity: cfg.accel.tap_velocity,
-      dead_zone_tenths: cfg.accel.dead_zone_tenths,
-      smoothing_pct: cfg.accel.smoothing_pct,
-    },
+    accel: { ...cfg.accel },
   };
 
   const json = JSON.stringify(project, null, 2);
@@ -588,23 +561,8 @@ async function handleProjectImport(e) {
     // Apply imported config to the in-memory config object
     config = {
       midi_channel: clamp(project.midi_channel, 0, 15),
-      buttons: project.buttons.map(b => ({
-        note: clamp(b.note, 0, 127),
-        velocity: clamp(b.velocity, 1, 127),
-        note_expr: Array.from(b.note_expr),
-        velocity_expr: Array.from(b.velocity_expr),
-        note_expr_src: b.note_expr_src || "",
-        velocity_expr_src: b.velocity_expr_src || "",
-      })),
-      touch_pads: project.touch_pads.map(t => ({
-        note: clamp(t.note, 0, 127),
-        velocity: clamp(t.velocity, 1, 127),
-        threshold_pct: clamp(t.threshold_pct, 1, 255),
-        note_expr: Array.from(t.note_expr),
-        velocity_expr: Array.from(t.velocity_expr),
-        note_expr_src: t.note_expr_src || "",
-        velocity_expr_src: t.velocity_expr_src || "",
-      })),
+      buttons: project.buttons.map(b => normalizeInputItem(b)),
+      touch_pads: project.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: clamp(t.threshold_pct, 1, 255) })),
       pots: project.pots.map(p => ({ cc: clamp(p.cc, 0, 127) })),
       ldr_enabled: !!project.ldr_enabled,
       ldr: { cc: clamp(project.ldr.cc, 0, 127) },

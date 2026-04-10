@@ -41,3 +41,29 @@ export const ACCEL_SDA_PIN = 2;
 export function pinLabel(n) {
   return n != null ? "GP" + n : "";
 }
+
+/** Wire up pin-label clicks within a container to open the pinout modal. */
+export function wirePinClicks(container) {
+  container.querySelectorAll(".pin-label.clickable").forEach(span => {
+    span.addEventListener("click", () => {
+      const gpio = parseInt(span.dataset.gpio, 10);
+      const modal = document.querySelector("pinout-modal");
+      if (modal && !isNaN(gpio)) modal.show(gpio);
+    });
+  });
+}
+
+/**
+ * If `src` is a plain integer string, return the MIDI note name for it.
+ * Otherwise return "".
+ */
+export function noteHintText(src) {
+  const v = parseInt(src, 10);
+  return (String(v) === (src || "").trim()) ? noteName(v) : "";
+}
+
+/** Toggle a fields container's display based on a checkbox state. */
+export function toggleFieldsVisibility(root, checkboxId, fieldsId) {
+  root.querySelector("#" + fieldsId).style.display =
+    root.querySelector("#" + checkboxId).checked ? "" : "none";
+}

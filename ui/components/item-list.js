@@ -1,4 +1,4 @@
-import { noteName, num, pinLabel, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
+import { num, pinLabel, noteHintText, wirePinClicks, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
 import { compileExpr } from "./expr.js";
 
 export class ItemList extends HTMLElement {
@@ -99,10 +99,7 @@ export class ItemList extends HTMLElement {
         // Update note hint if this is a note expression field
         if (field === "note_expr_src") {
           const hint = inp.parentElement.querySelector(`.note-hint[data-idx="${inp.dataset.idx}"]`);
-          if (hint) {
-            const v = parseInt(inp.value, 10);
-            hint.textContent = (!error && String(v) === inp.value.trim()) ? noteName(v) : "";
-          }
+          if (hint) hint.textContent = error ? "" : noteHintText(inp.value);
         }
 
         if (!error) {
@@ -112,46 +109,34 @@ export class ItemList extends HTMLElement {
     });
 
     // Pin label click → open pinout modal
-    container.querySelectorAll(".pin-label.clickable").forEach(span => {
-      span.addEventListener("click", () => {
-        const gpio = parseInt(span.dataset.gpio, 10);
-        const modal = document.querySelector("pinout-modal");
-        if (modal && !isNaN(gpio)) modal.show(gpio);
-      });
-    });
+    wirePinClicks(container);
   }
 
   /** Show note name hints for note expression fields that contain plain numbers. */
   _updateNoteHints(container) {
     container.querySelectorAll('input[data-field="note_expr_src"]').forEach(inp => {
       const hint = container.querySelector(`.note-hint[data-idx="${inp.dataset.idx}"]`);
-      if (hint) {
-        const v = parseInt(inp.value, 10);
-        hint.textContent = (String(v) === inp.value.trim()) ? noteName(v) : "";
-      }
+      if (hint) hint.textContent = noteHintText(inp.value);
     });
   }
 
   readFromDOM() {
     const items = [];
     const isPot = this._type === "pot";
-    const isTouch = this._type === "touch";
     this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
       if (isPot) {
         items.push({
           cc: num(row.querySelector('[data-field="cc"]').value, 0),
         });
-      } else if (isTouch) {
-        items.push({
-          threshold_pct: num(row.querySelector('[data-field="threshold_pct"]').value, 33),
-          note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
-          velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
-        });
       } else {
-        items.push({
+        const item = {
           note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
           velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
-        });
+        };
+        if (this._type === "touch") {
+          item.threshold_pct = num(row.querySelector('[data-field="threshold_pct"]').value, 33);
+        }
+        items.push(item);
       }
     });
     return items;

@@ -25,6 +25,8 @@
 //   scale(60, pot0)
 //   scale(48, pot0, minor)
 
+import { MAX_EXPR } from "./protocol.js";
+
 const OP_PUSH       = 0x01;
 const OP_LOAD_POT   = 0x02;
 const OP_LOAD_LDR   = 0x03;
@@ -61,8 +63,6 @@ const MODE_NAMES = {
   lydian: 0, ionian: 1, major: 1, mixolydian: 2, dorian: 3,
   aeolian: 4, minor: 4, phrygian: 5, locrian: 6,
 };
-
-export const MAX_EXPR = 16;
 
 const VARS = {
   pot0: [OP_LOAD_POT, 0], pot1: [OP_LOAD_POT, 1],
