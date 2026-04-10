@@ -9,6 +9,9 @@
 //   atom     = NUMBER | VARIABLE | call | '(' expr ')'
 //   call     = ('min' | 'max') '(' expr ',' expr ')'
 //            | ('clamp' | 'lerp') '(' expr ',' expr ',' expr ')'
+//            | 'scale' '(' expr ',' expr (',' MODE)? ')'
+//   MODE     = NUMBER | 'lydian' | 'ionian' | 'major' | 'mixolydian'
+//            | 'dorian' | 'aeolian' | 'minor' | 'phrygian' | 'locrian'
 //
 // Variables: pot0-pot1, ldr, accel_x, accel_y
 //
@@ -19,6 +22,8 @@
 //   clamp(pot0, 20, 100)
 //   lerp(36, 84, pot0)
 //   pot0 * 2
+//   scale(60, pot0)
+//   scale(48, pot0, minor)
 
 const OP_PUSH       = 0x01;
 const OP_LOAD_POT   = 0x02;
@@ -33,7 +38,29 @@ const OP_MIN        = 0x14;
 const OP_MAX        = 0x15;
 const OP_CLAMP      = 0x16;
 const OP_LERP       = 0x17;
+const OP_SCALE      = 0x18;
 const OP_IF_GT      = 0x20;
+
+// Scale intervals for each mode (ordered brightest to darkest).
+// Each sub-array has 7 semitone offsets from the root.
+// Reference only — the actual interval lookup happens on the microcontroller
+// (see SCALE_INTERVALS in firmware/src/expr.rs). Kept here to document the
+// mode numbering and to make it easy to verify JS/Rust parity.
+const SCALE_MODES = [
+  [0, 2, 4, 6, 7, 9, 11], // 0 = Lydian (default)
+  [0, 2, 4, 5, 7, 9, 11], // 1 = Ionian (Major)
+  [0, 2, 4, 5, 7, 9, 10], // 2 = Mixolydian
+  [0, 2, 3, 5, 7, 9, 10], // 3 = Dorian
+  [0, 2, 3, 5, 7, 8, 10], // 4 = Aeolian (Minor)
+  [0, 1, 3, 5, 7, 8, 10], // 5 = Phrygian
+  [0, 1, 3, 5, 6, 8, 10], // 6 = Locrian
+];
+
+// Named mode aliases accepted by the parser (case-insensitive lookup done by caller).
+const MODE_NAMES = {
+  lydian: 0, ionian: 1, major: 1, mixolydian: 2, dorian: 3,
+  aeolian: 4, minor: 4, phrygian: 5, locrian: 6,
+};
 
 export const MAX_EXPR = 16;
 
@@ -174,6 +201,31 @@ class Compiler {
       return;
     }
 
+    // scale(root, position) or scale(root, position, mode)
+    if (w === "scale" && this.peek() === "(") {
+      this.eat("(");
+      this.expr();   // root note
+      this.eat(",");
+      this.expr();   // position (0-127)
+      let mode = 0;  // default: Lydian
+      if (this.peek() === ",") {
+        this.eat(",");
+        this.skip();
+        // Mode can be a number literal or a name like "lydian", "minor", etc.
+        if (/[0-9]/.test(this.src[this.pos])) {
+          mode = this.number();
+        } else {
+          const name = this.word().toLowerCase();
+          if (!(name in MODE_NAMES)) throw new Error(`Unknown scale mode: '${name}'`);
+          mode = MODE_NAMES[name];
+        }
+        if (mode < 0 || mode > 6) throw new Error(`Scale mode must be 0-6, got ${mode}`);
+      }
+      this.eat(")");
+      this.emit(OP_SCALE, mode);
+      return;
+    }
+
     // Variable
     const ops = VARS[w];
     if (!ops) throw new Error(`Unknown variable: ${w}`);
@@ -228,6 +280,7 @@ export function disassemble(code) {
       case OP_MAX:      parts.push("max"); break;
       case OP_CLAMP:    parts.push("clamp"); break;
       case OP_LERP:     parts.push("lerp"); break;
+      case OP_SCALE:    i++; parts.push(`scale(mode=${code[i] ?? '?'})`); break;
       case OP_IF_GT:    parts.push("if>"); break;
       default:          parts.push(`?${code[i].toString(16)}`);
     }

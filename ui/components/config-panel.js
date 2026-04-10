@@ -75,6 +75,23 @@ export class ConfigPanel extends HTMLElement {
             '<tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>' +
             '<tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>' +
             '<tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>' +
+            '<tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>' +
+            '<tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>' +
+          '</table>' +
+
+          '<h3>Scale Modes</h3>' +
+          '<p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes ' +
+            'of a diatonic scale, spanning about 2.5 octaves from the root note. ' +
+            'This makes it easy to assign musically consonant notes to controls.</p>' +
+          '<table>' +
+            '<tr><th>Mode</th><th>#</th><th>Character</th></tr>' +
+            '<tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>' +
+            '<tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>' +
+            '<tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>' +
+            '<tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>' +
+            '<tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>' +
+            '<tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>' +
+            '<tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>' +
           '</table>' +
 
           '<h3>Conditionals</h3>' +
@@ -89,6 +106,8 @@ export class ConfigPanel extends HTMLElement {
             '<li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>' +
             '<li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>' +
             '<li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>' +
+            '<li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>' +
+            '<li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>' +
           '</ul>' +
 
           '<h3>Notes</h3>' +
