@@ -1,7 +1,7 @@
 use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Drive, Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
-use embassy_rp::peripherals::I2C1;
+use embassy_rp::peripherals::I2C0;
 use embassy_time::{Instant, Timer};
 
 const DEBOUNCE_MS: u64 = 10;
@@ -268,7 +268,7 @@ pub struct AccelReading {
 
 impl<'d> Accelerometer<'d> {
     pub async fn new(
-        mut i2c: I2c<'d, I2C1, i2c::Async>,
+        mut i2c: I2c<'d, I2C0, i2c::Async>,
         dead_zone_tenths: u8,
         smoothing_pct: u8,
     ) -> Self {
