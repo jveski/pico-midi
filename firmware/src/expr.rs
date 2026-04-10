@@ -215,3 +215,22 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
         fallback
     }
 }
+
+/// Returns `true` if the bytecode program contains a `scale()` opcode.
+/// Used to decide whether a held button should re-trigger notes when the
+/// expression result changes (scale quantises a continuous input into
+/// discrete notes, so re-triggering is musically appropriate).
+pub fn has_scale(program: &[u8; MAX_EXPR], len: u8) -> bool {
+    let len = len as usize;
+    let code = &program[..len.min(MAX_EXPR)];
+    let mut pc = 0;
+    while pc < code.len() {
+        match code[pc] {
+            OP_SCALE => return true,
+            // Skip past immediate bytes.  Must stay in sync with eval().
+            OP_PUSH | OP_LOAD_POT => pc += 2,
+            _ => pc += 1,
+        }
+    }
+    false
+}

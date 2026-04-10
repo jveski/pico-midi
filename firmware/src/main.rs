@@ -37,6 +37,38 @@ const CIN_NOTE_OFF: u8 = 0x08;
 const CIN_NOTE_ON: u8 = 0x09;
 const CIN_CC: u8 = 0x0B;
 
+/// Minimum time (ms) a scale expression must produce a new note before
+/// the held button re-triggers.  Prevents rapid note spam from ADC noise
+/// near quantisation boundaries.
+const RETRIGGER_DEBOUNCE_MS: u64 = 50;
+
+/// Tracks the MIDI note currently sounding for a held button or touch pad.
+///
+/// When the note expression uses `scale()`, the expression is re-evaluated
+/// every loop iteration while held.  If the result changes, the new note
+/// is stored as `pending` and a debounce timer starts.  Once the pending
+/// note has been stable for [`RETRIGGER_DEBOUNCE_MS`], the old note is
+/// released and the new one is sent.
+#[derive(Clone, Copy)]
+struct HeldNote {
+    /// The note value currently sounding (note-on has been sent).
+    current: u8,
+    /// A candidate note that differs from `current`, awaiting debounce.
+    pending: Option<u8>,
+    /// When `pending` was first observed.
+    pending_since: Instant,
+}
+
+impl HeldNote {
+    const fn new(note: u8) -> Self {
+        Self {
+            current: note,
+            pending: None,
+            pending_since: Instant::MIN,
+        }
+    }
+}
+
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
     ADC_IRQ_FIFO => adc::InterruptHandler;
@@ -142,12 +174,12 @@ async fn main(spawner: Spawner) {
         let mut last_led_toggle = Instant::now();
         let mut led_on = false;
 
-        // Track the note value that was sent in note_on so that note_off
-        // releases the correct note even when an expression changes the
-        // computed note between press and release (e.g. pot modulation).
-        // A value of `None` means the button/pad is not currently held.
-        let mut active_button_note: [Option<u8>; 8] = [None; 8];
-        let mut active_touch_note: [Option<u8>; 8] = [None; 8];
+        // Track the note currently sounding for each held button/pad so
+        // that (a) note-off always releases the correct note, and (b) when
+        // a scale() expression result changes while held the old note is
+        // released and the new one is sent after a debounce period.
+        let mut active_button_note: [Option<HeldNote>; 8] = [None; 8];
+        let mut active_touch_note: [Option<HeldNote>; 8] = [None; 8];
 
         loop {
             // ~1ms poll interval
@@ -174,7 +206,7 @@ async fn main(spawner: Spawner) {
             // Poll buttons
             for evt in buttons.poll().into_iter().flatten() {
                 let idx = evt.index as usize;
-                let pkt = if evt.pressed {
+                if evt.pressed {
                     let def = &cur.buttons[idx];
                     let note = expr::eval(
                         &def.note_expr.code,
@@ -188,23 +220,78 @@ async fn main(spawner: Spawner) {
                         &expr_inputs,
                         def.velocity,
                     );
-                    active_button_note[idx] = Some(note);
-                    note_on(cur.midi_channel, note, vel)
+                    active_button_note[idx] = Some(HeldNote::new(note));
+                    send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                 } else {
-                    // Release the exact note that was pressed, not the
-                    // current expression value which may have changed.
-                    let note = active_button_note[idx].unwrap_or(cur.buttons[idx].note);
+                    let note = active_button_note[idx]
+                        .map_or(cur.buttons[idx].note, |h| h.current);
                     active_button_note[idx] = None;
-                    note_off(cur.midi_channel, note)
+                    send_midi(&mut midi_class, &note_off(cur.midi_channel, note)).await;
                 };
-                send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_button(evt.index, evt.pressed);
+            }
+
+            // Re-evaluate scale() expressions for held buttons.
+            // If the quantised note changed, debounce and re-trigger.
+            let now = Instant::now();
+            for (idx, slot) in active_button_note.iter_mut().enumerate() {
+                let held = match slot {
+                    Some(h) => h,
+                    None => continue,
+                };
+                let def = &cur.buttons[idx];
+                if !expr::has_scale(&def.note_expr.code, def.note_expr.len) {
+                    continue;
+                }
+                let note = expr::eval(
+                    &def.note_expr.code,
+                    def.note_expr.len,
+                    &expr_inputs,
+                    def.note,
+                );
+                if note == held.current {
+                    // Expression result matches the sounding note — reset any pending.
+                    held.pending = None;
+                    continue;
+                }
+                match held.pending {
+                    Some(p) if p == note => {
+                        // Same pending note — check if debounce elapsed.
+                        if now.duration_since(held.pending_since).as_millis()
+                            >= RETRIGGER_DEBOUNCE_MS
+                        {
+                            let vel = expr::eval(
+                                &def.velocity_expr.code,
+                                def.velocity_expr.len,
+                                &expr_inputs,
+                                def.velocity,
+                            );
+                            send_midi(
+                                &mut midi_class,
+                                &note_off(cur.midi_channel, held.current),
+                            )
+                            .await;
+                            send_midi(
+                                &mut midi_class,
+                                &note_on(cur.midi_channel, note, vel),
+                            )
+                            .await;
+                            held.current = note;
+                            held.pending = None;
+                        }
+                    }
+                    _ => {
+                        // New candidate — start debounce timer.
+                        held.pending = Some(note);
+                        held.pending_since = now;
+                    }
+                }
             }
 
             // Poll touch pads
             for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
                 let idx = evt.index as usize;
-                let pkt = if evt.pressed {
+                if evt.pressed {
                     let def = &cur.touch_pads[idx];
                     let note = expr::eval(
                         &def.note_expr.code,
@@ -218,15 +305,68 @@ async fn main(spawner: Spawner) {
                         &expr_inputs,
                         def.velocity,
                     );
-                    active_touch_note[idx] = Some(note);
-                    note_on(cur.midi_channel, note, vel)
+                    active_touch_note[idx] = Some(HeldNote::new(note));
+                    send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                 } else {
-                    let note = active_touch_note[idx].unwrap_or(cur.touch_pads[idx].note);
+                    let note = active_touch_note[idx]
+                        .map_or(cur.touch_pads[idx].note, |h| h.current);
                     active_touch_note[idx] = None;
-                    note_off(cur.midi_channel, note)
+                    send_midi(&mut midi_class, &note_off(cur.midi_channel, note)).await;
                 };
-                send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_touch(evt.index, evt.pressed);
+            }
+
+            // Re-evaluate scale() expressions for held touch pads.
+            let now = Instant::now();
+            for (idx, slot) in active_touch_note.iter_mut().enumerate() {
+                let held = match slot {
+                    Some(h) => h,
+                    None => continue,
+                };
+                let def = &cur.touch_pads[idx];
+                if !expr::has_scale(&def.note_expr.code, def.note_expr.len) {
+                    continue;
+                }
+                let note = expr::eval(
+                    &def.note_expr.code,
+                    def.note_expr.len,
+                    &expr_inputs,
+                    def.note,
+                );
+                if note == held.current {
+                    held.pending = None;
+                    continue;
+                }
+                match held.pending {
+                    Some(p) if p == note => {
+                        if now.duration_since(held.pending_since).as_millis()
+                            >= RETRIGGER_DEBOUNCE_MS
+                        {
+                            let vel = expr::eval(
+                                &def.velocity_expr.code,
+                                def.velocity_expr.len,
+                                &expr_inputs,
+                                def.velocity,
+                            );
+                            send_midi(
+                                &mut midi_class,
+                                &note_off(cur.midi_channel, held.current),
+                            )
+                            .await;
+                            send_midi(
+                                &mut midi_class,
+                                &note_on(cur.midi_channel, note, vel),
+                            )
+                            .await;
+                            held.current = note;
+                            held.pending = None;
+                        }
+                    }
+                    _ => {
+                        held.pending = Some(note);
+                        held.pending_since = now;
+                    }
+                }
             }
 
             // Poll pots
