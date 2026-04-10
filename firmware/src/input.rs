@@ -238,7 +238,7 @@ impl<const N: usize> TouchPads<N> {
     }
 }
 
-const LIS3DH_ADDR: u8 = 0x18;
+const LIS3DH_ADDR: u8 = 0x19;
 const REG_CTRL1: u8 = 0x20;
 const REG_CTRL4: u8 = 0x23;
 const REG_CLICK_CFG: u8 = 0x38;
