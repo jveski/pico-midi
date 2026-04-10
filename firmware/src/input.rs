@@ -251,11 +251,13 @@ impl<const N: usize> TouchPads<N> {
 
 const LIS3DH_ADDR: u8 = 0x19;
 const REG_CTRL1: u8 = 0x20;
+const REG_CTRL3: u8 = 0x22;
 const REG_CTRL4: u8 = 0x23;
 const REG_CLICK_CFG: u8 = 0x38;
+const REG_CLICK_SRC: u8 = 0x39;
 const REG_CLICK_THS: u8 = 0x3A;
 const REG_TIME_LIMIT: u8 = 0x3B;
-const REG_CLICK_SRC: u8 = 0x39;
+const REG_TIME_LATENCY: u8 = 0x3C;
 const REG_OUT_X_L: u8 = 0x28;
 
 pub struct Accelerometer<'d> {
@@ -312,6 +314,9 @@ impl<'d> Accelerometer<'d> {
     async fn init(i2c: &mut I2c<'_, I2C1, i2c::Async>) -> Result<(), i2c::Error> {
         // 100Hz ODR, all axes enabled
         i2c.write_async(LIS3DH_ADDR, [REG_CTRL1, 0x57]).await?;
+        // Route click interrupt to INT1 so the click detection logic
+        // latches events in CLICK_SRC.
+        i2c.write_async(LIS3DH_ADDR, [REG_CTRL3, 0x80]).await?;
         // ±8g full scale, BDU enabled, high-resolution output
         i2c.write_async(LIS3DH_ADDR, [REG_CTRL4, 0xA8]).await?;
         // Single-click on Z-axis
@@ -319,6 +324,9 @@ impl<'d> Accelerometer<'d> {
         // Click threshold ~1.5g (8g/128 * 24 ≈ 1.5g)
         i2c.write_async(LIS3DH_ADDR, [REG_CLICK_THS, 24]).await?;
         i2c.write_async(LIS3DH_ADDR, [REG_TIME_LIMIT, 10]).await?;
+        // Keep the click interrupt latched long enough for the 20ms
+        // polling loop to catch it (20 × 10ms = 200ms @ 100Hz ODR).
+        i2c.write_async(LIS3DH_ADDR, [REG_TIME_LATENCY, 20]).await?;
         Ok(())
     }
 
