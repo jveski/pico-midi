@@ -102,10 +102,10 @@ async fn main(spawner: Spawner) {
     let midi_fut = async {
         Timer::after(Duration::from_millis(100)).await;
 
-        // --- Buttons: GP2-GP5, GP11-GP14 ---
+        // --- Buttons: GP0-GP1, GP4-GP5, GP11-GP14 ---
         let mut buttons = input::Buttons::new([
-            Input::new(p.PIN_2, Pull::Up),
-            Input::new(p.PIN_3, Pull::Up),
+            Input::new(p.PIN_0, Pull::Up),
+            Input::new(p.PIN_1, Pull::Up),
             Input::new(p.PIN_4, Pull::Up),
             Input::new(p.PIN_5, Pull::Up),
             Input::new(p.PIN_11, Pull::Up),
@@ -138,8 +138,8 @@ async fn main(spawner: Spawner) {
         // --- LDR: GP28 (ADC2) ---
         let mut ldr = input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_28, Pull::None), 0.15);
 
-        // --- Accelerometer: I2C1, SCL=GP1, SDA=GP0 ---
-        let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_1, p.PIN_0, Irqs, i2c::Config::default());
+        // --- Accelerometer: I2C1, SCL=GP3, SDA=GP2 ---
+        let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
         let mut accel = input::Accelerometer::new(
             i2c1,
             midi_cfg.accel.dead_zone_tenths,
