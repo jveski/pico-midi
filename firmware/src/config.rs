@@ -2,10 +2,9 @@ use defmt::Format;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 6;
-pub const MAX_BUTTONS: usize = 8;
-pub const MAX_TOUCH_PADS: usize = 8;
-pub const MAX_POTS: usize = 2;
+pub const VERSION: u8 = 7;
+pub const MAX_DIGITAL_INPUTS: usize = 21;
+pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
 #[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
@@ -16,6 +15,25 @@ const HEADER_SIZE: usize = 5;
 pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
 #[cfg(feature = "rp2350")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
+
+/// GPIO pins available for digital inputs (buttons and touch pads).
+/// All GPIOs 0-22 except GP2 (I2C SDA), GP3 (I2C SCL), GP25 (LED).
+pub const DIGITAL_PINS: [u8; MAX_DIGITAL_INPUTS] = [
+    0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+];
+
+/// GPIO pins available for analog inputs (pots and LDR).
+pub const ANALOG_PINS: [u8; MAX_ANALOG_INPUTS] = [26, 27, 28];
+
+/// Check if a GPIO number is valid for digital input use.
+pub fn is_valid_digital_pin(gpio: u8) -> bool {
+    DIGITAL_PINS.contains(&gpio)
+}
+
+/// Check if a GPIO number is valid for analog input use.
+pub fn is_valid_analog_pin(gpio: u8) -> bool {
+    ANALOG_PINS.contains(&gpio)
+}
 
 /// A compact bytecode expression (up to `MAX_EXPR` bytes).
 /// When `len == 0` the static value is used instead.
@@ -36,6 +54,7 @@ impl Expr {
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct ButtonDef {
+    pub pin: u8,
     pub note: u8,
     pub velocity: u8,
     pub note_expr: Expr,
@@ -44,6 +63,7 @@ pub struct ButtonDef {
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct TouchPadDef {
+    pub pin: u8,
     pub note: u8,
     pub velocity: u8,
     /// Touch threshold as a percentage above the calibrated baseline (e.g. 33 = 33%).
@@ -54,6 +74,13 @@ pub struct TouchPadDef {
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct PotDef {
+    pub pin: u8,
+    pub cc: u8,
+}
+
+#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+pub struct LdrDef {
+    pub pin: u8,
     pub cc: u8,
 }
 
@@ -73,16 +100,86 @@ pub struct AccelConfig {
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct Config {
     pub midi_channel: u8,
-    pub buttons: [ButtonDef; MAX_BUTTONS],
-    pub touch_pads: [TouchPadDef; MAX_TOUCH_PADS],
-    pub pots: [PotDef; MAX_POTS],
-    pub ldr: PotDef,
+    pub num_buttons: u8,
+    pub buttons: [ButtonDef; MAX_DIGITAL_INPUTS],
+    pub num_touch_pads: u8,
+    pub touch_pads: [TouchPadDef; MAX_DIGITAL_INPUTS],
+    pub num_pots: u8,
+    pub pots: [PotDef; MAX_ANALOG_INPUTS],
     pub ldr_enabled: bool,
+    pub ldr: LdrDef,
     pub accel: AccelConfig,
 }
 
-const fn default_button(note: u8, velocity: u8) -> ButtonDef {
+impl Config {
+    /// Get the active button slice.
+    pub fn active_buttons(&self) -> &[ButtonDef] {
+        let n = (self.num_buttons as usize).min(MAX_DIGITAL_INPUTS);
+        &self.buttons[..n]
+    }
+
+    /// Get the active touch pad slice.
+    pub fn active_touch_pads(&self) -> &[TouchPadDef] {
+        let n = (self.num_touch_pads as usize).min(MAX_DIGITAL_INPUTS);
+        &self.touch_pads[..n]
+    }
+
+    /// Get the active pot slice.
+    pub fn active_pots(&self) -> &[PotDef] {
+        let n = (self.num_pots as usize).min(MAX_ANALOG_INPUTS);
+        &self.pots[..n]
+    }
+
+    /// Validate that all pin assignments are valid and not duplicated.
+    pub fn validate(&self) -> bool {
+        let mut used = [false; 30]; // GPIO 0-29
+
+        for b in self.active_buttons() {
+            if !is_valid_digital_pin(b.pin) {
+                return false;
+            }
+            if used[b.pin as usize] {
+                return false;
+            }
+            used[b.pin as usize] = true;
+        }
+
+        for t in self.active_touch_pads() {
+            if !is_valid_digital_pin(t.pin) {
+                return false;
+            }
+            if used[t.pin as usize] {
+                return false;
+            }
+            used[t.pin as usize] = true;
+        }
+
+        for p in self.active_pots() {
+            if !is_valid_analog_pin(p.pin) {
+                return false;
+            }
+            if used[p.pin as usize] {
+                return false;
+            }
+            used[p.pin as usize] = true;
+        }
+
+        if self.ldr_enabled {
+            if !is_valid_analog_pin(self.ldr.pin) {
+                return false;
+            }
+            if used[self.ldr.pin as usize] {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+const fn default_button(pin: u8, note: u8, velocity: u8) -> ButtonDef {
     ButtonDef {
+        pin,
         note,
         velocity,
         note_expr: Expr::empty(),
@@ -90,8 +187,9 @@ const fn default_button(note: u8, velocity: u8) -> ButtonDef {
     }
 }
 
-const fn default_touch(note: u8, velocity: u8, threshold_pct: u8) -> TouchPadDef {
+const fn default_touch(pin: u8, note: u8, velocity: u8, threshold_pct: u8) -> TouchPadDef {
     TouchPadDef {
+        pin,
         note,
         velocity,
         threshold_pct,
@@ -100,36 +198,55 @@ const fn default_touch(note: u8, velocity: u8, threshold_pct: u8) -> TouchPadDef
     }
 }
 
+const fn empty_button() -> ButtonDef {
+    ButtonDef {
+        pin: 0,
+        note: 60,
+        velocity: 100,
+        note_expr: Expr::empty(),
+        velocity_expr: Expr::empty(),
+    }
+}
+
+const fn empty_touch() -> TouchPadDef {
+    TouchPadDef {
+        pin: 0,
+        note: 48,
+        velocity: 100,
+        threshold_pct: 33,
+        note_expr: Expr::empty(),
+        velocity_expr: Expr::empty(),
+    }
+}
+
+const fn empty_pot() -> PotDef {
+    PotDef { pin: 0, cc: 0 }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             midi_channel: 0,
-            buttons: [
-                default_button(60, 100), // C4
-                default_button(62, 100), // D4
-                default_button(64, 100), // E4
-                default_button(65, 100), // F4
-                default_button(67, 100), // G4
-                default_button(69, 100), // A4
-                default_button(71, 100), // B4
-                default_button(72, 100), // C5
-            ],
-            touch_pads: [
-                default_touch(48, 100, 33), // C3
-                default_touch(50, 100, 33), // D3
-                default_touch(52, 100, 33), // E3
-                default_touch(53, 100, 33), // F3
-                default_touch(55, 100, 33), // G3
-                default_touch(57, 100, 33), // A3
-                default_touch(59, 100, 33), // B3
-                default_touch(60, 100, 33), // C4
-            ],
-            pots: [
-                PotDef { cc: 7 },  // Volume
-                PotDef { cc: 10 }, // Pan
-            ],
+            num_buttons: 1,
+            buttons: {
+                let mut arr = [empty_button(); MAX_DIGITAL_INPUTS];
+                arr[0] = default_button(0, 60, 100); // GP0, C4
+                arr
+            },
+            num_touch_pads: 1,
+            touch_pads: {
+                let mut arr = [empty_touch(); MAX_DIGITAL_INPUTS];
+                arr[0] = default_touch(6, 48, 100, 33); // GP6, C3
+                arr
+            },
+            num_pots: 1,
+            pots: {
+                let mut arr = [empty_pot(); MAX_ANALOG_INPUTS];
+                arr[0] = PotDef { pin: 26, cc: 7 }; // GP26 (ADC0), Volume
+                arr
+            },
             ldr_enabled: true,
-            ldr: PotDef { cc: 74 },
+            ldr: LdrDef { pin: 28, cc: 74 },
             accel: AccelConfig {
                 enabled: true,
                 x_cc: 1,

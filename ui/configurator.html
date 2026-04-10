@@ -24,6 +24,7 @@
     <collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">
       <item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount">
         <div id="buttonList"></div>
+        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Button</button>
       </item-list>
     </collapsible-card>
 
@@ -31,6 +32,7 @@
     <collapsible-card data-section="touch" data-title="Touch Pads" data-badge-id="touchCount">
       <item-list data-type="touch" data-list-id="touchList" data-count-id="touchCount">
         <div id="touchList"></div>
+        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Touch Pad</button>
       </item-list>
     </collapsible-card>
 
@@ -38,6 +40,7 @@
     <collapsible-card data-section="pots" data-title="Potentiometers" data-badge-id="potCount">
       <item-list data-type="pot" data-list-id="potList" data-count-id="potCount">
         <div id="potList"></div>
+        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Pot</button>
       </item-list>
     </collapsible-card>
 
@@ -50,7 +53,7 @@
             <span class="slider"></span>
           </label>
           <label>Enabled</label>
-          <span class="pin-label clickable" data-gpio="28">GP28</span>
+          <select id="ldrPin" class="pin-select"></select>
         </div>
         <div id="ldrFields">
           <div class="field">
@@ -115,7 +118,7 @@
         <h3>Variables</h3>
         <table>
           <tr><th>Variable</th><th>Description</th></tr>
-          <tr><td><code>pot0</code> &ndash; <code>pot1</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
+          <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
           <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
           <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
           <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
@@ -209,17 +212,18 @@
 <template id="tpl-pot-row">
   <div class="item-row">
     <span class="index"></span>
-    <span class="pin-label"></span>
+    <select class="pin-select" data-field="pin"></select>
     <div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill"></div></div>
     <span class="monitor-value" style="min-width:24px">0</span>
     <label>CC</label><input type="number" min="0" max="127" value="0" data-field="cc">
+    <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
   </div>
 </template>
 
 <template id="tpl-touch-row">
   <div class="item-row">
     <span class="index"></span>
-    <span class="pin-label"></span>
+    <select class="pin-select" data-field="pin"></select>
     <div class="monitor-indicator"></div>
     <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
     <span class="note-hint"></span>
@@ -227,19 +231,21 @@
     <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
     <span class="expr-error" data-field="velocity_expr_err"></span>
     <label>Thr%</label><input type="number" min="1" max="255" value="33" data-field="threshold_pct">
+    <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
   </div>
 </template>
 
 <template id="tpl-button-row">
   <div class="item-row">
     <span class="index"></span>
-    <span class="pin-label"></span>
+    <select class="pin-select" data-field="pin"></select>
     <div class="monitor-indicator"></div>
     <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
     <span class="note-hint"></span>
     <span class="expr-error" data-field="note_expr_err"></span>
     <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
     <span class="expr-error" data-field="velocity_expr_err"></span>
+    <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
   </div>
 </template>
 

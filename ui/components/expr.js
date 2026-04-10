@@ -13,7 +13,7 @@
 //   MODE     = NUMBER | 'lydian' | 'ionian' | 'major' | 'mixolydian'
 //            | 'dorian' | 'aeolian' | 'minor' | 'phrygian' | 'locrian'
 //
-// Variables: pot0-pot1, ldr, accel_x, accel_y
+// Variables: pot0-pot2, ldr, accel_x, accel_y
 //
 // Examples:
 //   pot0 + 24

@@ -1,4 +1,5 @@
-import { num, pinLabel, noteHintText, wirePinClicks, BUTTON_PINS, TOUCH_PINS, POT_PINS } from "./helpers.js";
+import { num, noteHintText, digitalPinOptions, analogPinOptions } from "./helpers.js";
+import { DIGITAL_PINS, ANALOG_PINS, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS } from "./protocol.js";
 import { compileExpr } from "./expr.js";
 
 export class ItemList extends HTMLElement {
@@ -10,17 +11,29 @@ export class ItemList extends HTMLElement {
     this._listId = this.dataset.listId;     // e.g. "buttonList"
     this._countId = this.dataset.countId;   // e.g. "btnCount"
 
-    // Container div is defined in configurator.html.
+    // Wire up the "Add" button
+    const addBtn = this.querySelector('[data-action="add"]');
+    if (addBtn) {
+      addBtn.addEventListener("click", () => {
+        this.dispatchEvent(new CustomEvent("item-add", { bubbles: true, detail: { type: this._type } }));
+      });
+    }
   }
 
-  render(items) {
+  /**
+   * Render items into the list.
+   * @param {Array} items - Array of item objects (with .pin fields).
+   * @param {Set<number>} usedPins - All pins in use across the full config.
+   */
+  render(items, usedPins) {
     const container = this.querySelector(`#${this._listId}`);
     container.innerHTML = "";
     this._updateBadge(items.length);
+    this._updateAddButton(items.length);
 
     const isPot = this._type === "pot";
+    const isDigital = this._type === "button" || this._type === "touch";
     const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
-    const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : POT_PINS;
 
     const tplId = isPot ? "tpl-pot-row"
       : this._type === "touch" ? "tpl-touch-row"
@@ -30,15 +43,27 @@ export class ItemList extends HTMLElement {
     items.forEach((item, i) => {
       const row = tpl.content.firstElementChild.cloneNode(true);
 
-      const gpioNum = i < pinMap.length ? pinMap[i] : null;
-      const pinEl = row.querySelector(".pin-label");
-      pinEl.textContent = pinLabel(gpioNum);
-      if (gpioNum != null) {
-        pinEl.classList.add("clickable");
-        pinEl.dataset.gpio = gpioNum;
+      // Pin selector
+      const pinSelect = row.querySelector('[data-field="pin"]');
+      if (pinSelect) {
+        pinSelect.innerHTML = isDigital
+          ? digitalPinOptions(item.pin, usedPins || new Set())
+          : analogPinOptions(item.pin, usedPins || new Set());
+        pinSelect.dataset.type = this._type;
+        pinSelect.dataset.idx = i;
       }
 
       row.querySelector(".index").textContent = "#" + (i + 1);
+
+      // Remove button
+      const removeBtn = row.querySelector('[data-action="remove"]');
+      if (removeBtn) {
+        removeBtn.dataset.type = this._type;
+        removeBtn.dataset.idx = i;
+        removeBtn.addEventListener("click", () => {
+          this.dispatchEvent(new CustomEvent("item-remove", { bubbles: true, detail: { type: this._type, index: i } }));
+        });
+      }
 
       if (isPot) {
         row.querySelector(".monitor-bar-fill").id = "monPotBar" + i;
@@ -108,8 +133,12 @@ export class ItemList extends HTMLElement {
       });
     });
 
-    // Pin label click → open pinout modal
-    wirePinClicks(container);
+    // Pin select change → notify parent
+    container.querySelectorAll('.pin-select').forEach(sel => {
+      sel.addEventListener("change", () => {
+        this.dispatchEvent(new CustomEvent("pin-change", { bubbles: true }));
+      });
+    });
   }
 
   /** Show note name hints for note expression fields that contain plain numbers. */
@@ -124,12 +153,17 @@ export class ItemList extends HTMLElement {
     const items = [];
     const isPot = this._type === "pot";
     this.querySelector(`#${this._listId}`).querySelectorAll(".item-row").forEach(row => {
+      const pinSelect = row.querySelector('[data-field="pin"]');
+      const pin = pinSelect ? num(pinSelect.value, 0) : 0;
+
       if (isPot) {
         items.push({
+          pin,
           cc: num(row.querySelector('[data-field="cc"]').value, 0),
         });
       } else {
         const item = {
+          pin,
           note_expr_src: (row.querySelector('[data-field="note_expr_src"]') || {}).value || "",
           velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         };
@@ -145,6 +179,14 @@ export class ItemList extends HTMLElement {
   _updateBadge(count) {
     const badge = document.getElementById(this._countId);
     if (badge) badge.textContent = count;
+  }
+
+  _updateAddButton(count) {
+    const addBtn = this.querySelector('[data-action="add"]');
+    if (!addBtn) return;
+    const isPot = this._type === "pot";
+    const max = isPot ? MAX_ANALOG_INPUTS : MAX_DIGITAL_INPUTS;
+    addBtn.style.display = count >= max ? "none" : "";
   }
 }
 

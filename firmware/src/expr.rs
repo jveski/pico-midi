@@ -28,11 +28,11 @@
 //! | 0x18   | u8 (mode) | a b -> r     | Scale-quantise b from root a |
 //! | 0x20   | --        | a b c d -> r | If a > b then c else d |
 
-use crate::config::{MAX_EXPR, MAX_POTS};
+use crate::config::{MAX_ANALOG_INPUTS, MAX_EXPR};
 
 /// Inputs available to expressions — a snapshot of live controller state.
 pub struct ExprInputs {
-    pub pots: [u8; MAX_POTS],
+    pub pots: [u8; MAX_ANALOG_INPUTS],
     pub ldr: u8,
     pub accel_x: u8,
     pub accel_y: u8,

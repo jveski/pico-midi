@@ -17,7 +17,7 @@ use embassy_futures::select::{select, Either};
 use embassy_rp::adc;
 use embassy_rp::bind_interrupts;
 use embassy_rp::flash;
-use embassy_rp::gpio::{Flex, Input, Level, Output, Pull};
+use embassy_rp::gpio::{Level, Output};
 use embassy_rp::i2c;
 use embassy_rp::peripherals::{I2C1, USB};
 use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
@@ -29,7 +29,7 @@ use embassy_usb::{Builder, Config as UsbConfig};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-use config::Config;
+use config::{Config, MAX_ANALOG_INPUTS, MAX_DIGITAL_INPUTS};
 use expr::ExprInputs;
 use input_state::InputState;
 
@@ -74,6 +74,73 @@ bind_interrupts!(struct Irqs {
     ADC_IRQ_FIFO => adc::InterruptHandler;
     I2C1_IRQ => i2c::InterruptHandler<I2C1>;
 });
+
+/// Collect GPIO pin numbers for active buttons from config.
+fn button_gpios(cfg: &Config) -> [u8; MAX_DIGITAL_INPUTS] {
+    let mut gpios = [0u8; MAX_DIGITAL_INPUTS];
+    for (i, b) in cfg.active_buttons().iter().enumerate() {
+        gpios[i] = b.pin;
+    }
+    gpios
+}
+
+/// Collect GPIO pin numbers for active touch pads from config.
+fn touch_gpios(cfg: &Config) -> [u8; MAX_DIGITAL_INPUTS] {
+    let mut gpios = [0u8; MAX_DIGITAL_INPUTS];
+    for (i, t) in cfg.active_touch_pads().iter().enumerate() {
+        gpios[i] = t.pin;
+    }
+    gpios
+}
+
+/// Collect threshold percentages for active touch pads from config.
+fn touch_thresholds(cfg: &Config) -> [u8; MAX_DIGITAL_INPUTS] {
+    let mut thrs = [33u8; MAX_DIGITAL_INPUTS];
+    for (i, t) in cfg.active_touch_pads().iter().enumerate() {
+        thrs[i] = t.threshold_pct;
+    }
+    thrs
+}
+
+/// Track which pins we've configured so we can detect config changes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct PinSnapshot {
+    button_pins: [u8; MAX_DIGITAL_INPUTS],
+    num_buttons: u8,
+    touch_pins: [u8; MAX_DIGITAL_INPUTS],
+    num_touch: u8,
+    pot_pins: [u8; MAX_ANALOG_INPUTS],
+    num_pots: u8,
+    ldr_enabled: bool,
+    ldr_pin: u8,
+}
+
+impl PinSnapshot {
+    fn from_config(cfg: &Config) -> Self {
+        let mut bp = [0u8; MAX_DIGITAL_INPUTS];
+        for (i, b) in cfg.active_buttons().iter().enumerate() {
+            bp[i] = b.pin;
+        }
+        let mut tp = [0u8; MAX_DIGITAL_INPUTS];
+        for (i, t) in cfg.active_touch_pads().iter().enumerate() {
+            tp[i] = t.pin;
+        }
+        let mut pp = [0u8; MAX_ANALOG_INPUTS];
+        for (i, p) in cfg.active_pots().iter().enumerate() {
+            pp[i] = p.pin;
+        }
+        Self {
+            button_pins: bp,
+            num_buttons: cfg.num_buttons,
+            touch_pins: tp,
+            num_touch: cfg.num_touch_pads,
+            pot_pins: pp,
+            num_pots: cfg.num_pots,
+            ldr_enabled: cfg.ldr_enabled,
+            ldr_pin: cfg.ldr.pin,
+        }
+    }
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -129,46 +196,47 @@ async fn main(spawner: Spawner) {
     let midi_fut = async {
         Timer::after(Duration::from_millis(100)).await;
 
-        // --- Buttons: GP0-GP1, GP4-GP5, GP11-GP14 ---
-        let mut buttons = input::Buttons::new([
-            Input::new(p.PIN_0, Pull::Up),
-            Input::new(p.PIN_1, Pull::Up),
-            Input::new(p.PIN_4, Pull::Up),
-            Input::new(p.PIN_5, Pull::Up),
-            Input::new(p.PIN_11, Pull::Up),
-            Input::new(p.PIN_12, Pull::Up),
-            Input::new(p.PIN_13, Pull::Up),
-            Input::new(p.PIN_14, Pull::Up),
-        ]);
+        // --- Dynamic input initialization ---
+        let mut buttons = input::Buttons::new();
+        let mut touch = input::TouchPads::new();
+        let mut pots: [Option<input::SmoothedAnalog<'static>>; MAX_ANALOG_INPUTS] =
+            [const { None }; MAX_ANALOG_INPUTS];
+        let mut ldr: Option<input::SmoothedAnalog<'static>> = None;
 
-        // --- Touch pads: GP6-GP10, GP15-GP17 ---
-        let mut touch_pins: [Flex<'static>; 8] = [
-            Flex::new(p.PIN_6),
-            Flex::new(p.PIN_7),
-            Flex::new(p.PIN_8),
-            Flex::new(p.PIN_9),
-            Flex::new(p.PIN_10),
-            Flex::new(p.PIN_15),
-            Flex::new(p.PIN_16),
-            Flex::new(p.PIN_17),
-        ];
-        let touch_thresholds: [u8; 8] =
-            core::array::from_fn(|i| cfg.borrow().touch_pads[i].threshold_pct);
-        let mut touch = input::TouchPads::new(&mut touch_pins, &touch_thresholds);
+        // Configure inputs from initial config
+        let initial_cfg = *cfg.borrow();
+        let mut pin_snapshot = PinSnapshot::from_config(&initial_cfg);
 
-        // --- Pots: GP26 (ADC0), GP27 (ADC1) ---
-        let mut pots = [
-            input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_26, Pull::None), 0.2),
-            input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_27, Pull::None), 0.2),
-        ];
+        // Safety: we own all the peripheral singletons via `p` and configure
+        // each GPIO only once based on validated config (no duplicates).
+        unsafe {
+            let bg = button_gpios(&initial_cfg);
+            buttons.configure(&bg[..initial_cfg.num_buttons as usize]);
 
-        // --- LDR: GP28 (ADC2) ---
-        let mut ldr = input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_28, Pull::None), 0.15);
+            let tg = touch_gpios(&initial_cfg);
+            let tt = touch_thresholds(&initial_cfg);
+            touch.configure(
+                &tg[..initial_cfg.num_touch_pads as usize],
+                &tt[..initial_cfg.num_touch_pads as usize],
+            );
 
-        // --- Accelerometer: I2C1, SCL=GP3, SDA=GP2 ---
+            for (i, pot_def) in initial_cfg.active_pots().iter().enumerate() {
+                if let Some(ch) = input::adc_channel_from_gpio(pot_def.pin) {
+                    pots[i] = Some(input::SmoothedAnalog::new(ch, 0.2));
+                }
+            }
+
+            if initial_cfg.ldr_enabled {
+                if let Some(ch) = input::adc_channel_from_gpio(initial_cfg.ldr.pin) {
+                    ldr = Some(input::SmoothedAnalog::new(ch, 0.15));
+                }
+            }
+        }
+
+        // --- Accelerometer: I2C1, SCL=GP3, SDA=GP2 (hardcoded) ---
         let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
-        let accel_dead_zone = cfg.borrow().accel.dead_zone_tenths;
-        let accel_smoothing = cfg.borrow().accel.smoothing_pct;
+        let accel_dead_zone = initial_cfg.accel.dead_zone_tenths;
+        let accel_smoothing = initial_cfg.accel.smoothing_pct;
         let mut accel = input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing).await;
 
         let mut last_led_toggle = Instant::now();
@@ -178,8 +246,10 @@ async fn main(spawner: Spawner) {
         // that (a) note-off always releases the correct note, and (b) when
         // a scale() expression result changes while held the old note is
         // released and the new one is sent after a debounce period.
-        let mut active_button_note: [Option<HeldNote>; 8] = [None; 8];
-        let mut active_touch_note: [Option<HeldNote>; 8] = [None; 8];
+        let mut active_button_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] =
+            [None; MAX_DIGITAL_INPUTS];
+        let mut active_touch_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] =
+            [None; MAX_DIGITAL_INPUTS];
 
         loop {
             // ~1ms poll interval
@@ -189,11 +259,71 @@ async fn main(spawner: Spawner) {
             // The borrow is brief and does not span an await point.
             let cur = *cfg.borrow();
 
+            // Check if pin assignments changed — reconfigure if so.
+            let new_snapshot = PinSnapshot::from_config(&cur);
+            if new_snapshot != pin_snapshot {
+                // Release all held notes before reconfiguring
+                for (idx, slot) in active_button_note.iter_mut().enumerate() {
+                    if let Some(held) = slot.take() {
+                        send_midi(&mut midi_class, &note_off(cur.midi_channel, held.current)).await;
+                        INPUT_STATE.set_button(idx as u8, false);
+                    }
+                }
+                for (idx, slot) in active_touch_note.iter_mut().enumerate() {
+                    if let Some(held) = slot.take() {
+                        send_midi(&mut midi_class, &note_off(cur.midi_channel, held.current)).await;
+                        INPUT_STATE.set_touch(idx as u8, false);
+                    }
+                }
+
+                // Safety: we're reconfiguring pins based on a validated config.
+                // The old pin drivers are dropped inside configure(), releasing
+                // the GPIO before the new ones are created.
+                unsafe {
+                    let bg = button_gpios(&cur);
+                    buttons.configure(&bg[..cur.num_buttons as usize]);
+
+                    let tg = touch_gpios(&cur);
+                    let tt = touch_thresholds(&cur);
+                    touch.configure(
+                        &tg[..cur.num_touch_pads as usize],
+                        &tt[..cur.num_touch_pads as usize],
+                    );
+
+                    // Reconfigure pots
+                    for pot in pots.iter_mut() {
+                        *pot = None;
+                    }
+                    for (i, pot_def) in cur.active_pots().iter().enumerate() {
+                        if let Some(ch) = input::adc_channel_from_gpio(pot_def.pin) {
+                            pots[i] = Some(input::SmoothedAnalog::new(ch, 0.2));
+                        }
+                    }
+
+                    // Reconfigure LDR
+                    ldr = None;
+                    if cur.ldr_enabled {
+                        if let Some(ch) = input::adc_channel_from_gpio(cur.ldr.pin) {
+                            ldr = Some(input::SmoothedAnalog::new(ch, 0.15));
+                        }
+                    }
+                }
+
+                pin_snapshot = new_snapshot;
+                defmt::info!(
+                    "pins reconfigured: {}b {}t {}p",
+                    cur.num_buttons,
+                    cur.num_touch_pads,
+                    cur.num_pots
+                );
+            }
+
             // Update accelerometer tuning if changed via the configurator.
             accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
 
             // Update touch thresholds if changed via the configurator.
-            touch.update_thresholds(&core::array::from_fn(|i| cur.touch_pads[i].threshold_pct));
+            let thrs = touch_thresholds(&cur);
+            touch.update_thresholds(&thrs[..cur.num_touch_pads as usize]);
 
             // Build expression inputs from current state
             let expr_inputs = ExprInputs {
@@ -204,7 +334,8 @@ async fn main(spawner: Spawner) {
             };
 
             // Poll buttons
-            for evt in buttons.poll().into_iter().flatten() {
+            let num_buttons = cur.num_buttons as usize;
+            for evt in buttons.poll().into_iter().take(num_buttons).flatten() {
                 let idx = evt.index as usize;
                 if evt.pressed {
                     let def = &cur.buttons[idx];
@@ -223,8 +354,7 @@ async fn main(spawner: Spawner) {
                     active_button_note[idx] = Some(HeldNote::new(note));
                     send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                 } else {
-                    let note = active_button_note[idx]
-                        .map_or(cur.buttons[idx].note, |h| h.current);
+                    let note = active_button_note[idx].map_or(cur.buttons[idx].note, |h| h.current);
                     active_button_note[idx] = None;
                     send_midi(&mut midi_class, &note_off(cur.midi_channel, note)).await;
                 };
@@ -234,7 +364,7 @@ async fn main(spawner: Spawner) {
             // Re-evaluate scale() expressions for held buttons.
             // If the quantised note changed, debounce and re-trigger.
             let now = Instant::now();
-            for (idx, slot) in active_button_note.iter_mut().enumerate() {
+            for (idx, slot) in active_button_note.iter_mut().take(num_buttons).enumerate() {
                 let held = match slot {
                     Some(h) => h,
                     None => continue,
@@ -266,16 +396,9 @@ async fn main(spawner: Spawner) {
                                 &expr_inputs,
                                 def.velocity,
                             );
-                            send_midi(
-                                &mut midi_class,
-                                &note_off(cur.midi_channel, held.current),
-                            )
-                            .await;
-                            send_midi(
-                                &mut midi_class,
-                                &note_on(cur.midi_channel, note, vel),
-                            )
-                            .await;
+                            send_midi(&mut midi_class, &note_off(cur.midi_channel, held.current))
+                                .await;
+                            send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                             held.current = note;
                             held.pending = None;
                         }
@@ -289,7 +412,8 @@ async fn main(spawner: Spawner) {
             }
 
             // Poll touch pads
-            for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
+            let num_touch = cur.num_touch_pads as usize;
+            for evt in touch.poll().await.into_iter().take(num_touch).flatten() {
                 let idx = evt.index as usize;
                 if evt.pressed {
                     let def = &cur.touch_pads[idx];
@@ -308,8 +432,8 @@ async fn main(spawner: Spawner) {
                     active_touch_note[idx] = Some(HeldNote::new(note));
                     send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                 } else {
-                    let note = active_touch_note[idx]
-                        .map_or(cur.touch_pads[idx].note, |h| h.current);
+                    let note =
+                        active_touch_note[idx].map_or(cur.touch_pads[idx].note, |h| h.current);
                     active_touch_note[idx] = None;
                     send_midi(&mut midi_class, &note_off(cur.midi_channel, note)).await;
                 };
@@ -318,7 +442,7 @@ async fn main(spawner: Spawner) {
 
             // Re-evaluate scale() expressions for held touch pads.
             let now = Instant::now();
-            for (idx, slot) in active_touch_note.iter_mut().enumerate() {
+            for (idx, slot) in active_touch_note.iter_mut().take(num_touch).enumerate() {
                 let held = match slot {
                     Some(h) => h,
                     None => continue,
@@ -348,16 +472,9 @@ async fn main(spawner: Spawner) {
                                 &expr_inputs,
                                 def.velocity,
                             );
-                            send_midi(
-                                &mut midi_class,
-                                &note_off(cur.midi_channel, held.current),
-                            )
-                            .await;
-                            send_midi(
-                                &mut midi_class,
-                                &note_on(cur.midi_channel, note, vel),
-                            )
-                            .await;
+                            send_midi(&mut midi_class, &note_off(cur.midi_channel, held.current))
+                                .await;
+                            send_midi(&mut midi_class, &note_on(cur.midi_channel, note, vel)).await;
                             held.current = note;
                             held.pending = None;
                         }
@@ -370,22 +487,27 @@ async fn main(spawner: Spawner) {
             }
 
             // Poll pots
-            for (i, pot) in pots.iter_mut().enumerate() {
-                if let Some(v) = pot.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(cur.midi_channel, cur.pots[i].cc, v);
-                    send_midi(&mut midi_class, &pkt).await;
+            let num_pots = cur.num_pots as usize;
+            for (i, pot_slot) in pots.iter_mut().take(num_pots).enumerate() {
+                if let Some(pot) = pot_slot {
+                    if let Some(v) = pot.poll(&mut adc_inst, 2).await {
+                        let pkt = control_change(cur.midi_channel, cur.pots[i].cc, v);
+                        send_midi(&mut midi_class, &pkt).await;
+                    }
+                    #[allow(clippy::cast_possible_truncation)] // index fits in u8
+                    INPUT_STATE.set_pot(i as u8, pot.current_cc());
                 }
-                #[allow(clippy::cast_possible_truncation)] // index fits in u8
-                INPUT_STATE.set_pot(i as u8, pot.current_cc());
             }
 
             // Poll LDR
             if cur.ldr_enabled {
-                if let Some(v) = ldr.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(cur.midi_channel, cur.ldr.cc, v);
-                    send_midi(&mut midi_class, &pkt).await;
+                if let Some(ldr_input) = &mut ldr {
+                    if let Some(v) = ldr_input.poll(&mut adc_inst, 2).await {
+                        let pkt = control_change(cur.midi_channel, cur.ldr.cc, v);
+                        send_midi(&mut midi_class, &pkt).await;
+                    }
+                    INPUT_STATE.set_ldr(ldr_input.current_cc());
                 }
-                INPUT_STATE.set_ldr(ldr.current_cc());
             }
 
             // Poll accelerometer
@@ -514,7 +636,10 @@ async fn main(spawner: Spawner) {
                 if Instant::now().duration_since(last_monitor_send).as_millis() >= 50 {
                     last_monitor_send = Instant::now();
                     let mut resp = [0u8; 256];
-                    let snapshot = INPUT_STATE.snapshot();
+                    let snapshot = {
+                        let cur = cfg.borrow();
+                        INPUT_STATE.snapshot(cur.num_buttons, cur.num_touch_pads, cur.num_pots)
+                    };
                     let n = serial::encode_monitor(snapshot, &mut resp);
                     if n > 0 {
                         send_serial(&mut serial_class, &resp[..n]).await;

@@ -4,12 +4,15 @@ use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::I2C1;
 use embassy_time::{Instant, Timer};
 
+use crate::config::MAX_DIGITAL_INPUTS;
+
 const DEBOUNCE_MS: u64 = 10;
 
-pub struct Buttons<const N: usize> {
-    pins: [Input<'static>; N],
-    prev: [bool; N],
-    stable_since: [Instant; N],
+pub struct Buttons {
+    pins: [Option<Input<'static>>; MAX_DIGITAL_INPUTS],
+    prev: [bool; MAX_DIGITAL_INPUTS],
+    stable_since: [Instant; MAX_DIGITAL_INPUTS],
+    count: usize,
 }
 
 pub struct ButtonEvent {
@@ -17,33 +20,54 @@ pub struct ButtonEvent {
     pub pressed: bool,
 }
 
-impl<const N: usize> Buttons<N> {
-    pub fn new(pins: [Input<'static>; N]) -> Self {
-        let prev = [false; N];
-        let stable_since = [Instant::now(); N];
+impl Buttons {
+    pub fn new() -> Self {
         Self {
-            pins,
-            prev,
-            stable_since,
+            pins: [const { None }; MAX_DIGITAL_INPUTS],
+            prev: [false; MAX_DIGITAL_INPUTS],
+            stable_since: [Instant::MIN; MAX_DIGITAL_INPUTS],
+            count: 0,
         }
     }
 
-    /// Check all buttons. Returns up to N state-change events.
-    pub fn poll(&mut self) -> [Option<ButtonEvent>; N] {
+    /// Reinitialize button pins from config. Drops old pins.
+    ///
+    /// # Safety
+    /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
+    pub unsafe fn configure(&mut self, gpio_pins: &[u8]) {
+        // Drop all existing pins
+        for pin in self.pins.iter_mut() {
+            *pin = None;
+        }
+        self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
         let now = Instant::now();
-        let mut events: [Option<ButtonEvent>; N] = [const { None }; N];
-        for (i, event) in events.iter_mut().enumerate() {
-            let pressed = self.pins[i].is_low();
-            if pressed != self.prev[i]
-                && now.duration_since(self.stable_since[i]).as_millis() >= DEBOUNCE_MS
-            {
-                self.prev[i] = pressed;
-                self.stable_since[i] = now;
-                *event = Some(ButtonEvent {
-                    #[allow(clippy::cast_possible_truncation)] // N <= 8
-                    index: i as u8,
-                    pressed,
-                });
+        for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
+            let any = embassy_rp::gpio::AnyPin::steal(gpio);
+            self.pins[i] = Some(Input::new(any, Pull::Up));
+            self.prev[i] = false;
+            self.stable_since[i] = now;
+        }
+    }
+
+    /// Check all buttons. Returns up to count state-change events.
+    pub fn poll(&mut self) -> [Option<ButtonEvent>; MAX_DIGITAL_INPUTS] {
+        let now = Instant::now();
+        let mut events: [Option<ButtonEvent>; MAX_DIGITAL_INPUTS] =
+            [const { None }; MAX_DIGITAL_INPUTS];
+        for (i, event) in events.iter_mut().enumerate().take(self.count) {
+            if let Some(pin) = &self.pins[i] {
+                let pressed = pin.is_low();
+                if pressed != self.prev[i]
+                    && now.duration_since(self.stable_since[i]).as_millis() >= DEBOUNCE_MS
+                {
+                    self.prev[i] = pressed;
+                    self.stable_since[i] = now;
+                    *event = Some(ButtonEvent {
+                        #[allow(clippy::cast_possible_truncation)]
+                        index: i as u8,
+                        pressed,
+                    });
+                }
             }
         }
         events
@@ -107,8 +131,10 @@ struct TouchPad {
     was_touched: bool,
 }
 
-pub struct TouchPads<const N: usize> {
-    pads: [TouchPad; N],
+pub struct TouchPads {
+    pads: [TouchPad; MAX_DIGITAL_INPUTS],
+    pins: [Option<Flex<'static>>; MAX_DIGITAL_INPUTS],
+    count: usize,
 }
 
 pub struct TouchEvent {
@@ -180,69 +206,99 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     }
 }
 
-impl<const N: usize> TouchPads<N> {
-    /// Initialize touch pads, measuring baseline capacitance.
-    /// Each pad's threshold is `baseline + max(baseline * threshold_pcts[i] / 100, 2)`.
-    pub fn new(pins: &mut [Flex<'static>; N], threshold_pcts: &[u8; N]) -> Self {
-        // embassy-rp's Flex::new() uses a register `write` (not `modify`) on the
-        // pad control register, starting from zero.  This silently disables the
-        // Schmitt trigger and reduces drive strength to 2 mA — both of which
-        // differ from the hardware reset defaults (Schmitt enabled, 4 mA).
-        //
-        // On RP2040 the weaker ~50 kΩ pull-down produces a slow enough discharge
-        // that the input buffer reads cleanly even without hysteresis.  On RP2350
-        // the much stronger ~28 kΩ pull-down causes sub-microsecond discharges
-        // where the voltage blasts through the input threshold zone; without
-        // Schmitt hysteresis the input oscillates at the crossing, producing noisy
-        // timing measurements that appear as inverted / phantom touches.
-        //
-        // Re-enable the Schmitt trigger and restore 4 mA drive on every touch pin
-        // so both platforms get clean, reliable readings.
-        for pin in pins.iter_mut() {
-            pin.set_schmitt(true);
-            pin.set_drive_strength(Drive::_4mA);
+impl TouchPads {
+    /// Create an empty touch pad set. Call `configure()` to set up pins.
+    pub fn new() -> Self {
+        Self {
+            pads: [const {
+                TouchPad {
+                    baseline: 0,
+                    threshold: 0,
+                    was_touched: false,
+                }
+            }; MAX_DIGITAL_INPUTS],
+            pins: [const { None }; MAX_DIGITAL_INPUTS],
+            count: 0,
         }
+    }
 
-        let pads: [TouchPad; N] = core::array::from_fn(|i| {
+    /// Reinitialize touch pad pins from config. Drops old pins and recalibrates.
+    ///
+    /// # Safety
+    /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
+    pub unsafe fn configure(&mut self, gpio_pins: &[u8], threshold_pcts: &[u8]) {
+        // Drop all existing pins
+        for pin in self.pins.iter_mut() {
+            *pin = None;
+        }
+        self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
+
+        for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
+            let any = embassy_rp::gpio::AnyPin::steal(gpio);
+            let mut flex = Flex::new(any);
+
+            // embassy-rp's Flex::new() uses a register `write` (not `modify`) on the
+            // pad control register, starting from zero.  This silently disables the
+            // Schmitt trigger and reduces drive strength to 2 mA — both of which
+            // differ from the hardware reset defaults (Schmitt enabled, 4 mA).
+            //
+            // On RP2040 the weaker ~50 kΩ pull-down produces a slow enough discharge
+            // that the input buffer reads cleanly even without hysteresis.  On RP2350
+            // the much stronger ~28 kΩ pull-down causes sub-microsecond discharges
+            // where the voltage blasts through the input threshold zone; without
+            // Schmitt hysteresis the input oscillates at the crossing, producing noisy
+            // timing measurements that appear as inverted / phantom touches.
+            //
+            // Re-enable the Schmitt trigger and restore 4 mA drive on every touch pin
+            // so both platforms get clean, reliable readings.
+            flex.set_schmitt(true);
+            flex.set_drive_strength(Drive::_4mA);
+
+            // Calibrate baseline
             let mut sum: u32 = 0;
             for _ in 0..8 {
-                sum += measure_touch_sync(&mut pins[i]);
+                sum += measure_touch_sync(&mut flex);
             }
             let baseline = sum / 8;
-            let pct = u32::from(threshold_pcts[i]);
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
             let margin = (baseline * pct / 100).max(2);
-            TouchPad {
+
+            self.pads[i] = TouchPad {
                 baseline,
                 threshold: baseline + margin,
                 was_touched: false,
-            }
-        });
-        Self { pads }
+            };
+            self.pins[i] = Some(flex);
+        }
     }
 
     /// Recalculate touch thresholds from the stored baselines when
     /// the threshold percentages change in the configurator.
-    pub fn update_thresholds(&mut self, threshold_pcts: &[u8; N]) {
-        for (pad, &pct) in self.pads.iter_mut().zip(threshold_pcts.iter()) {
-            let margin = (pad.baseline * u32::from(pct) / 100).max(2);
+    pub fn update_thresholds(&mut self, threshold_pcts: &[u8]) {
+        for (i, pad) in self.pads.iter_mut().take(self.count).enumerate() {
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
+            let margin = (pad.baseline * pct / 100).max(2);
             pad.threshold = pad.baseline + margin;
         }
     }
 
-    /// Poll all touch pads. Returns up to N state-change events.
-    pub async fn poll(&mut self, pins: &mut [Flex<'static>; N]) -> [Option<TouchEvent>; N] {
-        let mut events: [Option<TouchEvent>; N] = [const { None }; N];
-        for i in 0..N {
-            let reading = measure_touch_async(&mut pins[i]).await;
-            let touched = reading > self.pads[i].threshold;
+    /// Poll all touch pads. Returns up to count state-change events.
+    pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {
+        let mut events: [Option<TouchEvent>; MAX_DIGITAL_INPUTS] =
+            [const { None }; MAX_DIGITAL_INPUTS];
+        for (i, event) in events.iter_mut().enumerate().take(self.count) {
+            if let Some(pin) = &mut self.pins[i] {
+                let reading = measure_touch_async(pin).await;
+                let touched = reading > self.pads[i].threshold;
 
-            if touched != self.pads[i].was_touched {
-                self.pads[i].was_touched = touched;
-                events[i] = Some(TouchEvent {
-                    #[allow(clippy::cast_possible_truncation)] // N <= 8
-                    index: i as u8,
-                    pressed: touched,
-                });
+                if touched != self.pads[i].was_touched {
+                    self.pads[i].was_touched = touched;
+                    *event = Some(TouchEvent {
+                        #[allow(clippy::cast_possible_truncation)]
+                        index: i as u8,
+                        pressed: touched,
+                    });
+                }
             }
         }
         events
@@ -428,5 +484,27 @@ impl<'d> Accelerometer<'d> {
 
     pub const fn current_y_cc(&self) -> u8 {
         self.last_y_cc
+    }
+}
+
+/// Create an ADC channel from a GPIO pin number (26, 27, or 28).
+///
+/// # Safety
+/// Caller must ensure the pin is not in use elsewhere.
+pub unsafe fn adc_channel_from_gpio(gpio: u8) -> Option<Channel<'static>> {
+    match gpio {
+        26 => {
+            let pin = embassy_rp::peripherals::PIN_26::steal();
+            Some(Channel::new_pin(pin, Pull::None))
+        }
+        27 => {
+            let pin = embassy_rp::peripherals::PIN_27::steal();
+            Some(Channel::new_pin(pin, Pull::None))
+        }
+        28 => {
+            let pin = embassy_rp::peripherals::PIN_28::steal();
+            Some(Channel::new_pin(pin, Pull::None))
+        }
+        _ => None,
     }
 }

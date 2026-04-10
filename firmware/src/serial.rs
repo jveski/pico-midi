@@ -42,9 +42,12 @@ pub enum Response<'a> {
 
 #[derive(Serialize)]
 pub struct MonitorSnapshot {
-    pub buttons: [bool; config::MAX_BUTTONS],
-    pub touch_pads: [bool; config::MAX_TOUCH_PADS],
-    pub pots: [u8; config::MAX_POTS],
+    pub num_buttons: u8,
+    pub buttons: [bool; config::MAX_DIGITAL_INPUTS],
+    pub num_touch_pads: u8,
+    pub touch_pads: [bool; config::MAX_DIGITAL_INPUTS],
+    pub num_pots: u8,
+    pub pots: [u8; config::MAX_ANALOG_INPUTS],
     pub ldr: u8,
     pub accel_x: u8,
     pub accel_y: u8,
@@ -69,8 +72,12 @@ pub fn handle_frame(frame: &mut [u8], config: &mut Config, resp: &mut [u8]) -> (
         }
         Request::GetConfig => encode_response(&Response::Config(*config), resp, Action::None),
         Request::PutConfig(new_config) => {
-            *config = new_config;
-            encode_response(&Response::Ok, resp, Action::None)
+            if new_config.validate() {
+                *config = new_config;
+                encode_response(&Response::Ok, resp, Action::None)
+            } else {
+                encode_response(&Response::Error("invalid pin config"), resp, Action::None)
+            }
         }
         Request::Save => encode_response(&Response::Ok, resp, Action::Save),
         Request::Reset => {

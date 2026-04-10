@@ -2,9 +2,10 @@ import {
   cobsDecode, buildRequest, parseResponse, readMonitorSnapshot,
   PostcardReader,
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
-  RESP_MONITOR, MAX_BUTTONS, MAX_TOUCH_PADS, MAX_POTS,
+  RESP_MONITOR, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
+  DIGITAL_PINS, ANALOG_PINS,
 } from "./protocol.js";
-import { sleep, num, clamp } from "./helpers.js";
+import { sleep, num, clamp, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin } from "./helpers.js";
 import { compileExpr } from "./expr.js";
 
 // ── State ──
@@ -43,6 +44,11 @@ export function init(refs) {
   configPanel.addEventListener("expr-change", () => { markDirty(); debouncedApplyConfig(); });
   configPanel.addEventListener("input", () => { markDirty(); debouncedApplyConfig(); });
   configPanel.addEventListener("change", () => { markDirty(); debouncedApplyConfig(); });
+
+  // Add/remove item events
+  configPanel.addEventListener("item-add", handleItemAdd);
+  configPanel.addEventListener("item-remove", handleItemRemove);
+  configPanel.addEventListener("pin-change", () => { markDirty(); debouncedApplyConfig(); });
 
   if (!("serial" in navigator)) {
     connectBanner.showUnsupported();
@@ -96,40 +102,47 @@ function clearDirty() {
   saveBanner.visible = false;
 }
 
+/** Compute the set of all used pins across the config. */
+function allUsedPins(cfg) {
+  return {
+    digital: usedDigitalPins(cfg),
+    analog: usedAnalogPins(cfg),
+  };
+}
+
 /** Build a default config object with firmware defaults for preview. */
 function defaultConfig() {
-  const buttons = [];
-  for (let i = 0; i < MAX_BUTTONS; i++) {
-    buttons.push({ note: 60 + i, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: String(60 + i), velocity_expr_src: "100" });
-  }
-  const touch_pads = [];
-  for (let i = 0; i < MAX_TOUCH_PADS; i++) {
-    touch_pads.push({ note: 48 + i, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: String(48 + i), velocity_expr_src: "100" });
-  }
-  const pots = [];
-  for (let i = 0; i < MAX_POTS; i++) {
-    pots.push({ cc: i === 0 ? 1 : 7 });
-  }
   return {
     midi_channel: 0,
-    buttons,
-    touch_pads,
-    pots,
-    ldr_enabled: false,
-    ldr: { cc: 74 },
-    accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
+    buttons: [
+      { pin: 0, note: 60, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: "60", velocity_expr_src: "100" },
+    ],
+    touch_pads: [
+      { pin: 6, note: 48, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: "48", velocity_expr_src: "100" },
+    ],
+    pots: [
+      { pin: 26, cc: 7 },
+    ],
+    ldr_enabled: true,
+    ldr: { pin: 28, cc: 74 },
+    accel: { enabled: true, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
   };
 }
 
 function renderDefaultConfig() {
   const defaults = defaultConfig();
+  renderConfigObj(defaults);
+}
+
+function renderConfigObj(cfg) {
   const panel = configPanel;
-  panel.midiChannel.value = defaults.midi_channel;
-  panel.buttonList.render(defaults.buttons);
-  panel.touchList.render(defaults.touch_pads);
-  panel.potList.render(defaults.pots);
-  panel.ldrSection.render(defaults);
-  panel.accelSection.render(defaults);
+  const pins = allUsedPins(cfg);
+  panel.midiChannel.value = cfg.midi_channel;
+  panel.buttonList.render(cfg.buttons, pins.digital);
+  panel.touchList.render(cfg.touch_pads, pins.digital);
+  panel.potList.render(cfg.pots, pins.analog);
+  panel.ldrSection.render(cfg, pins.analog);
+  panel.accelSection.render(cfg);
 }
 
 async function connect() {
@@ -272,15 +285,15 @@ function updateMonitorBar(barId, valId, v) {
 }
 
 function applyMonitorData(snap) {
-  for (let i = 0; i < snap.buttons.length && i < MAX_BUTTONS; i++) {
+  for (let i = 0; i < snap.buttons.length; i++) {
     const el = document.getElementById("monBtn" + i);
     if (el) el.classList.toggle("active", snap.buttons[i]);
   }
-  for (let i = 0; i < snap.touch_pads.length && i < MAX_TOUCH_PADS; i++) {
+  for (let i = 0; i < snap.touch_pads.length; i++) {
     const el = document.getElementById("monTouch" + i);
     if (el) el.classList.toggle("active", snap.touch_pads[i]);
   }
-  for (let i = 0; i < snap.pots.length && i < MAX_POTS; i++) {
+  for (let i = 0; i < snap.pots.length; i++) {
     updateMonitorBar("monPotBar" + i, "monPotVal" + i, snap.pots[i]);
   }
   updateMonitorBar("monLdrBar", "monLdrVal", snap.ldr);
@@ -312,8 +325,8 @@ function initExprSources(items) {
 function saveExprSources() {
   if (!config) return;
   const data = {
-    buttons: config.buttons.map(b => ({ note: b.note_expr_src || "", vel: b.velocity_expr_src || "" })),
-    touch: config.touch_pads.map(t => ({ note: t.note_expr_src || "", vel: t.velocity_expr_src || "" })),
+    buttons: config.buttons.map(b => ({ pin: b.pin, note: b.note_expr_src || "", vel: b.velocity_expr_src || "" })),
+    touch: config.touch_pads.map(t => ({ pin: t.pin, note: t.note_expr_src || "", vel: t.velocity_expr_src || "" })),
   };
   try { localStorage.setItem("picomidi_expr", JSON.stringify(data)); } catch {}
 }
@@ -321,18 +334,75 @@ function saveExprSources() {
 function loadExprSources() {
   try {
     const data = JSON.parse(localStorage.getItem("picomidi_expr") || "{}");
+    // Match stored sources to config items by pin number (more robust than index)
     const applyData = (items, stored) => {
       if (!items || !stored) return;
-      items.forEach((item, i) => {
-        if (stored[i]) {
-          item.note_expr_src = stored[i].note || "";
-          item.velocity_expr_src = stored[i].vel || "";
+      items.forEach(item => {
+        const match = stored.find(s => s.pin === item.pin);
+        if (match) {
+          item.note_expr_src = match.note || "";
+          item.velocity_expr_src = match.vel || "";
         }
       });
     };
     applyData(config.buttons, data.buttons);
     applyData(config.touch_pads, data.touch);
   } catch {}
+}
+
+// ── Add / Remove Items ──
+
+function handleItemAdd(e) {
+  if (!config) return;
+  const type = e.detail.type;
+
+  // Read current UI state into config first
+  readConfigFromUI();
+  if (!config) return;
+
+  if (type === "button") {
+    if (config.buttons.length >= MAX_DIGITAL_INPUTS) return;
+    const used = usedDigitalPins(config);
+    const pin = nextAvailableDigitalPin(used);
+    const note = 60 + config.buttons.length;
+    config.buttons.push({ pin, note: clamp(note, 0, 127), velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: String(clamp(note, 0, 127)), velocity_expr_src: "100" });
+  } else if (type === "touch") {
+    if (config.touch_pads.length >= MAX_DIGITAL_INPUTS) return;
+    const used = usedDigitalPins(config);
+    const pin = nextAvailableDigitalPin(used);
+    const note = 48 + config.touch_pads.length;
+    config.touch_pads.push({ pin, note: clamp(note, 0, 127), velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: String(clamp(note, 0, 127)), velocity_expr_src: "100" });
+  } else if (type === "pot") {
+    if (config.pots.length >= MAX_ANALOG_INPUTS) return;
+    const used = usedAnalogPins(config);
+    const pin = nextAvailableAnalogPin(used);
+    config.pots.push({ pin, cc: 1 });
+  }
+
+  renderConfigObj(config);
+  markDirty();
+  debouncedApplyConfig();
+}
+
+function handleItemRemove(e) {
+  if (!config) return;
+  const { type, index } = e.detail;
+
+  // Read current UI state into config first
+  readConfigFromUI();
+  if (!config) return;
+
+  if (type === "button" && config.buttons.length > 0) {
+    config.buttons.splice(index, 1);
+  } else if (type === "touch" && config.touch_pads.length > 0) {
+    config.touch_pads.splice(index, 1);
+  } else if (type === "pot" && config.pots.length > 0) {
+    config.pots.splice(index, 1);
+  }
+
+  renderConfigObj(config);
+  markDirty();
+  debouncedApplyConfig();
 }
 
 // ── Config Operations ──
@@ -347,7 +417,7 @@ async function refreshConfig() {
       initExprSources(config.buttons);
       initExprSources(config.touch_pads);
       loadExprSources();
-      renderConfig();
+      renderConfigObj(config);
       clearDirty();
       toast("Config loaded", "success");
     } else if (resp.type === "error") {
@@ -360,17 +430,6 @@ async function refreshConfig() {
   } finally {
     setToolbarBusy(false);
   }
-}
-
-function renderConfig() {
-  if (!config) return;
-  const panel = configPanel;
-  panel.midiChannel.value = config.midi_channel;
-  panel.buttonList.render(config.buttons);
-  panel.touchList.render(config.touch_pads);
-  panel.potList.render(config.pots);
-  panel.ldrSection.render(config);
-  panel.accelSection.render(config);
 }
 
 /**
@@ -393,6 +452,7 @@ function compileInputItem(item, label, extraFields = {}) {
   if (noteResult.error) return { error: `${label} note expr: ${noteResult.error}` };
   if (velResult.error) return { error: `${label} velocity expr: ${velResult.error}` };
   return {
+    pin: item.pin,
     note: clamp(staticFromExpr(item.note_expr_src, 60), 0, 127),
     velocity: clamp(staticFromExpr(item.velocity_expr_src, 100), 1, 127),
     note_expr: Array.from(noteResult.code),
@@ -426,6 +486,7 @@ function readConfigFromUI() {
 
   // Pots
   config.pots = panel.potList.readFromDOM().map(p => ({
+    pin: p.pin,
     cc: clamp(p.cc, 0, 127),
   }));
 
@@ -498,6 +559,7 @@ async function resetConfig() {
 /** Normalize a button/touch item to a clean JSON-serializable shape. */
 function normalizeInputItem(item, extraFields = {}) {
   return {
+    pin: item.pin,
     note: clamp(item.note, 0, 127),
     velocity: clamp(item.velocity, 1, 127),
     note_expr: Array.from(item.note_expr),
@@ -516,13 +578,13 @@ function exportProject() {
   // Build a clean JSON-serializable project object
   const project = {
     _format: "pico-midi-project",
-    _version: 1,
+    _version: 2,
     midi_channel: cfg.midi_channel,
     buttons: cfg.buttons.map(b => normalizeInputItem(b)),
     touch_pads: cfg.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: t.threshold_pct })),
-    pots: cfg.pots.map(p => ({ cc: p.cc })),
+    pots: cfg.pots.map(p => ({ pin: p.pin, cc: p.cc })),
     ldr_enabled: cfg.ldr_enabled,
-    ldr: { cc: cfg.ldr.cc },
+    ldr: { pin: cfg.ldr.pin, cc: cfg.ldr.cc },
     accel: { ...cfg.accel },
   };
 
@@ -563,9 +625,9 @@ async function handleProjectImport(e) {
       midi_channel: clamp(project.midi_channel, 0, 15),
       buttons: project.buttons.map(b => normalizeInputItem(b)),
       touch_pads: project.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: clamp(t.threshold_pct, 1, 255) })),
-      pots: project.pots.map(p => ({ cc: clamp(p.cc, 0, 127) })),
+      pots: project.pots.map(p => ({ pin: clamp(p.pin, 0, 29), cc: clamp(p.cc, 0, 127) })),
       ldr_enabled: !!project.ldr_enabled,
-      ldr: { cc: clamp(project.ldr.cc, 0, 127) },
+      ldr: { pin: clamp(project.ldr.pin, 0, 29), cc: clamp(project.ldr.cc, 0, 127) },
       accel: {
         enabled: !!project.accel.enabled,
         x_cc: clamp(project.accel.x_cc, 0, 127),
@@ -578,7 +640,7 @@ async function handleProjectImport(e) {
     };
 
     // Render the imported config to the UI
-    renderConfig();
+    renderConfigObj(config);
 
     // Save expression sources to localStorage
     saveExprSources();
@@ -602,25 +664,29 @@ function validateProject(p) {
   if (!p || typeof p !== "object") return false;
   if (p._format !== "pico-midi-project") return false;
   if (typeof p.midi_channel !== "number") return false;
-  if (!Array.isArray(p.buttons) || p.buttons.length !== MAX_BUTTONS) return false;
-  if (!Array.isArray(p.touch_pads) || p.touch_pads.length !== MAX_TOUCH_PADS) return false;
-  if (!Array.isArray(p.pots) || p.pots.length !== MAX_POTS) return false;
+
+  // Variable-length arrays: just check they exist and are within bounds
+  if (!Array.isArray(p.buttons) || p.buttons.length > MAX_DIGITAL_INPUTS) return false;
+  if (!Array.isArray(p.touch_pads) || p.touch_pads.length > MAX_DIGITAL_INPUTS) return false;
+  if (!Array.isArray(p.pots) || p.pots.length > MAX_ANALOG_INPUTS) return false;
+
   if (!p.ldr || typeof p.ldr.cc !== "number") return false;
   if (!p.accel || typeof p.accel.enabled !== "boolean") return false;
 
   for (const b of p.buttons) {
     if (typeof b.note !== "number" || typeof b.velocity !== "number") return false;
     if (!Array.isArray(b.note_expr) || !Array.isArray(b.velocity_expr)) return false;
+    if (typeof b.pin !== "number") return false;
   }
   for (const t of p.touch_pads) {
     if (typeof t.note !== "number" || typeof t.velocity !== "number") return false;
     if (typeof t.threshold_pct !== "number") return false;
     if (!Array.isArray(t.note_expr) || !Array.isArray(t.velocity_expr)) return false;
+    if (typeof t.pin !== "number") return false;
   }
   for (const p2 of p.pots) {
     if (typeof p2.cc !== "number") return false;
+    if (typeof p2.pin !== "number") return false;
   }
   return true;
 }
-
-// ── (Item counts are fixed; add/remove functionality removed) ──

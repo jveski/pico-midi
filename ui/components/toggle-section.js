@@ -1,4 +1,4 @@
-import { num, clamp, noteName, wirePinClicks, toggleFieldsVisibility } from "./helpers.js";
+import { num, clamp, noteName, wirePinClicks, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
 
 // ── Shared monitor-bar helper ──
 
@@ -19,28 +19,40 @@ export class LdrSection extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    // HTML structure is defined in configurator.html.
 
     this.querySelector("#ldrEnabled").addEventListener("change", () => {
       this._updateVisibility();
       this._buildMonitor();
     });
-
-    // Pin label click → open pinout modal
-    wirePinClicks(this);
   }
 
-  render(config) {
+  /**
+   * Render the LDR section.
+   * @param {object} config - Full config object.
+   * @param {Set<number>} usedAnalog - Analog pins in use across the config.
+   */
+  render(config, usedAnalog) {
     this.querySelector("#ldrEnabled").checked = config.ldr_enabled;
     this.querySelector("#ldrCc").value = config.ldr.cc;
+
+    // Populate pin selector
+    const pinSelect = this.querySelector("#ldrPin");
+    if (pinSelect) {
+      pinSelect.innerHTML = analogPinOptions(config.ldr.pin, usedAnalog || new Set());
+    }
+
     this._updateVisibility();
     this._buildMonitor(config);
   }
 
   readFromDOM() {
+    const pinSelect = this.querySelector("#ldrPin");
     return {
       ldr_enabled: this.querySelector("#ldrEnabled").checked,
-      ldr: { cc: clamp(num(this.querySelector("#ldrCc").value, 0), 0, 127) },
+      ldr: {
+        pin: pinSelect ? num(pinSelect.value, 28) : 28,
+        cc: clamp(num(this.querySelector("#ldrCc").value, 0), 0, 127),
+      },
     };
   }
 
@@ -63,7 +75,6 @@ export class AccelSection extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    // HTML structure is defined in configurator.html.
 
     this.querySelector("#accelEnabled").addEventListener("change", () => {
       this._updateVisibility();

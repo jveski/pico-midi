@@ -58,6 +58,13 @@ a.btn { text-decoration: none; }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
 .pin-label.clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
 .pin-label.clickable:hover { color: var(--green); }
+.pin-select { padding: 3px 6px; font-family: var(--mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); outline: none; min-width: 56px; cursor: pointer; }
+.pin-select:focus { border-color: var(--fg); }
+.pin-select option:disabled { color: #555; }
+
+.btn-remove { border-color: #500; color: #888; padding: 2px 8px; font-size: 13px; line-height: 1; margin-left: auto; flex-shrink: 0; }
+.btn-remove:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
+.add-item-btn { margin-top: 10px; }
 
 .expr-input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 240px; outline: none; }
 .expr-input:focus { border-color: var(--fg); }
