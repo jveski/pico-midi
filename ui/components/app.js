@@ -42,8 +42,8 @@ export function init(refs) {
   configPanel.addEventListener("project-import", handleProjectImport);
 
   configPanel.addEventListener("expr-change", () => { markDirty(); debouncedApplyConfig(); });
-  configPanel.addEventListener("input", markDirty);
-  configPanel.addEventListener("change", markDirty);
+  configPanel.addEventListener("input", () => { markDirty(); debouncedApplyConfig(); });
+  configPanel.addEventListener("change", () => { markDirty(); debouncedApplyConfig(); });
 
   if (!("serial" in navigator)) {
     document.getElementById("unsupported").style.display = "block";
