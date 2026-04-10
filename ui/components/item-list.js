@@ -38,8 +38,11 @@ export class ItemList extends HTMLElement {
       const row = document.createElement("div");
       row.className = "item-row";
 
-      const pin = i < pinMap.length ? pinLabel(pinMap[i]) : "";
-      const pinHtml = `<span class="pin-label">${pin}</span>`;
+      const gpioNum = i < pinMap.length ? pinMap[i] : null;
+      const pin = pinLabel(gpioNum);
+      const pinHtml = gpioNum != null
+        ? `<span class="pin-label clickable" data-gpio="${gpioNum}">${pin}</span>`
+        : `<span class="pin-label">${pin}</span>`;
 
       if (isPot) {
         row.innerHTML =
@@ -117,6 +120,15 @@ export class ItemList extends HTMLElement {
       btn.addEventListener("click", () => {
         const idx = parseInt(btn.dataset.idx, 10);
         this.dispatchEvent(new CustomEvent("item-remove", { bubbles: true, detail: { idx } }));
+      });
+    });
+
+    // Pin label click → open pinout modal
+    container.querySelectorAll(".pin-label.clickable").forEach(span => {
+      span.addEventListener("click", () => {
+        const gpio = parseInt(span.dataset.gpio, 10);
+        const modal = document.querySelector("pinout-modal");
+        if (modal && !isNaN(gpio)) modal.show(gpio);
       });
     });
 

@@ -65,6 +65,8 @@ a.btn { text-decoration: none; }
 .item-row .btn-remove { margin-left: auto; padding: 2px 8px; font-size: 11px; font-family: var(--mono); text-transform: uppercase; color: var(--red); background: transparent; border: 1px solid transparent; cursor: pointer; }
 .item-row .btn-remove:hover { border-color: var(--red); }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
+.pin-label.clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
+.pin-label.clickable:hover { color: var(--green); }
 .list-actions { padding-top: 10px; display: flex; gap: 8px; }
 
 .expr-input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 240px; outline: none; }
@@ -156,3 +158,13 @@ a.btn { text-decoration: none; }
 .project-section { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 20px; }
 .project-section h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
 .project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Pinout modal */
+.pinout-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; }
+.pinout-backdrop.visible { display: flex; }
+.pinout-dialog { background: #111; border: 1px solid var(--border); max-width: 520px; width: 95vw; max-height: 90vh; overflow-y: auto; }
+.pinout-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.pinout-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.pinout-close { background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; font-family: var(--mono); }
+.pinout-close:hover { color: var(--fg); }
+.pinout-body { padding: 16px; display: flex; justify-content: center; }

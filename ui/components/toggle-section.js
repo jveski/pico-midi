@@ -11,7 +11,7 @@ export class LdrSection extends HTMLElement {
           '<span class="slider"></span>' +
         '</label>' +
         '<label>Enabled</label>' +
-        `<span class="pin-label">${pinLabel(LDR_PIN)}</span>` +
+        `<span class="pin-label clickable" data-gpio="${LDR_PIN}">${pinLabel(LDR_PIN)}</span>` +
       '</div>' +
       '<div id="ldrFields">' +
         '<div class="field">' +
@@ -24,6 +24,12 @@ export class LdrSection extends HTMLElement {
     this.querySelector("#ldrEnabled").addEventListener("change", () => {
       this._updateVisibility();
       this._buildMonitor();
+    });
+
+    // Pin label click → open pinout modal
+    this.querySelector(".pin-label.clickable").addEventListener("click", () => {
+      const modal = document.querySelector("pinout-modal");
+      if (modal) modal.show(LDR_PIN);
     });
   }
 
