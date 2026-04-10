@@ -9,6 +9,8 @@ mod input;
 mod input_state;
 mod serial;
 
+use core::cell::RefCell;
+
 use embassy_executor::Spawner;
 use embassy_futures::join::join3;
 use embassy_futures::select::{select, Either};
@@ -49,7 +51,7 @@ async fn main(spawner: Spawner) {
     // ---- Load config from flash ----
     let mut flash =
         flash::Flash::<_, flash::Blocking, { config::FLASH_SIZE }>::new_blocking(p.FLASH);
-    let mut cfg = serial::load_config(&mut flash).unwrap_or_else(|| {
+    let cfg = serial::load_config(&mut flash).unwrap_or_else(|| {
         defmt::info!("no saved config, using defaults");
         Config::default()
     });
@@ -88,10 +90,9 @@ async fn main(spawner: Spawner) {
     static INPUT_STATE: InputState = InputState::new();
     let usb_fut = usb.run();
 
-    // Clone config for the MIDI task (read-only snapshot).
-    // Config changes via serial require a reboot to take effect since
-    // hardware pin setup happens at init time.
-    let midi_cfg = cfg;
+    // Shared config accessible by both the MIDI and serial futures.
+    // Embassy uses a single-threaded executor so RefCell is safe.
+    let cfg = RefCell::new(cfg);
 
     let midi_fut = async {
         Timer::after(Duration::from_millis(100)).await;
@@ -120,7 +121,7 @@ async fn main(spawner: Spawner) {
             Flex::new(p.PIN_17),
         ];
         let touch_thresholds: [u8; 8] =
-            core::array::from_fn(|i| midi_cfg.touch_pads[i].threshold_pct);
+            core::array::from_fn(|i| cfg.borrow().touch_pads[i].threshold_pct);
         let mut touch = input::TouchPads::new(&mut touch_pins, &touch_thresholds);
 
         // --- Pots: GP26 (ADC0), GP27 (ADC1) ---
@@ -136,8 +137,8 @@ async fn main(spawner: Spawner) {
         let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
         let mut accel = input::Accelerometer::new(
             i2c1,
-            midi_cfg.accel.dead_zone_tenths,
-            midi_cfg.accel.smoothing_pct,
+            cfg.borrow().accel.dead_zone_tenths,
+            cfg.borrow().accel.smoothing_pct,
         )
         .await;
 
@@ -155,6 +156,18 @@ async fn main(spawner: Spawner) {
             // ~1ms poll interval
             Timer::after(Duration::from_millis(1)).await;
 
+            // Snapshot the shared config for this iteration.
+            // The borrow is brief and does not span an await point.
+            let cur = *cfg.borrow();
+
+            // Update accelerometer tuning if changed via the configurator.
+            accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
+
+            // Update touch thresholds if changed via the configurator.
+            touch.update_thresholds(
+                &core::array::from_fn(|i| cur.touch_pads[i].threshold_pct),
+            );
+
             // Build expression inputs from current state
             let expr_inputs = ExprInputs {
                 pots: INPUT_STATE.pots_snapshot(),
@@ -167,7 +180,7 @@ async fn main(spawner: Spawner) {
             for evt in buttons.poll().into_iter().flatten() {
                 let idx = evt.index as usize;
                 let pkt = if evt.pressed {
-                    let def = &midi_cfg.buttons[idx];
+                    let def = &cur.buttons[idx];
                     let note = expr::eval(
                         &def.note_expr.code,
                         def.note_expr.len,
@@ -181,13 +194,13 @@ async fn main(spawner: Spawner) {
                         def.velocity,
                     );
                     active_button_note[idx] = Some(note);
-                    note_on(midi_cfg.midi_channel, note, vel)
+                    note_on(cur.midi_channel, note, vel)
                 } else {
                     // Release the exact note that was pressed, not the
                     // current expression value which may have changed.
-                    let note = active_button_note[idx].unwrap_or(midi_cfg.buttons[idx].note);
+                    let note = active_button_note[idx].unwrap_or(cur.buttons[idx].note);
                     active_button_note[idx] = None;
-                    note_off(midi_cfg.midi_channel, note)
+                    note_off(cur.midi_channel, note)
                 };
                 send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_button(evt.index, evt.pressed);
@@ -197,7 +210,7 @@ async fn main(spawner: Spawner) {
             for evt in touch.poll(&mut touch_pins).await.into_iter().flatten() {
                 let idx = evt.index as usize;
                 let pkt = if evt.pressed {
-                    let def = &midi_cfg.touch_pads[idx];
+                    let def = &cur.touch_pads[idx];
                     let note = expr::eval(
                         &def.note_expr.code,
                         def.note_expr.len,
@@ -211,11 +224,11 @@ async fn main(spawner: Spawner) {
                         def.velocity,
                     );
                     active_touch_note[idx] = Some(note);
-                    note_on(midi_cfg.midi_channel, note, vel)
+                    note_on(cur.midi_channel, note, vel)
                 } else {
-                    let note = active_touch_note[idx].unwrap_or(midi_cfg.touch_pads[idx].note);
+                    let note = active_touch_note[idx].unwrap_or(cur.touch_pads[idx].note);
                     active_touch_note[idx] = None;
-                    note_off(midi_cfg.midi_channel, note)
+                    note_off(cur.midi_channel, note)
                 };
                 send_midi(&mut midi_class, &pkt).await;
                 INPUT_STATE.set_touch(evt.index, evt.pressed);
@@ -224,7 +237,7 @@ async fn main(spawner: Spawner) {
             // Poll pots
             for (i, pot) in pots.iter_mut().enumerate() {
                 if let Some(v) = pot.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[i].cc, v);
+                    let pkt = control_change(cur.midi_channel, cur.pots[i].cc, v);
                     send_midi(&mut midi_class, &pkt).await;
                 }
                 #[allow(clippy::cast_possible_truncation)] // index fits in u8
@@ -232,28 +245,28 @@ async fn main(spawner: Spawner) {
             }
 
             // Poll LDR
-            if midi_cfg.ldr_enabled {
+            if cur.ldr_enabled {
                 if let Some(v) = ldr.poll(&mut adc_inst, 2).await {
-                    let pkt = control_change(midi_cfg.midi_channel, midi_cfg.ldr.cc, v);
+                    let pkt = control_change(cur.midi_channel, cur.ldr.cc, v);
                     send_midi(&mut midi_class, &pkt).await;
                 }
                 INPUT_STATE.set_ldr(ldr.current_cc());
             }
 
             // Poll accelerometer
-            if midi_cfg.accel.enabled && accel.available {
+            if cur.accel.enabled && accel.available {
                 let r = accel.poll().await;
                 if let Some(x) = r.x_cc {
                     send_midi(
                         &mut midi_class,
-                        &control_change(midi_cfg.midi_channel, midi_cfg.accel.x_cc, x),
+                        &control_change(cur.midi_channel, cur.accel.x_cc, x),
                     )
                     .await;
                 }
                 if let Some(y) = r.y_cc {
                     send_midi(
                         &mut midi_class,
-                        &control_change(midi_cfg.midi_channel, midi_cfg.accel.y_cc, y),
+                        &control_change(cur.midi_channel, cur.accel.y_cc, y),
                     )
                     .await;
                 }
@@ -261,15 +274,15 @@ async fn main(spawner: Spawner) {
                     send_midi(
                         &mut midi_class,
                         &note_on(
-                            midi_cfg.midi_channel,
-                            midi_cfg.accel.tap_note,
-                            midi_cfg.accel.tap_velocity,
+                            cur.midi_channel,
+                            cur.accel.tap_note,
+                            cur.accel.tap_velocity,
                         ),
                     )
                     .await;
                     send_midi(
                         &mut midi_class,
-                        &note_off(midi_cfg.midi_channel, midi_cfg.accel.tap_note),
+                        &note_off(cur.midi_channel, cur.accel.tap_note),
                     )
                     .await;
                     INPUT_STATE.set_accel_tap();
@@ -321,11 +334,11 @@ async fn main(spawner: Spawner) {
                                             let mut resp = [0u8; 1024];
                                             let (resp_len, action) = serial::handle_frame(
                                                 &mut frame_buf[..frame_pos],
-                                                &mut cfg,
+                                                &mut cfg.borrow_mut(),
                                                 &mut resp,
                                             );
                                             if action == serial::Action::Save {
-                                                if serial::save_config(&mut flash, &cfg) {
+                                                if serial::save_config(&mut flash, &cfg.borrow()) {
                                                     send_serial(
                                                         &mut serial_class,
                                                         &resp[..resp_len],

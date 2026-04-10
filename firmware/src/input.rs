@@ -102,6 +102,7 @@ impl<'d> SmoothedAnalog<'d> {
 /// Charge the pin high, then switch to input with pull-down and count
 /// how long it takes to discharge. A finger increases capacitance.
 struct TouchPad {
+    baseline: u32,
     threshold: u32,
     was_touched: bool,
 }
@@ -211,11 +212,21 @@ impl<const N: usize> TouchPads<N> {
             let pct = u32::from(threshold_pcts[i]);
             let margin = (baseline * pct / 100).max(2);
             TouchPad {
+                baseline,
                 threshold: baseline + margin,
                 was_touched: false,
             }
         });
         Self { pads }
+    }
+
+    /// Recalculate touch thresholds from the stored baselines when
+    /// the threshold percentages change in the configurator.
+    pub fn update_thresholds(&mut self, threshold_pcts: &[u8; N]) {
+        for (pad, &pct) in self.pads.iter_mut().zip(threshold_pcts.iter()) {
+            let margin = (pad.baseline * u32::from(pct) / 100).max(2);
+            pad.threshold = pad.baseline + margin;
+        }
     }
 
     /// Poll all touch pads. Returns up to N state-change events.
@@ -288,6 +299,14 @@ impl<'d> Accelerometer<'d> {
             error_count: 0,
             available,
         }
+    }
+
+    /// Update dead-zone and smoothing from config values without
+    /// reinitialising the hardware.  Called each poll iteration so
+    /// configurator changes take effect immediately.
+    pub fn update_params(&mut self, dead_zone_tenths: u8, smoothing_pct: u8) {
+        self.dead_zone = f32::from(dead_zone_tenths) / 10.0;
+        self.smoothing = f32::from(smoothing_pct) / 100.0;
     }
 
     async fn init(i2c: &mut I2c<'_, I2C1, i2c::Async>) -> Result<(), i2c::Error> {
