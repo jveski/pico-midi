@@ -33,6 +33,10 @@ export const POT_PINS = [26, 27];
 /** GPIO (ADC) pin for the LDR in firmware. */
 export const LDR_PIN = 28;
 
+/** GPIO pins for the accelerometer I2C1 bus (SCL, SDA) in firmware. */
+export const ACCEL_SCL_PIN = 3;
+export const ACCEL_SDA_PIN = 2;
+
 /** Format a GPIO pin number as a label, e.g. "GP2". */
 export function pinLabel(n) {
   return n != null ? "GP" + n : "";

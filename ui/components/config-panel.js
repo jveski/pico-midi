@@ -6,11 +6,6 @@ export class ConfigPanel extends HTMLElement {
     this.style.display = "none";
 
     this.innerHTML =
-      // General
-      '<collapsible-card data-section="general" data-title="General">' +
-        '<midi-channel></midi-channel>' +
-      '</collapsible-card>' +
-
       // Buttons
       '<collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">' +
         '<item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount"></item-list>' +
@@ -34,6 +29,11 @@ export class ConfigPanel extends HTMLElement {
       // Accelerometer
       '<collapsible-card data-section="accel" data-title="Accelerometer">' +
         '<accel-section></accel-section>' +
+      '</collapsible-card>' +
+
+      // General
+      '<collapsible-card data-section="general" data-title="General">' +
+        '<midi-channel></midi-channel>' +
       '</collapsible-card>' +
 
       // Expression Reference

@@ -1,4 +1,4 @@
-import { noteName, pinLabel, LDR_PIN } from "./helpers.js";
+import { noteName, pinLabel, LDR_PIN, ACCEL_SCL_PIN, ACCEL_SDA_PIN } from "./helpers.js";
 
 export class LdrSection extends HTMLElement {
   connectedCallback() {
@@ -71,6 +71,8 @@ export class AccelSection extends HTMLElement {
           '<span class="slider"></span>' +
         '</label>' +
         '<label>Enabled</label>' +
+        `<span class="pin-label clickable" data-gpio="${ACCEL_SCL_PIN}">SCL ${pinLabel(ACCEL_SCL_PIN)}</span>` +
+        `<span class="pin-label clickable" data-gpio="${ACCEL_SDA_PIN}">SDA ${pinLabel(ACCEL_SDA_PIN)}</span>` +
       '</div>' +
       '<div id="accelFields">' +
         '<div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>' +
@@ -90,6 +92,15 @@ export class AccelSection extends HTMLElement {
     this.querySelector("#accelTapNote").addEventListener("input", () => this._updateHints());
     this.querySelector("#accelDeadZone").addEventListener("input", () => this._updateHints());
     this.querySelector("#accelSmoothing").addEventListener("input", () => this._updateHints());
+
+    // Pin label click → open pinout modal
+    this.querySelectorAll(".pin-label.clickable").forEach(span => {
+      span.addEventListener("click", () => {
+        const gpio = parseInt(span.dataset.gpio, 10);
+        const modal = document.querySelector("pinout-modal");
+        if (modal && !isNaN(gpio)) modal.show(gpio);
+      });
+    });
   }
 
   render(config) {
