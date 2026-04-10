@@ -44,10 +44,7 @@ impl InputState {
                 AtomicBool::new(false),
                 AtomicBool::new(false),
             ],
-            pots: [
-                AtomicU8::new(0),
-                AtomicU8::new(0),
-            ],
+            pots: [AtomicU8::new(0), AtomicU8::new(0)],
             ldr: AtomicU8::new(0),
             accel_x: AtomicU8::new(64),
             accel_y: AtomicU8::new(64),

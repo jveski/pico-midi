@@ -53,10 +53,7 @@ async fn main(spawner: Spawner) {
         defmt::info!("no saved config, using defaults");
         Config::default()
     });
-    defmt::info!(
-        "config loaded: ch={}",
-        cfg.midi_channel
-    );
+    defmt::info!("config loaded: ch={}", cfg.midi_channel);
 
     // ---- USB composite device setup ----
     let driver = Driver::new(p.USB, Irqs);
@@ -225,13 +222,13 @@ async fn main(spawner: Spawner) {
             }
 
             // Poll pots
-            for i in 0..pots.len() {
-                if let Some(v) = pots[i].poll(&mut adc_inst, 2).await {
+            for (i, pot) in pots.iter_mut().enumerate() {
+                if let Some(v) = pot.poll(&mut adc_inst, 2).await {
                     let pkt = control_change(midi_cfg.midi_channel, midi_cfg.pots[i].cc, v);
                     send_midi(&mut midi_class, &pkt).await;
                 }
                 #[allow(clippy::cast_possible_truncation)] // index fits in u8
-                INPUT_STATE.set_pot(i as u8, pots[i].current_cc());
+                INPUT_STATE.set_pot(i as u8, pot.current_cc());
             }
 
             // Poll LDR
