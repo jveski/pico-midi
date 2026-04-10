@@ -10,7 +10,7 @@ export class ItemList extends HTMLElement {
     this._listId = this.dataset.listId;     // e.g. "buttonList"
     this._countId = this.dataset.countId;   // e.g. "btnCount"
 
-    this.innerHTML = `<div id="${this._listId}"></div>`;
+    // Container div is defined in configurator.html.
   }
 
   render(items) {
@@ -19,54 +19,64 @@ export class ItemList extends HTMLElement {
     this._updateBadge(items.length);
 
     const isPot = this._type === "pot";
-    const hasExpr = !isPot; // buttons and touch pads support expressions
     const monPrefix = this._type === "button" ? "monBtn" : this._type === "touch" ? "monTouch" : "";
     const pinMap = this._type === "button" ? BUTTON_PINS : this._type === "touch" ? TOUCH_PINS : POT_PINS;
 
+    const tplId = isPot ? "tpl-pot-row"
+      : this._type === "touch" ? "tpl-touch-row"
+      : "tpl-button-row";
+    const tpl = document.getElementById(tplId);
+
     items.forEach((item, i) => {
-      const row = document.createElement("div");
-      row.className = "item-row";
+      const row = tpl.content.firstElementChild.cloneNode(true);
 
       const gpioNum = i < pinMap.length ? pinMap[i] : null;
-      const pin = pinLabel(gpioNum);
-      const pinHtml = gpioNum != null
-        ? `<span class="pin-label clickable" data-gpio="${gpioNum}">${pin}</span>`
-        : `<span class="pin-label">${pin}</span>`;
+      const pinEl = row.querySelector(".pin-label");
+      pinEl.textContent = pinLabel(gpioNum);
+      if (gpioNum != null) {
+        pinEl.classList.add("clickable");
+        pinEl.dataset.gpio = gpioNum;
+      }
+
+      row.querySelector(".index").textContent = "#" + (i + 1);
 
       if (isPot) {
-        row.innerHTML =
-          `<span class="index">#${i + 1}</span>` +
-          pinHtml +
-          `<div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill" id="monPotBar${i}"></div></div>` +
-          `<span class="monitor-value" id="monPotVal${i}" style="min-width:24px">0</span>` +
-          `<label>CC</label><input type="number" min="0" max="127" value="${item.cc}" data-type="${this._type}" data-idx="${i}" data-field="cc">`;
-      } else if (this._type === "touch") {
-        // Touch pads: expression inputs for note & velocity, plus numeric threshold
-        const noteExprSrc = item.note_expr_src || String(item.note);
-        const velExprSrc = item.velocity_expr_src || String(item.velocity);
-        row.innerHTML =
-          `<span class="index">#${i + 1}</span>` +
-          pinHtml +
-          `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
-          `<label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" value="${this._escAttr(noteExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="note_expr_src">` +
-          `<span class="note-hint" data-idx="${i}"></span>` +
-          `<span class="expr-error" data-idx="${i}" data-field="note_expr_err"></span>` +
-          `<label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" value="${this._escAttr(velExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="velocity_expr_src">` +
-          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>` +
-          `<label>Thr%</label><input type="number" min="1" max="255" value="${item.threshold_pct}" data-type="${this._type}" data-idx="${i}" data-field="threshold_pct">`;
+        row.querySelector(".monitor-bar-fill").id = "monPotBar" + i;
+        row.querySelector(".monitor-value").id = "monPotVal" + i;
+        const ccInput = row.querySelector('[data-field="cc"]');
+        ccInput.value = item.cc;
+        ccInput.dataset.type = this._type;
+        ccInput.dataset.idx = i;
       } else {
-        // Buttons: expression inputs for note & velocity
         const noteExprSrc = item.note_expr_src || String(item.note);
         const velExprSrc = item.velocity_expr_src || String(item.velocity);
-        row.innerHTML =
-          `<span class="index">#${i + 1}</span>` +
-          pinHtml +
-          `<div class="monitor-indicator" id="${monPrefix}${i}"></div>` +
-          `<label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" value="${this._escAttr(noteExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="note_expr_src">` +
-          `<span class="note-hint" data-idx="${i}"></span>` +
-          `<span class="expr-error" data-idx="${i}" data-field="note_expr_err"></span>` +
-          `<label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" value="${this._escAttr(velExprSrc)}" data-type="${this._type}" data-idx="${i}" data-field="velocity_expr_src">` +
-          `<span class="expr-error" data-idx="${i}" data-field="velocity_expr_err"></span>`;
+
+        row.querySelector(".monitor-indicator").id = monPrefix + i;
+
+        const noteInput = row.querySelector('[data-field="note_expr_src"]');
+        noteInput.value = noteExprSrc;
+        noteInput.dataset.type = this._type;
+        noteInput.dataset.idx = i;
+
+        row.querySelector(".note-hint").dataset.idx = i;
+
+        const noteErr = row.querySelector('[data-field="note_expr_err"]');
+        noteErr.dataset.idx = i;
+
+        const velInput = row.querySelector('[data-field="velocity_expr_src"]');
+        velInput.value = velExprSrc;
+        velInput.dataset.type = this._type;
+        velInput.dataset.idx = i;
+
+        const velErr = row.querySelector('[data-field="velocity_expr_err"]');
+        velErr.dataset.idx = i;
+
+        if (this._type === "touch") {
+          const thrInput = row.querySelector('[data-field="threshold_pct"]');
+          thrInput.value = item.threshold_pct;
+          thrInput.dataset.type = this._type;
+          thrInput.dataset.idx = i;
+        }
       }
 
       container.appendChild(row);
@@ -109,10 +119,6 @@ export class ItemList extends HTMLElement {
         if (modal && !isNaN(gpio)) modal.show(gpio);
       });
     });
-  }
-
-  _escAttr(s) {
-    return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   }
 
   /** Show note name hints for note expression fields that contain plain numbers. */

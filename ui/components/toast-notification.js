@@ -2,8 +2,7 @@ export class ToastNotification extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    this.id = "toast";
-    this.className = "toast";
+    // HTML structure (id, className) is defined in configurator.html.
     this._timer = null;
   }
 

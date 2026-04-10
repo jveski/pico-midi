@@ -2,10 +2,7 @@ export class SaveBanner extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    this.className = "save-banner";
-    this.innerHTML =
-      '<span class="save-banner-text">Unsaved changes</span>' +
-      '<button class="btn btn-primary" id="btnSave">Save to Flash</button>';
+    // HTML structure is defined in configurator.html.
   }
 
   get btnSave() { return this.querySelector("#btnSave"); }

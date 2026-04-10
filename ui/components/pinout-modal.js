@@ -183,17 +183,7 @@ export class PinoutModal extends HTMLElement {
     if (this._init) return;
     this._init = true;
 
-    this.innerHTML =
-      '<div class="pinout-backdrop">' +
-        '<div class="pinout-dialog">' +
-          '<div class="pinout-header">' +
-            '<span class="pinout-title">Pinout</span>' +
-            '<button class="pinout-close">&times;</button>' +
-          '</div>' +
-          '<div class="pinout-body"></div>' +
-        '</div>' +
-      '</div>';
-
+    // HTML structure is defined in configurator.html.
     this._backdrop = this.querySelector(".pinout-backdrop");
     this._body = this.querySelector(".pinout-body");
     this._title = this.querySelector(".pinout-title");

@@ -7,20 +7,256 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<connect-banner></connect-banner>
+
+<connect-banner class="connect-banner visible">
+  <span class="connect-banner-text">No device connected</span>
+  <button class="btn btn-primary" id="btnConnect">Connect</button>
+</connect-banner>
 
 <div class="container has-connect-banner">
   <header>
     <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
   </header>
 
-  <config-panel></config-panel>
+  <config-panel id="configPanel">
 
+    <!-- Buttons -->
+    <collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">
+      <item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount">
+        <div id="buttonList"></div>
+      </item-list>
+    </collapsible-card>
+
+    <!-- Touch Pads -->
+    <collapsible-card data-section="touch" data-title="Touch Pads" data-badge-id="touchCount">
+      <item-list data-type="touch" data-list-id="touchList" data-count-id="touchCount">
+        <div id="touchList"></div>
+      </item-list>
+    </collapsible-card>
+
+    <!-- Pots -->
+    <collapsible-card data-section="pots" data-title="Potentiometers" data-badge-id="potCount">
+      <item-list data-type="pot" data-list-id="potList" data-count-id="potCount">
+        <div id="potList"></div>
+      </item-list>
+    </collapsible-card>
+
+    <!-- LDR -->
+    <collapsible-card data-section="ldr" data-title="LDR (Light Sensor)">
+      <ldr-section>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="ldrEnabled">
+            <span class="slider"></span>
+          </label>
+          <label>Enabled</label>
+          <span class="pin-label clickable" data-gpio="28">GP28</span>
+        </div>
+        <div id="ldrFields">
+          <div class="field">
+            <label>CC Number</label>
+            <input type="number" id="ldrCc" min="0" max="127" value="74">
+          </div>
+          <div id="ldrMonitor"></div>
+        </div>
+      </ldr-section>
+    </collapsible-card>
+
+    <!-- Accelerometer -->
+    <collapsible-card data-section="accel" data-title="Accelerometer">
+      <accel-section>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="accelEnabled">
+            <span class="slider"></span>
+          </label>
+          <label>Enabled</label>
+          <span class="pin-label clickable" data-gpio="3">SCL GP3</span>
+          <span class="pin-label clickable" data-gpio="2">SDA GP2</span>
+        </div>
+        <div id="accelFields">
+          <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
+          <div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>
+          <div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>
+          <div class="field"><label>Tap Velocity</label><input type="number" id="accelTapVel" min="1" max="127" value="127"></div>
+          <div class="field"><label>Dead Zone</label><input type="number" id="accelDeadZone" min="0" max="255" value="13"><span class="note-hint" id="deadZoneHint"></span></div>
+          <div class="field"><label>Smoothing</label><input type="number" id="accelSmoothing" min="0" max="100" value="25"><span class="note-hint" id="smoothingHint"></span></div>
+          <div id="accelMonitor"></div>
+        </div>
+      </accel-section>
+    </collapsible-card>
+
+    <!-- Settings -->
+    <collapsible-card data-section="settings" data-title="Settings">
+      <midi-channel>
+        <div class="field">
+          <label>MIDI Channel</label>
+          <input type="number" id="midiChannel" min="0" max="15" value="0">
+          <span class="note-hint" id="midiChannelHint">Ch 1</span>
+        </div>
+      </midi-channel>
+      <div class="project-actions-inline">
+        <h3>Project</h3>
+        <div class="project-actions">
+          <button class="btn" id="btnExport">Export Project</button>
+          <button class="btn" id="btnImport">Import Project</button>
+          <button class="btn" id="btnReset">Reset Defaults</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+    </collapsible-card>
+
+    <!-- Expression Reference -->
+    <collapsible-card data-title="Expression Reference" data-collapsed>
+      <div class="expr-ref">
+        <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
+          An expression can be a plain number, a sensor variable, or a formula combining both.</p>
+
+        <h3>Variables</h3>
+        <table>
+          <tr><th>Variable</th><th>Description</th></tr>
+          <tr><td><code>pot0</code> &ndash; <code>pot1</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
+          <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
+          <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
+          <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
+        </table>
+
+        <h3>Operators</h3>
+        <table>
+          <tr><th>Operator</th><th>Description</th></tr>
+          <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
+          <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
+          <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
+          <tr><td><code>/</code></td><td>Integer divide</td></tr>
+        </table>
+
+        <h3>Functions</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
+          <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
+          <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
+          <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
+          <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
+          <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
+        </table>
+
+        <h3>Scale Modes</h3>
+        <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
+          of a diatonic scale, spanning about 2.5 octaves from the root note.
+          This makes it easy to assign musically consonant notes to controls.</p>
+        <table>
+          <tr><th>Mode</th><th>#</th><th>Character</th></tr>
+          <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
+          <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
+          <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
+          <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
+          <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
+          <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
+          <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
+        </table>
+
+        <h3>Conditionals</h3>
+        <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
+
+        <h3>Examples</h3>
+        <ul class="expr-examples">
+          <li><code>60</code> &mdash; fixed note: middle C</li>
+          <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
+          <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
+          <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
+          <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
+          <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
+          <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
+          <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
+          <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
+        </ul>
+
+        <h3>Notes</h3>
+        <ul class="expr-notes">
+          <li>All values are integers in the range 0&ndash;127</li>
+          <li>Arithmetic saturates (never wraps around)</li>
+          <li>Division by zero returns 127</li>
+          <li>Expressions compile to a max of 16 bytes of bytecode</li>
+          <li>Parentheses <code>()</code> can be used for grouping</li>
+        </ul>
+      </div>
+    </collapsible-card>
+
+  </config-panel>
 </div>
 
-<save-banner></save-banner>
-<toast-notification></toast-notification>
-<pinout-modal></pinout-modal>
+<save-banner class="save-banner">
+  <span class="save-banner-text">Unsaved changes</span>
+  <button class="btn btn-primary" id="btnSave">Save to Flash</button>
+</save-banner>
+
+<toast-notification id="toast" class="toast"></toast-notification>
+
+<pinout-modal>
+  <div class="pinout-backdrop">
+    <div class="pinout-dialog">
+      <div class="pinout-header">
+        <span class="pinout-title">Pinout</span>
+        <button class="pinout-close">&times;</button>
+      </div>
+      <div class="pinout-body"></div>
+    </div>
+  </div>
+</pinout-modal>
+
+<!-- Templates for dynamically rendered rows -->
+<template id="tpl-pot-row">
+  <div class="item-row">
+    <span class="index"></span>
+    <span class="pin-label"></span>
+    <div class="monitor-bar-track" style="max-width:80px"><div class="monitor-bar-fill"></div></div>
+    <span class="monitor-value" style="min-width:24px">0</span>
+    <label>CC</label><input type="number" min="0" max="127" value="0" data-field="cc">
+  </div>
+</template>
+
+<template id="tpl-touch-row">
+  <div class="item-row">
+    <span class="index"></span>
+    <span class="pin-label"></span>
+    <div class="monitor-indicator"></div>
+    <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
+    <span class="note-hint"></span>
+    <span class="expr-error" data-field="note_expr_err"></span>
+    <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
+    <span class="expr-error" data-field="velocity_expr_err"></span>
+    <label>Thr%</label><input type="number" min="1" max="255" value="33" data-field="threshold_pct">
+  </div>
+</template>
+
+<template id="tpl-button-row">
+  <div class="item-row">
+    <span class="index"></span>
+    <span class="pin-label"></span>
+    <div class="monitor-indicator"></div>
+    <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
+    <span class="note-hint"></span>
+    <span class="expr-error" data-field="note_expr_err"></span>
+    <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
+    <span class="expr-error" data-field="velocity_expr_err"></span>
+  </div>
+</template>
+
+<template id="tpl-monitor-bar-row">
+  <div class="monitor-row">
+    <span class="monitor-label"></span>
+    <div class="monitor-bar-track"><div class="monitor-bar-fill"></div></div>
+    <span class="monitor-value">0</span>
+  </div>
+</template>
+
+<template id="tpl-monitor-tap-row">
+  <div class="monitor-row">
+    <span class="monitor-label">Tap</span>
+    <div class="monitor-tap"></div>
+  </div>
+</template>
 
 <script type="module">
 import "./components/collapsible-card.js";

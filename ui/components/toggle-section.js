@@ -4,22 +4,7 @@ export class LdrSection extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    this.innerHTML =
-      '<div class="toggle-row">' +
-        '<label class="toggle">' +
-          '<input type="checkbox" id="ldrEnabled">' +
-          '<span class="slider"></span>' +
-        '</label>' +
-        '<label>Enabled</label>' +
-        `<span class="pin-label clickable" data-gpio="${LDR_PIN}">${pinLabel(LDR_PIN)}</span>` +
-      '</div>' +
-      '<div id="ldrFields">' +
-        '<div class="field">' +
-          '<label>CC Number</label>' +
-          '<input type="number" id="ldrCc" min="0" max="127" value="74">' +
-        '</div>' +
-        '<div id="ldrMonitor"></div>' +
-      '</div>';
+    // HTML structure is defined in configurator.html.
 
     this.querySelector("#ldrEnabled").addEventListener("change", () => {
       this._updateVisibility();
@@ -50,12 +35,11 @@ export class LdrSection extends HTMLElement {
     container.innerHTML = "";
     const enabled = config ? config.ldr_enabled : this.querySelector("#ldrEnabled").checked;
     if (!enabled) return;
-    const row = document.createElement("div");
-    row.className = "monitor-row";
-    row.innerHTML =
-      '<span class="monitor-label">Value</span>' +
-      '<div class="monitor-bar-track"><div class="monitor-bar-fill" id="monLdrBar"></div></div>' +
-      '<span class="monitor-value" id="monLdrVal">0</span>';
+    const tpl = document.getElementById("tpl-monitor-bar-row");
+    const row = tpl.content.firstElementChild.cloneNode(true);
+    row.querySelector(".monitor-label").textContent = "Value";
+    row.querySelector(".monitor-bar-fill").id = "monLdrBar";
+    row.querySelector(".monitor-value").id = "monLdrVal";
     container.appendChild(row);
   }
 }
@@ -64,25 +48,7 @@ export class AccelSection extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    this.innerHTML =
-      '<div class="toggle-row">' +
-        '<label class="toggle">' +
-          '<input type="checkbox" id="accelEnabled">' +
-          '<span class="slider"></span>' +
-        '</label>' +
-        '<label>Enabled</label>' +
-        `<span class="pin-label clickable" data-gpio="${ACCEL_SCL_PIN}">SCL ${pinLabel(ACCEL_SCL_PIN)}</span>` +
-        `<span class="pin-label clickable" data-gpio="${ACCEL_SDA_PIN}">SDA ${pinLabel(ACCEL_SDA_PIN)}</span>` +
-      '</div>' +
-      '<div id="accelFields">' +
-        '<div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>' +
-        '<div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>' +
-        '<div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>' +
-        '<div class="field"><label>Tap Velocity</label><input type="number" id="accelTapVel" min="1" max="127" value="127"></div>' +
-        '<div class="field"><label>Dead Zone</label><input type="number" id="accelDeadZone" min="0" max="255" value="13"><span class="note-hint" id="deadZoneHint"></span></div>' +
-        '<div class="field"><label>Smoothing</label><input type="number" id="accelSmoothing" min="0" max="100" value="25"><span class="note-hint" id="smoothingHint"></span></div>' +
-        '<div id="accelMonitor"></div>' +
-      '</div>';
+    // HTML structure is defined in configurator.html.
 
     this.querySelector("#accelEnabled").addEventListener("change", () => {
       this._updateVisibility();
@@ -136,22 +102,22 @@ export class AccelSection extends HTMLElement {
     const enabled = config ? config.accel.enabled : this.querySelector("#accelEnabled").checked;
     if (!enabled) return;
 
+    const barTpl = document.getElementById("tpl-monitor-bar-row");
+
     [["Tilt X", "monAccelXBar", "monAccelXVal", "64"],
      ["Tilt Y", "monAccelYBar", "monAccelYVal", "64"]].forEach(([label, barId, valId, def]) => {
-      const row = document.createElement("div");
-      row.className = "monitor-row";
-      row.innerHTML =
-        `<span class="monitor-label">${label}</span>` +
-        `<div class="monitor-bar-track"><div class="monitor-bar-fill" id="${barId}"></div></div>` +
-        `<span class="monitor-value" id="${valId}">${def}</span>`;
+      const row = barTpl.content.firstElementChild.cloneNode(true);
+      row.querySelector(".monitor-label").textContent = label;
+      row.querySelector(".monitor-bar-fill").id = barId;
+      const valEl = row.querySelector(".monitor-value");
+      valEl.id = valId;
+      valEl.textContent = def;
       container.appendChild(row);
     });
 
-    const tapRow = document.createElement("div");
-    tapRow.className = "monitor-row";
-    tapRow.innerHTML =
-      '<span class="monitor-label">Tap</span>' +
-      '<div class="monitor-tap" id="monAccelTap"></div>';
+    const tapTpl = document.getElementById("tpl-monitor-tap-row");
+    const tapRow = tapTpl.content.firstElementChild.cloneNode(true);
+    tapRow.querySelector(".monitor-tap").id = "monAccelTap";
     container.appendChild(tapRow);
   }
 }

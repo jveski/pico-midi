@@ -2,12 +2,7 @@ export class MidiChannel extends HTMLElement {
   connectedCallback() {
     if (this._init) return;
     this._init = true;
-    this.innerHTML =
-      '<div class="field">' +
-        '<label>MIDI Channel</label>' +
-        '<input type="number" id="midiChannel" min="0" max="15" value="0">' +
-        '<span class="note-hint" id="midiChannelHint">Ch 1</span>' +
-      '</div>';
+    // HTML structure is defined in configurator.html.
 
     this.querySelector("#midiChannel").addEventListener("input", () => this._updateHint());
   }
