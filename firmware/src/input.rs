@@ -1,7 +1,7 @@
 use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Drive, Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
-use embassy_rp::peripherals::I2C0;
+use embassy_rp::peripherals::I2C1;
 use embassy_time::{Instant, Timer};
 
 const DEBOUNCE_MS: u64 = 10;
@@ -248,7 +248,7 @@ const REG_CLICK_SRC: u8 = 0x39;
 const REG_OUT_X_L: u8 = 0x28;
 
 pub struct Accelerometer<'d> {
-    i2c: I2c<'d, I2C0, i2c::Async>,
+    i2c: I2c<'d, I2C1, i2c::Async>,
     x_smoothed: f32,
     y_smoothed: f32,
     last_x_cc: u8,
@@ -268,7 +268,7 @@ pub struct AccelReading {
 
 impl<'d> Accelerometer<'d> {
     pub async fn new(
-        mut i2c: I2c<'d, I2C0, i2c::Async>,
+        mut i2c: I2c<'d, I2C1, i2c::Async>,
         dead_zone_tenths: u8,
         smoothing_pct: u8,
     ) -> Self {
@@ -290,7 +290,7 @@ impl<'d> Accelerometer<'d> {
         }
     }
 
-    async fn init(i2c: &mut I2c<'_, I2C0, i2c::Async>) -> Result<(), i2c::Error> {
+    async fn init(i2c: &mut I2c<'_, I2C1, i2c::Async>) -> Result<(), i2c::Error> {
         // 100Hz ODR, all axes enabled
         i2c.write_async(LIS3DH_ADDR, [REG_CTRL1, 0x57]).await?;
         // ±8g full scale, BDU enabled, high-resolution output

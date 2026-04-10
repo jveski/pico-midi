@@ -17,7 +17,7 @@ use embassy_rp::bind_interrupts;
 use embassy_rp::flash;
 use embassy_rp::gpio::{Flex, Input, Level, Output, Pull};
 use embassy_rp::i2c;
-use embassy_rp::peripherals::{I2C0, USB};
+use embassy_rp::peripherals::{I2C1, USB};
 use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
@@ -38,7 +38,7 @@ const CIN_CC: u8 = 0x0B;
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
     ADC_IRQ_FIFO => adc::InterruptHandler;
-    I2C0_IRQ => i2c::InterruptHandler<I2C0>;
+    I2C1_IRQ => i2c::InterruptHandler<I2C1>;
 });
 
 #[embassy_executor::main]
@@ -138,10 +138,10 @@ async fn main(spawner: Spawner) {
         // --- LDR: GP28 (ADC2) ---
         let mut ldr = input::SmoothedAnalog::new(adc::Channel::new_pin(p.PIN_28, Pull::None), 0.15);
 
-        // --- Accelerometer: I2C0, SCL=GP1, SDA=GP0 ---
-        let i2c0 = i2c::I2c::new_async(p.I2C0, p.PIN_1, p.PIN_0, Irqs, i2c::Config::default());
+        // --- Accelerometer: I2C1, SCL=GP1, SDA=GP0 ---
+        let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_1, p.PIN_0, Irqs, i2c::Config::default());
         let mut accel = input::Accelerometer::new(
-            i2c0,
+            i2c1,
             midi_cfg.accel.dead_zone_tenths,
             midi_cfg.accel.smoothing_pct,
         )
