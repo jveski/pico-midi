@@ -31,8 +31,6 @@ a.btn { text-decoration: none; }
 .btn-primary:disabled:hover { background: var(--fg); color: var(--bg); }
 .btn-sm { padding: 3px 10px; font-size: 11px; }
 
-#unsupported { display: none; border: 1px solid var(--red); padding: 16px; margin-bottom: 20px; color: var(--red); }
-
 .card { border: 1px solid var(--border); margin-bottom: 12px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
 .card-header:hover { background: #111; }
@@ -143,7 +141,7 @@ a.btn { text-decoration: none; }
 .expr-ref .expr-notes li { margin-bottom: 4px; line-height: 1.6; }
 .expr-ref .expr-notes code { color: var(--fg); }
 
-/* Project actions (inside General card) */
+/* Project actions (inside Settings card) */
 .project-actions-inline { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
 .project-actions-inline h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 10px; }
 .project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -160,13 +158,13 @@ a.btn { text-decoration: none; }
 }
 .connect-banner.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
 .connect-banner-text { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+.connect-banner-text.unsupported { color: var(--red); }
 
 /* Disabled config panel (when no device connected) */
 config-panel.disabled input,
 config-panel.disabled select,
 config-panel.disabled .toggle { opacity: 0.35; pointer-events: none; }
 config-panel.disabled .project-actions-inline { opacity: 0.35; pointer-events: none; }
-config-panel.disabled .pin-label.clickable { pointer-events: none; cursor: default; }
 config-panel.disabled .monitor-indicator,
 config-panel.disabled .monitor-bar-track,
 config-panel.disabled .monitor-value,

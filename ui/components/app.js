@@ -45,8 +45,7 @@ export function init(refs) {
   configPanel.addEventListener("change", () => { markDirty(); debouncedApplyConfig(); });
 
   if (!("serial" in navigator)) {
-    document.getElementById("unsupported").style.display = "block";
-    connectBanner.btnConnect.disabled = true;
+    connectBanner.showUnsupported();
   } else {
     navigator.serial.addEventListener("disconnect", (e) => {
       if (port && (e.target === port || e.port === port)) {

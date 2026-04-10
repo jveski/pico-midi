@@ -17,6 +17,13 @@ export class ConnectBanner extends HTMLElement {
   get visible() {
     return this.classList.contains("visible");
   }
+
+  showUnsupported() {
+    this.querySelector(".connect-banner-text").textContent =
+      "Web Serial API is not available in this browser. Use Chrome or Edge 89+ on desktop.";
+    this.querySelector(".connect-banner-text").classList.add("unsupported");
+    this.btnConnect.disabled = true;
+  }
 }
 
 customElements.define("connect-banner", ConnectBanner);

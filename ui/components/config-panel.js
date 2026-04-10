@@ -30,8 +30,8 @@ export class ConfigPanel extends HTMLElement {
         '<accel-section></accel-section>' +
       '</collapsible-card>' +
 
-      // General
-      '<collapsible-card data-section="general" data-title="General">' +
+      // Settings
+      '<collapsible-card data-section="settings" data-title="Settings">' +
         '<midi-channel></midi-channel>' +
         '<div class="project-actions-inline">' +
           '<h3>Project</h3>' +
@@ -157,9 +157,9 @@ export class ConfigPanel extends HTMLElement {
   set disabled(v) {
     const on = !!v;
     this.classList.toggle("disabled", on);
-    // inert prevents all keyboard/focus/assistive-technology interaction
-    this.querySelectorAll(".card-body").forEach(body => {
-      body.inert = on;
+    // Disable interactive controls but keep pin labels clickable for pinout modal
+    this.querySelectorAll("input, select, button.btn, .toggle").forEach(el => {
+      el.inert = on;
     });
   }
 
