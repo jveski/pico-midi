@@ -1,4 +1,6 @@
 use defmt::Format;
+use embassy_rp::flash::{self, Flash};
+use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
@@ -284,4 +286,42 @@ impl Config {
         }
         postcard::from_bytes(&buf[HEADER_SIZE..]).ok()
     }
+}
+
+pub fn save_config(
+    flash: &mut Flash<'static, FLASH, flash::Blocking, { FLASH_SIZE }>,
+    config: &Config,
+) -> bool {
+    let mut sector = [0xFFu8; SECTOR_SIZE];
+    let n = config.encode(&mut sector);
+    if n == 0 {
+        return false;
+    }
+
+    let offset = CONFIG_OFFSET;
+    #[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
+    if flash
+        .blocking_erase(offset, offset + SECTOR_SIZE as u32)
+        .is_err()
+    {
+        defmt::error!("flash erase failed");
+        return false;
+    }
+    if flash.blocking_write(offset, &sector).is_err() {
+        defmt::error!("flash write failed");
+        return false;
+    }
+    defmt::info!("config saved to flash ({} bytes)", n);
+    true
+}
+
+pub fn load_config(
+    flash: &mut Flash<'static, FLASH, flash::Blocking, { FLASH_SIZE }>,
+) -> Option<Config> {
+    let mut buf = [0u8; SECTOR_SIZE];
+    if flash.blocking_read(CONFIG_OFFSET, &mut buf).is_err() {
+        defmt::warn!("flash read failed");
+        return None;
+    }
+    Config::decode(&buf)
 }

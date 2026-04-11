@@ -13,7 +13,7 @@ use core::cell::RefCell;
 
 use embassy_executor::Spawner;
 use embassy_futures::join::join3;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::select;
 use embassy_rp::adc;
 use embassy_rp::bind_interrupts;
 use embassy_rp::flash;
@@ -24,7 +24,6 @@ use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
 use embassy_time::{Duration, Instant, Timer};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::class::midi::MidiClass;
-use embassy_usb::driver::EndpointError;
 use embassy_usb::{Builder, Config as UsbConfig};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
@@ -150,7 +149,7 @@ async fn main(spawner: Spawner) {
     // ---- Load config from flash ----
     let mut flash =
         flash::Flash::<_, flash::Blocking, { config::FLASH_SIZE }>::new_blocking(p.FLASH);
-    let cfg = serial::load_config(&mut flash).unwrap_or_else(|| {
+    let cfg = config::load_config(&mut flash).unwrap_or_else(|| {
         defmt::info!("no saved config, using defaults");
         Config::default()
     });
@@ -557,98 +556,7 @@ async fn main(spawner: Spawner) {
         }
     };
 
-    let serial_fut = async {
-        loop {
-            serial_class.wait_connection().await;
-            defmt::info!("serial connected");
-
-            let mut frame_buf = [0u8; 2048];
-            let mut frame_pos = 0usize;
-            let mut last_monitor_send = Instant::now();
-
-            loop {
-                // Interleave command processing with monitor snapshots.
-                let mut buf = [0u8; 64];
-
-                let read_or_tick = select(
-                    serial_class.read_packet(&mut buf),
-                    Timer::after(Duration::from_millis(10)),
-                )
-                .await;
-
-                match read_or_tick {
-                    Either::First(result) => {
-                        match result {
-                            Ok(n) => {
-                                for &b in &buf[..n] {
-                                    if b == 0x00 {
-                                        // End of COBS frame
-                                        if frame_pos > 0 {
-                                            let mut resp = [0u8; 2048];
-                                            let (resp_len, action) = serial::handle_frame(
-                                                &mut frame_buf[..frame_pos],
-                                                &mut cfg.borrow_mut(),
-                                                &mut resp,
-                                            );
-                                            if action == serial::Action::Save {
-                                                if serial::save_config(&mut flash, &cfg.borrow()) {
-                                                    send_serial(
-                                                        &mut serial_class,
-                                                        &resp[..resp_len],
-                                                    )
-                                                    .await;
-                                                } else {
-                                                    let mut err_resp = [0u8; 64];
-                                                    let n = serial::encode_error(
-                                                        "save failed",
-                                                        &mut err_resp,
-                                                    );
-                                                    if n > 0 {
-                                                        send_serial(
-                                                            &mut serial_class,
-                                                            &err_resp[..n],
-                                                        )
-                                                        .await;
-                                                    }
-                                                }
-                                            } else if resp_len > 0 {
-                                                send_serial(&mut serial_class, &resp[..resp_len])
-                                                    .await;
-                                            }
-                                            frame_pos = 0;
-                                        }
-                                    } else if frame_pos < frame_buf.len() {
-                                        frame_buf[frame_pos] = b;
-                                        frame_pos += 1;
-                                    }
-                                }
-                            }
-                            Err(EndpointError::Disabled) => break,
-                            Err(EndpointError::BufferOverflow) => {
-                                defmt::warn!("serial overflow");
-                            }
-                        }
-                    }
-                    Either::Second(()) => {}
-                }
-
-                // Send monitor snapshot at ~50ms intervals
-                if Instant::now().duration_since(last_monitor_send).as_millis() >= 50 {
-                    last_monitor_send = Instant::now();
-                    let mut resp = [0u8; 256];
-                    let snapshot = {
-                        let cur = cfg.borrow();
-                        INPUT_STATE.snapshot(cur.num_buttons, cur.num_touch_pads, cur.num_pots)
-                    };
-                    let n = serial::encode_monitor(snapshot, &mut resp);
-                    if n > 0 {
-                        send_serial(&mut serial_class, &resp[..n]).await;
-                    }
-                }
-            }
-            defmt::info!("serial disconnected");
-        }
-    };
+    let serial_fut = serial::serial_task(&mut serial_class, &mut flash, &cfg, &INPUT_STATE);
 
     join3(usb_fut, midi_fut, serial_fut).await;
 }
@@ -678,23 +586,4 @@ const fn control_change(channel: u8, cc: u8, value: u8) -> [u8; 4] {
 async fn send_midi(midi: &mut MidiClass<'static, Driver<'static, USB>>, pkt: &[u8; 4]) {
     const MIDI_TIMEOUT: Duration = Duration::from_millis(5);
     let _ = select(midi.write_packet(pkt), Timer::after(MIDI_TIMEOUT)).await;
-}
-
-/// Write a byte slice over CDC-ACM serial in 64-byte chunks.
-/// Returns `true` if the entire payload was sent successfully.
-async fn send_serial(serial: &mut CdcAcmClass<'static, Driver<'static, USB>>, data: &[u8]) -> bool {
-    let mut sent = 0;
-    while sent < data.len() {
-        let end = (sent + 64).min(data.len());
-        if serial.write_packet(&data[sent..end]).await.is_err() {
-            return false;
-        }
-        sent = end;
-    }
-    // Send ZLP if the payload was a non-zero exact multiple of 64 bytes
-    if !data.is_empty() && data.len().is_multiple_of(64) && serial.write_packet(&[]).await.is_err()
-    {
-        return false;
-    }
-    true
 }
