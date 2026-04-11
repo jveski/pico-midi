@@ -17,11 +17,6 @@ export class ItemList extends BaseElement {
     }
   }
 
-  /**
-   * Render items into the list.
-   * @param {Array} items - Array of item objects (with .pin fields).
-   * @param {Set<number>} usedPins - All pins in use across the full config.
-   */
   render(items, usedPins) {
     const container = this.querySelector(`#${this._listId}`);
     container.innerHTML = "";
@@ -186,11 +181,6 @@ export class ItemList extends BaseElement {
     addBtn.style.display = count >= max ? "none" : "";
   }
 
-  /**
-   * Refresh the disabled state of all pin <select> options without
-   * rebuilding the DOM (preserves focus and selection).
-   * @param {Set<number>} usedPins - All pins currently in use across the config.
-   */
   refreshPinOptions(usedPins) {
     const isDigital = this._type === "button" || this._type === "touch";
     const validPins = isDigital ? DIGITAL_PINS : ANALOG_PINS;

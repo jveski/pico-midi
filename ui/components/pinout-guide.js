@@ -1,12 +1,5 @@
 import { BaseElement } from "./helpers.js";
 
-// Pinout Guide — inline SVG of the Raspberry Pi Pico showing current pin assignments.
-//
-// Usage:
-//   const guide = document.querySelector("pinout-guide");
-//   guide.update(config);   // re-renders with current input bindings
-
-// ── Pin Data ──
 // Physical pin 1 is top-left (USB up), counting down left side, then up right side.
 // Each entry: [physicalPin, label, gpio]  (gpio is null for non-GPIO pins)
 
@@ -56,7 +49,6 @@ const RIGHT_PINS = [
   [21, "GP16",      16],
 ];
 
-// ── Pin classification for color coding ──
 function pinClass(label) {
   if (label === "GND" || label === "AGND") return "gnd";
   if (label === "VBUS" || label === "VSYS" || label === "3V3" || label === "3V3_EN" || label === "ADC_VREF") return "pwr";
@@ -75,7 +67,6 @@ const ASSIGN_COLORS = {
 
 /**
  * Build a gpio→assignment map from the current config.
- * Returns { [gpio]: { type, label, colors } }
  */
 function buildAssignments(cfg) {
   const map = {};
@@ -100,8 +91,6 @@ function buildAssignments(cfg) {
 
   return map;
 }
-
-// ── SVG Generation ──
 
 const BOARD_W = 200;
 const BOARD_H = 490;
@@ -209,8 +198,6 @@ function buildSVG(assignments) {
   return svg;
 }
 
-// ── Legend ──
-
 function buildLegend(assignments) {
   const types = new Set(Object.values(assignments).map(a => a.type));
   if (types.size === 0) return "";
@@ -226,8 +213,6 @@ function buildLegend(assignments) {
   }
   return `<div class="pinout-legend">${entries.join("")}</div>`;
 }
-
-// ── Web Component ──
 
 export class PinoutGuide extends BaseElement {
   init() {

@@ -9,7 +9,7 @@ pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
-#[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
+#[allow(clippy::cast_possible_truncation)]
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
 
@@ -18,21 +18,17 @@ pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
 #[cfg(feature = "rp2350")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
-/// GPIO pins available for digital inputs (buttons and touch pads).
 /// All GPIOs 0-22 except GP2 (I2C SDA), GP3 (I2C SCL), GP25 (LED).
 pub const DIGITAL_PINS: [u8; MAX_DIGITAL_INPUTS] = [
     0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
 ];
 
-/// GPIO pins available for analog inputs (pots and LDR).
 pub const ANALOG_PINS: [u8; MAX_ANALOG_INPUTS] = [26, 27, 28];
 
-/// Check if a GPIO number is valid for digital input use.
 pub fn is_valid_digital_pin(gpio: u8) -> bool {
     DIGITAL_PINS.contains(&gpio)
 }
 
-/// Check if a GPIO number is valid for analog input use.
 pub fn is_valid_analog_pin(gpio: u8) -> bool {
     ANALOG_PINS.contains(&gpio)
 }
@@ -54,9 +50,7 @@ impl Expr {
     }
 }
 
-/// Common interface for input definitions that produce MIDI notes
-/// (buttons and touch pads).  Used by the polling loop to avoid
-/// duplicating event-handling and retrigger-debounce logic.
+/// Shared interface for inputs that produce MIDI notes (buttons and touch pads).
 pub trait NoteInput {
     fn note(&self) -> u8;
     fn velocity(&self) -> u8;
@@ -93,7 +87,7 @@ pub struct TouchPadDef {
     pub pin: u8,
     pub note: u8,
     pub velocity: u8,
-    /// Touch threshold as a percentage above the calibrated baseline (e.g. 33 = 33%).
+    /// Percentage above the calibrated baseline (e.g. 33 = 33%).
     pub threshold_pct: u8,
     pub note_expr: Expr,
     pub velocity_expr: Expr,
@@ -133,9 +127,9 @@ pub struct AccelConfig {
     pub y_cc: u8,
     pub tap_note: u8,
     pub tap_velocity: u8,
-    /// Dead zone in tenths of m/s^2 (e.g. 13 = 1.3 m/s^2)
+    /// Tenths of m/s^2 (e.g. 13 = 1.3 m/s^2).
     pub dead_zone_tenths: u8,
-    /// Smoothing alpha * 100 (e.g. 25 = 0.25)
+    /// Alpha * 100 (e.g. 25 = 0.25).
     pub smoothing_pct: u8,
 }
 
@@ -154,27 +148,23 @@ pub struct Config {
 }
 
 impl Config {
-    /// Get the active button slice.
     pub fn active_buttons(&self) -> &[ButtonDef] {
         let n = (self.num_buttons as usize).min(MAX_DIGITAL_INPUTS);
         &self.buttons[..n]
     }
 
-    /// Get the active touch pad slice.
     pub fn active_touch_pads(&self) -> &[TouchPadDef] {
         let n = (self.num_touch_pads as usize).min(MAX_DIGITAL_INPUTS);
         &self.touch_pads[..n]
     }
 
-    /// Get the active pot slice.
     pub fn active_pots(&self) -> &[PotDef] {
         let n = (self.num_pots as usize).min(MAX_ANALOG_INPUTS);
         &self.pots[..n]
     }
 
-    /// Validate that all pin assignments are valid and not duplicated.
     pub fn validate(&self) -> bool {
-        let mut used = [false; 30]; // GPIO 0-29
+        let mut used = [false; 30];
 
         for b in self.active_buttons() {
             if !is_valid_digital_pin(b.pin) {
@@ -216,6 +206,30 @@ impl Config {
         }
 
         true
+    }
+
+    pub fn encode(&self, buf: &mut [u8]) -> usize {
+        if buf.len() < HEADER_SIZE {
+            return 0;
+        }
+        buf[..4].copy_from_slice(&MAGIC.to_le_bytes());
+        buf[4] = VERSION;
+
+        postcard::to_slice(self, &mut buf[HEADER_SIZE..]).map_or(0, |used| HEADER_SIZE + used.len())
+    }
+
+    pub fn decode(buf: &[u8]) -> Option<Self> {
+        if buf.len() < HEADER_SIZE + 1 {
+            return None;
+        }
+        let magic = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+        if magic != MAGIC {
+            return None;
+        }
+        if buf[4] != VERSION {
+            return None;
+        }
+        postcard::from_bytes(&buf[HEADER_SIZE..]).ok()
     }
 }
 
@@ -272,19 +286,19 @@ impl Default for Config {
             num_buttons: 1,
             buttons: {
                 let mut arr = [empty_button(); MAX_DIGITAL_INPUTS];
-                arr[0] = default_button(0, 60, 100); // GP0, C4
+                arr[0] = default_button(0, 60, 100);
                 arr
             },
             num_touch_pads: 1,
             touch_pads: {
                 let mut arr = [empty_touch(); MAX_DIGITAL_INPUTS];
-                arr[0] = default_touch(6, 48, 100, 33); // GP6, C3
+                arr[0] = default_touch(6, 48, 100, 33);
                 arr
             },
             num_pots: 1,
             pots: {
                 let mut arr = [empty_pot(); MAX_ANALOG_INPUTS];
-                arr[0] = PotDef { pin: 26, cc: 7 }; // GP26 (ADC0), Volume
+                arr[0] = PotDef { pin: 26, cc: 7 };
                 arr
             },
             ldr_enabled: true,
@@ -302,32 +316,6 @@ impl Default for Config {
     }
 }
 
-impl Config {
-    pub fn encode(&self, buf: &mut [u8]) -> usize {
-        if buf.len() < HEADER_SIZE {
-            return 0;
-        }
-        buf[..4].copy_from_slice(&MAGIC.to_le_bytes());
-        buf[4] = VERSION;
-
-        postcard::to_slice(self, &mut buf[HEADER_SIZE..]).map_or(0, |used| HEADER_SIZE + used.len())
-    }
-
-    pub fn decode(buf: &[u8]) -> Option<Self> {
-        if buf.len() < HEADER_SIZE + 1 {
-            return None;
-        }
-        let magic = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
-        if magic != MAGIC {
-            return None;
-        }
-        if buf[4] != VERSION {
-            return None;
-        }
-        postcard::from_bytes(&buf[HEADER_SIZE..]).ok()
-    }
-}
-
 pub fn save_config(
     flash: &mut Flash<'static, FLASH, flash::Blocking, { FLASH_SIZE }>,
     config: &Config,
@@ -339,7 +327,7 @@ pub fn save_config(
     }
 
     let offset = CONFIG_OFFSET;
-    #[allow(clippy::cast_possible_truncation)] // Target is 32-bit ARM; usize == u32
+    #[allow(clippy::cast_possible_truncation)]
     if flash
         .blocking_erase(offset, offset + SECTOR_SIZE as u32)
         .is_err()

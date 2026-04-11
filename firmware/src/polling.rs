@@ -280,14 +280,12 @@ pub async fn run(
 ) {
     Timer::after(Duration::from_millis(100)).await;
 
-    // --- Dynamic input initialization ---
     let mut buttons = input::Buttons::new();
     let mut touch = input::TouchPads::new();
     let mut pots: [Option<input::SmoothedAnalog<'static>>; MAX_ANALOG_INPUTS] =
         [const { None }; MAX_ANALOG_INPUTS];
     let mut ldr: Option<input::SmoothedAnalog<'static>> = None;
 
-    // Configure inputs from initial config
     let initial_cfg = *cfg.borrow();
     let mut pin_snapshot = PinSnapshot::from_config(&initial_cfg);
 
@@ -297,29 +295,20 @@ pub async fn run(
         configure_inputs(&initial_cfg, &mut buttons, &mut touch, &mut pots, &mut ldr);
     }
 
-    // --- Accelerometer: I2C1, SCL=GP3, SDA=GP2 (hardcoded) ---
     let accel_dead_zone = initial_cfg.accel.dead_zone_tenths;
     let accel_smoothing = initial_cfg.accel.smoothing_pct;
     let mut accel = input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing).await;
 
     let mut last_led_toggle = Instant::now();
 
-    // Track the note currently sounding for each held button/pad so
-    // that (a) note-off always releases the correct note, and (b) when
-    // a scale() expression result changes while held the old note is
-    // released and the new one is sent after a debounce period.
     let mut active_button_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] = [None; MAX_DIGITAL_INPUTS];
     let mut active_touch_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] = [None; MAX_DIGITAL_INPUTS];
 
     loop {
-        // ~1ms poll interval
         Timer::after(Duration::from_millis(1)).await;
 
-        // Snapshot the shared config for this iteration.
-        // The borrow is brief and does not span an await point.
         let cur = *cfg.borrow();
 
-        // Check if pin assignments changed — reconfigure if so.
         let new_snapshot = PinSnapshot::from_config(&cur);
         if new_snapshot != pin_snapshot {
             // Release all held notes before reconfiguring
@@ -356,23 +345,14 @@ pub async fn run(
             );
         }
 
-        // Update accelerometer tuning if changed via the configurator.
         accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
 
-        // Update touch thresholds if changed via the configurator.
         let thrs: [u8; MAX_DIGITAL_INPUTS] =
             collect_field(cur.active_touch_pads(), 33, |t| t.threshold_pct);
         touch.update_thresholds(&thrs[..cur.num_touch_pads as usize]);
 
-        // Poll analog/sensor inputs and update shared state BEFORE
-        // building the expression snapshot.  This ensures that note/velocity
-        // expressions evaluated on button or touch-pad events in this
-        // iteration see the freshest sensor readings instead of values
-        // from the previous cycle (which would be zero on the first
-        // iteration, causing expressions like `pot1` to always resolve
-        // to 0 at the moment of a button press).
-
-        // Poll pots
+        // Poll analog/sensor inputs before building expression snapshot
+        // so note/velocity expressions see the freshest sensor readings.
         let num_pots = cur.num_pots as usize;
         for (i, pot_slot) in pots.iter_mut().take(num_pots).enumerate() {
             if let Some(pot) = pot_slot {
@@ -385,7 +365,6 @@ pub async fn run(
             }
         }
 
-        // Poll LDR
         if cur.ldr_enabled {
             if let Some(ldr_input) = &mut ldr {
                 if let Some(v) = ldr_input.poll(adc_inst, 2).await {
@@ -396,7 +375,6 @@ pub async fn run(
             }
         }
 
-        // Poll accelerometer
         if cur.accel.enabled && accel.available {
             let r = accel.poll().await;
             if let Some(x) = r.x_cc {
@@ -426,8 +404,6 @@ pub async fn run(
             input_state.set_accel_y(accel.current_y_cc());
         }
 
-        // Build expression inputs from current state (now reflects
-        // the sensor readings taken above in this same iteration).
         let expr_inputs = ExprInputs {
             pots: input_state.pots_snapshot(),
             ldr: input_state.ldr_value(),
@@ -435,7 +411,6 @@ pub async fn run(
             accel_y: input_state.accel_y_value(),
         };
 
-        // Poll buttons
         let num_buttons = cur.num_buttons as usize;
         let button_events = buttons
             .poll()
@@ -454,7 +429,6 @@ pub async fn run(
         )
         .await;
 
-        // Re-evaluate scale() expressions for held buttons.
         retrigger_held_notes(
             cur.active_buttons(),
             &mut active_button_note,
@@ -465,7 +439,6 @@ pub async fn run(
         )
         .await;
 
-        // Poll touch pads
         let num_touch = cur.num_touch_pads as usize;
         let touch_events = touch
             .poll()
@@ -485,7 +458,6 @@ pub async fn run(
         )
         .await;
 
-        // Re-evaluate scale() expressions for held touch pads.
         retrigger_held_notes(
             cur.active_touch_pads(),
             &mut active_touch_note,
@@ -496,7 +468,6 @@ pub async fn run(
         )
         .await;
 
-        // Blink status LED every 1s
         if Instant::now().duration_since(last_led_toggle).as_millis() >= 1000 {
             last_led_toggle = Instant::now();
             led.toggle();

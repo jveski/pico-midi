@@ -5,23 +5,15 @@ use crate::serial::MonitorSnapshot;
 
 /// Live input state shared between the MIDI polling task and serial monitor.
 pub struct InputState {
-    /// Button pressed states (up to `MAX_DIGITAL_INPUTS`).
     buttons: [AtomicBool; config::MAX_DIGITAL_INPUTS],
-    /// Touch pad pressed states (up to `MAX_DIGITAL_INPUTS`).
     touch_pads: [AtomicBool; config::MAX_DIGITAL_INPUTS],
-    /// Potentiometer CC values (up to `MAX_ANALOG_INPUTS`), 0-127.
     pots: [AtomicU8; config::MAX_ANALOG_INPUTS],
-    /// LDR CC value, 0-127.
     ldr: AtomicU8,
-    /// Accelerometer X-axis CC value, 0-127.
     accel_x: AtomicU8,
-    /// Accelerometer Y-axis CC value, 0-127.
     accel_y: AtomicU8,
-    /// Accelerometer tap detected (cleared after read).
     accel_tap: AtomicBool,
 }
 
-// Helper to create a const array of AtomicBool::new(false).
 macro_rules! atomic_bool_array {
     ($n:expr) => {{
         #[allow(clippy::declare_interior_mutable_const)]
@@ -85,7 +77,6 @@ impl InputState {
         self.accel_tap.store(true, Ordering::Relaxed);
     }
 
-    /// Snapshot all pot values for expression evaluation.
     pub fn pots_snapshot(&self) -> [u8; config::MAX_ANALOG_INPUTS] {
         let mut v = [0u8; config::MAX_ANALOG_INPUTS];
         for (i, p) in v.iter_mut().enumerate() {
@@ -106,7 +97,6 @@ impl InputState {
         self.accel_y.load(Ordering::Relaxed)
     }
 
-    /// Take a snapshot of the current input state.
     /// The `accel_tap` flag is cleared atomically on read.
     pub fn snapshot(&self, num_buttons: u8, num_touch: u8, num_pots: u8) -> MonitorSnapshot {
         let nb = (num_buttons as usize).min(config::MAX_DIGITAL_INPUTS);

@@ -1,9 +1,7 @@
 import { BaseElement, classProperty } from "./helpers.js";
 
 export class ConnectBanner extends BaseElement {
-  init() {
-    // HTML structure is defined in configurator.html.
-  }
+  init() {}
 
   get btnConnect() { return this.querySelector("#btnConnect"); }
 

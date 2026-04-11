@@ -1,7 +1,5 @@
 import { BaseElement, num, clamp, noteName, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
 
-// ── Shared monitor-bar helper ──
-
 function buildMonitorBars(container, bars) {
   const tpl = document.getElementById("tpl-monitor-bar-row");
   for (const { label, barId, valId, defaultVal } of bars) {
@@ -23,11 +21,6 @@ export class LdrSection extends BaseElement {
     });
   }
 
-  /**
-   * Render the LDR section.
-   * @param {object} config - Full config object.
-   * @param {Set<number>} usedAnalog - Analog pins in use across the config.
-   */
   render(config, usedAnalog) {
     this.querySelector("#ldrEnabled").checked = config.ldr_enabled;
     this.querySelector("#ldrCc").value = config.ldr.cc;
@@ -67,11 +60,6 @@ export class LdrSection extends BaseElement {
     ]);
   }
 
-  /**
-   * Refresh the disabled state of the LDR pin <select> options without
-   * rebuilding the DOM.
-   * @param {Set<number>} usedAnalog - Analog pins currently in use across the config.
-   */
   refreshPinOptions(usedAnalog) {
     const pinSelect = this.querySelector("#ldrPin");
     if (!pinSelect) return;

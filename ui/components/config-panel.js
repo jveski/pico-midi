@@ -2,7 +2,6 @@ import { BaseElement } from "./helpers.js";
 
 export class ConfigPanel extends BaseElement {
   init() {
-    // HTML structure is defined in configurator.html — just wire up events.
     this._wireProjectActions();
   }
 

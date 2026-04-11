@@ -1,8 +1,6 @@
 // COBS encode/decode and Postcard binary reader/writer.
 // Matches the firmware's postcard + COBS framing exactly.
 
-// ── COBS ──
-
 export function cobsEncode(data) {
   const out = [];
   let codeIdx = 0, code = 1;
@@ -42,8 +40,6 @@ export function cobsDecode(buf) {
   return new Uint8Array(out);
 }
 
-// ── Postcard Reader ──
-
 export class PostcardReader {
   constructor(buf) { this.buf = buf; this.pos = 0; }
   u8() { return this.buf[this.pos++]; }
@@ -66,8 +62,6 @@ export class PostcardReader {
   remaining() { return this.buf.length - this.pos; }
 }
 
-// ── Postcard Writer ──
-
 export class PostcardWriter {
   constructor() { this.buf = []; }
   u8(v) { this.buf.push(v & 0xFF); }
@@ -82,8 +76,6 @@ export class PostcardWriter {
   }
   finish() { return new Uint8Array(this.buf); }
 }
-
-// ── Protocol Constants ──
 
 export const REQ_PING = 0;
 export const REQ_VERSION = 1;
@@ -103,16 +95,11 @@ export const MAX_DIGITAL_INPUTS = 21;
 export const MAX_ANALOG_INPUTS = 3;
 export const MAX_EXPR = 16;
 
-/** GPIO pins available for digital inputs (buttons and touch pads). */
 export const DIGITAL_PINS = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
-/** GPIO pins available for analog inputs (pots and LDR). */
 export const ANALOG_PINS = [26, 27, 28];
 
-// ── Expression Serialization ──
-
 function writeExpr(w, expr) {
-  // Expr { len: u8, code: [u8; MAX_EXPR] }
   const len = expr ? expr.length : 0;
   w.u8(len);
   for (let i = 0; i < MAX_EXPR; i++) {
@@ -129,24 +116,15 @@ function readExpr(r) {
   return { len, code: code.slice(0, len) };
 }
 
-// ── Config Serialization ──
-// Must match firmware Config struct field order exactly:
-//   midi_channel: u8
-//   num_buttons: u8
-//   buttons: [ButtonDef; MAX_DIGITAL_INPUTS]
-//   num_touch_pads: u8
-//   touch_pads: [TouchPadDef; MAX_DIGITAL_INPUTS]
-//   num_pots: u8
-//   pots: [PotDef; MAX_ANALOG_INPUTS]
-//   ldr_enabled: bool
-//   ldr: LdrDef
-//   accel: AccelConfig
+// Config serialization — must match firmware Config struct field order exactly:
+//   midi_channel, num_buttons, buttons[MAX_DIGITAL_INPUTS],
+//   num_touch_pads, touch_pads[MAX_DIGITAL_INPUTS],
+//   num_pots, pots[MAX_ANALOG_INPUTS],
+//   ldr_enabled, ldr, accel
 
 export function writeConfig(w, cfg) {
   w.u8(cfg.midi_channel);
 
-  // num_buttons + ButtonDef[MAX_DIGITAL_INPUTS]
-  // ButtonDef: { pin: u8, note: u8, velocity: u8, note_expr: Expr, velocity_expr: Expr }
   const numButtons = cfg.buttons.length;
   w.u8(numButtons);
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) {
@@ -156,8 +134,6 @@ export function writeConfig(w, cfg) {
     writeExpr(w, b.velocity_expr);
   }
 
-  // num_touch_pads + TouchPadDef[MAX_DIGITAL_INPUTS]
-  // TouchPadDef: { pin: u8, note: u8, velocity: u8, threshold_pct: u8, note_expr: Expr, velocity_expr: Expr }
   const numTouch = cfg.touch_pads.length;
   w.u8(numTouch);
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) {
@@ -167,8 +143,6 @@ export function writeConfig(w, cfg) {
     writeExpr(w, t.velocity_expr);
   }
 
-  // num_pots + PotDef[MAX_ANALOG_INPUTS]
-  // PotDef: { pin: u8, cc: u8 }
   const numPots = cfg.pots.length;
   w.u8(numPots);
   for (let i = 0; i < MAX_ANALOG_INPUTS; i++) {
@@ -176,11 +150,9 @@ export function writeConfig(w, cfg) {
     w.u8(p.pin); w.u8(p.cc);
   }
 
-  // ldr_enabled: bool, ldr: LdrDef { pin: u8, cc: u8 }
   w.bool(cfg.ldr_enabled);
   w.u8(cfg.ldr.pin); w.u8(cfg.ldr.cc);
 
-  // accel: AccelConfig { enabled, x_cc, y_cc, tap_note, tap_velocity, dead_zone_tenths, smoothing_pct }
   w.bool(cfg.accel.enabled);
   w.u8(cfg.accel.x_cc); w.u8(cfg.accel.y_cc);
   w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_velocity);
@@ -195,7 +167,6 @@ export function readConfig(r) {
   };
   cfg.midi_channel = r.u8();
 
-  // num_buttons + ButtonDef[MAX_DIGITAL_INPUTS]
   const numButtons = r.u8();
   const allButtons = [];
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) {
@@ -206,7 +177,6 @@ export function readConfig(r) {
   }
   cfg.buttons = allButtons.slice(0, numButtons);
 
-  // num_touch_pads + TouchPadDef[MAX_DIGITAL_INPUTS]
   const numTouch = r.u8();
   const allTouch = [];
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) {
@@ -217,7 +187,6 @@ export function readConfig(r) {
   }
   cfg.touch_pads = allTouch.slice(0, numTouch);
 
-  // num_pots + PotDef[MAX_ANALOG_INPUTS]
   const numPots = r.u8();
   const allPots = [];
   for (let i = 0; i < MAX_ANALOG_INPUTS; i++) {
@@ -226,11 +195,9 @@ export function readConfig(r) {
   }
   cfg.pots = allPots.slice(0, numPots);
 
-  // ldr_enabled: bool, ldr: LdrDef { pin: u8, cc: u8 }
   cfg.ldr_enabled = r.bool();
   cfg.ldr = { pin: r.u8(), cc: r.u8() };
 
-  // accel: AccelConfig
   cfg.accel = {
     enabled: r.bool(),
     x_cc: r.u8(), y_cc: r.u8(),
@@ -243,19 +210,16 @@ export function readConfig(r) {
 export function readMonitorSnapshot(r) {
   const snap = { buttons: [], touch_pads: [], pots: [], ldr: 0, accel_x: 0, accel_y: 0, accel_tap: false };
 
-  // num_buttons + buttons[MAX_DIGITAL_INPUTS]
   const numButtons = r.u8();
   const allButtons = [];
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allButtons.push(r.bool());
   snap.buttons = allButtons.slice(0, numButtons);
 
-  // num_touch_pads + touch_pads[MAX_DIGITAL_INPUTS]
   const numTouch = r.u8();
   const allTouch = [];
   for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allTouch.push(r.bool());
   snap.touch_pads = allTouch.slice(0, numTouch);
 
-  // num_pots + pots[MAX_ANALOG_INPUTS]
   const numPots = r.u8();
   const allPots = [];
   for (let i = 0; i < MAX_ANALOG_INPUTS; i++) allPots.push(r.u8());

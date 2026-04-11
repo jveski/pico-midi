@@ -1,9 +1,7 @@
 import { BaseElement, classProperty } from "./helpers.js";
 
 export class SaveBanner extends BaseElement {
-  init() {
-    // HTML structure is defined in configurator.html.
-  }
+  init() {}
 
   get btnSave() { return this.querySelector("#btnSave"); }
 

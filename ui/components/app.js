@@ -8,8 +8,6 @@ import {
 import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin } from "./helpers.js";
 import { compileExpr } from "./expr.js";
 
-// ── State ──
-
 let port = null, reader = null, writer = null, keepReading = false;
 let rxBuf = [], rxFrames = [];
 let cmdLock = Promise.resolve();
@@ -17,13 +15,6 @@ let config = null;
 let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
-
-// Expression source text is stored alongside config but not serialized to
-// the device — only the compiled bytecode is sent. We keep the source
-// in the config objects as `note_expr_src` / `velocity_expr_src` strings
-// and persist them to localStorage so they survive page reloads.
-
-// ── DOM refs (set by init) ──
 
 let connectBanner, container, configPanel, saveBanner, toastEl;
 
@@ -73,13 +64,9 @@ export function init(refs) {
   renderDefaultConfig();
 }
 
-// ── Toast ──
-
 function toast(msg, type) {
   toastEl.show(msg, type);
 }
-
-// ── Connection ──
 
 function setConnected(connected) {
   connectBanner.visible = !connected;
@@ -109,7 +96,6 @@ function clearDirty() {
   saveBanner.visible = false;
 }
 
-/** Compute the set of all used pins across the config. */
 function allUsedPins(cfg) {
   return {
     digital: usedDigitalPins(cfg),
@@ -117,12 +103,6 @@ function allUsedPins(cfg) {
   };
 }
 
-/**
- * Recompute used-pin sets from the current DOM and refresh the disabled
- * state on every pin <select> across all input lists and the LDR section.
- * Called after any pin dropdown changes so that other dropdowns immediately
- * reflect which pins are now available.
- */
 function refreshAllPinOptions() {
   // Build a temporary config snapshot from the DOM so we can compute used pins.
   const panel = configPanel;
@@ -145,7 +125,6 @@ function refreshAllPinOptions() {
   panel.ldrSection.refreshPinOptions(analog);
 }
 
-/** Build a default button/touch input item with expression defaults. */
 function defaultInputItem(pin, note, extras = {}) {
   const n = clamp(note, 0, 127);
   return {
@@ -156,7 +135,6 @@ function defaultInputItem(pin, note, extras = {}) {
   };
 }
 
-/** Build a default config object with firmware defaults for preview. */
 function defaultConfig() {
   return {
     midi_channel: 0,
@@ -236,8 +214,6 @@ function cleanup() {
   setConnected(false);
 }
 
-// ── Read Loop ──
-
 async function readLoop() {
   while (keepReading && port && port.readable) {
     try {
@@ -266,8 +242,6 @@ async function readLoop() {
   }
 }
 
-// ── Monitor Frame Processing ──
-
 function drainMonitorFrames() {
   let i = 0;
   while (i < rxFrames.length) {
@@ -285,8 +259,6 @@ function drainMonitorFrames() {
     i++;
   }
 }
-
-// ── Send Request ──
 
 function sendRequest(variantIndex, configObj) {
   const p = cmdLock.then(() => _sendRequest(variantIndex, configObj));
@@ -328,8 +300,6 @@ async function _sendRequest(variantIndex, configObj) {
   throw new Error("Timeout waiting for response");
 }
 
-// ── Monitor Display ──
-
 function updateMonitorBar(barId, valId, v) {
   const bar = document.getElementById(barId);
   const val = document.getElementById(valId);
@@ -362,12 +332,6 @@ function applyMonitorData(snap) {
   }
 }
 
-// ── Expression Source Persistence ──
-// The device only stores bytecode, not expression source text. We keep the
-// human-readable source in localStorage keyed by button/touch index so users
-// can edit it after reconnecting.
-
-/** Ensure note_expr_src / velocity_expr_src are initialized on each item. */
 function initExprSources(items) {
   items.forEach(item => {
     item.note_expr_src = item.note_expr_src || "";
@@ -402,8 +366,6 @@ function loadExprSources() {
     applyData(config.touch_pads, data.touch);
   } catch {}
 }
-
-// ── Add / Remove Items ──
 
 function handleItemAdd(e) {
   if (!config) return;
@@ -456,14 +418,10 @@ function handleItemRemove(e) {
   debouncedApplyConfig();
 }
 
-// ── Config Operations ──
-
-/** Format a protocol response as an error message. */
 function responseError(resp) {
   return resp.type === "error" ? resp.message : "Unexpected response: " + resp.type;
 }
 
-/** Run an async operation with the toolbar in busy state. */
 async function withBusy(fn) {
   setToolbarBusy(true);
   try { return await fn(); }
@@ -493,19 +451,10 @@ async function refreshConfig() {
   });
 }
 
-/**
- * Extract a static fallback value from an expression source string.
- * If the expression is a plain integer (e.g. "60"), return that number.
- * Otherwise return the provided default.
- */
 function staticFromExpr(src, fallback) {
   return parseStaticInt(src) ?? fallback;
 }
 
-/**
- * Compile expression fields on a button/touch item from the DOM.
- * Returns the compiled item, or { error } on failure.
- */
 function compileInputItem(item, label, extraFields = {}) {
   const noteResult = compileExpr(item.note_expr_src);
   const velResult = compileExpr(item.velocity_expr_src);
@@ -613,9 +562,6 @@ async function resetConfig() {
   });
 }
 
-// ── Project Export / Import ──
-
-/** Normalize a button/touch item to a clean JSON-serializable shape. */
 function normalizeInputItem(item, extraFields = {}) {
   return {
     pin: item.pin,

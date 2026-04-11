@@ -8,16 +8,16 @@ use crate::config::MAX_DIGITAL_INPUTS;
 
 const DEBOUNCE_MS: u64 = 10;
 
+pub struct ButtonEvent {
+    pub index: u8,
+    pub pressed: bool,
+}
+
 pub struct Buttons {
     pins: [Option<Input<'static>>; MAX_DIGITAL_INPUTS],
     prev: [bool; MAX_DIGITAL_INPUTS],
     stable_since: [Instant; MAX_DIGITAL_INPUTS],
     count: usize,
-}
-
-pub struct ButtonEvent {
-    pub index: u8,
-    pub pressed: bool,
 }
 
 impl Buttons {
@@ -30,12 +30,9 @@ impl Buttons {
         }
     }
 
-    /// Reinitialize button pins from config. Drops old pins.
-    ///
     /// # Safety
     /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
     pub unsafe fn configure(&mut self, gpio_pins: &[u8]) {
-        // Drop all existing pins
         for pin in self.pins.iter_mut() {
             *pin = None;
         }
@@ -49,7 +46,6 @@ impl Buttons {
         }
     }
 
-    /// Check all buttons. Returns up to count state-change events.
     pub fn poll(&mut self) -> [Option<ButtonEvent>; MAX_DIGITAL_INPUTS] {
         let now = Instant::now();
         let mut events: [Option<ButtonEvent>; MAX_DIGITAL_INPUTS] =
@@ -95,9 +91,7 @@ impl<'d> SmoothedAnalog<'d> {
         let raw = adc.read(&mut self.channel).await.unwrap_or(0);
         self.smoothed = self.alpha * f32::from(raw) + (1.0 - self.alpha) * self.smoothed;
 
-        // Convert 12-bit (0-4095) to 7-bit (0-127)
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        // smoothed is non-negative, result clamped to 127
         let cc = ((self.smoothed as u32) >> 5).min(127) as u8;
 
         match self.last_cc {
@@ -116,15 +110,16 @@ impl<'d> SmoothedAnalog<'d> {
         }
     }
 
-    /// Return the current smoothed CC value (0-127), or 0 if never polled.
     pub fn current_cc(&self) -> u8 {
         self.last_cc.unwrap_or(0)
     }
 }
 
-/// Simple capacitive touch using GPIO charge/discharge timing.
-/// Charge the pin high, then switch to input with pull-down and count
-/// how long it takes to discharge. A finger increases capacitance.
+pub struct TouchEvent {
+    pub index: u8,
+    pub pressed: bool,
+}
+
 struct TouchPad {
     baseline: u32,
     threshold: u32,
@@ -137,11 +132,86 @@ pub struct TouchPads {
     count: usize,
 }
 
-pub struct TouchEvent {
-    pub index: u8,
-    pub pressed: bool,
+impl TouchPads {
+    pub fn new() -> Self {
+        Self {
+            pads: [const {
+                TouchPad {
+                    baseline: 0,
+                    threshold: 0,
+                    was_touched: false,
+                }
+            }; MAX_DIGITAL_INPUTS],
+            pins: [const { None }; MAX_DIGITAL_INPUTS],
+            count: 0,
+        }
+    }
+
+    /// # Safety
+    /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
+    pub unsafe fn configure(&mut self, gpio_pins: &[u8], threshold_pcts: &[u8]) {
+        for pin in self.pins.iter_mut() {
+            *pin = None;
+        }
+        self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
+
+        for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
+            let any = embassy_rp::gpio::AnyPin::steal(gpio);
+            let mut flex = Flex::new(any);
+
+            flex.set_schmitt(true);
+            flex.set_drive_strength(Drive::_4mA);
+
+            let mut sum: u32 = 0;
+            for _ in 0..8 {
+                sum += measure_touch_sync(&mut flex);
+            }
+            let baseline = sum / 8;
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
+            let margin = (baseline * pct / 100).max(2);
+
+            self.pads[i] = TouchPad {
+                baseline,
+                threshold: baseline + margin,
+                was_touched: false,
+            };
+            self.pins[i] = Some(flex);
+        }
+    }
+
+    pub fn update_thresholds(&mut self, threshold_pcts: &[u8]) {
+        for (i, pad) in self.pads.iter_mut().take(self.count).enumerate() {
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
+            let margin = (pad.baseline * pct / 100).max(2);
+            pad.threshold = pad.baseline + margin;
+        }
+    }
+
+    pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {
+        let mut events: [Option<TouchEvent>; MAX_DIGITAL_INPUTS] =
+            [const { None }; MAX_DIGITAL_INPUTS];
+        for (i, event) in events.iter_mut().enumerate().take(self.count) {
+            if let Some(pin) = &mut self.pins[i] {
+                let reading = measure_touch_async(pin).await;
+                let touched = reading > self.pads[i].threshold;
+
+                if touched != self.pads[i].was_touched {
+                    self.pads[i].was_touched = touched;
+                    *event = Some(TouchEvent {
+                        #[allow(clippy::cast_possible_truncation)]
+                        index: i as u8,
+                        pressed: touched,
+                    });
+                }
+            }
+        }
+        events
+    }
 }
 
+/// Capacitive touch measurement using GPIO charge/discharge timing.
+/// Charges the pin high, switches to input with pull-down, and measures
+/// the discharge time.  A finger touching the pad increases capacitance.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
     pin.set_high();
@@ -159,8 +229,8 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
         }
     }
 
-    // Remove pull-down after measurement so it doesn't parasitically
-    // discharge the pad between measurements.
+    // Remove pull-down so it doesn't parasitically discharge
+    // the pad between measurements.
     pin.set_pull(Pull::None);
 
     #[allow(clippy::cast_possible_truncation)]
@@ -186,98 +256,11 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
         }
     }
 
-    // Remove pull-down after measurement so it doesn't parasitically
-    // discharge the pad between measurements.
     pin.set_pull(Pull::None);
 
     #[allow(clippy::cast_possible_truncation)]
     {
         elapsed_us as u32
-    }
-}
-
-impl TouchPads {
-    /// Create an empty touch pad set. Call `configure()` to set up pins.
-    pub fn new() -> Self {
-        Self {
-            pads: [const {
-                TouchPad {
-                    baseline: 0,
-                    threshold: 0,
-                    was_touched: false,
-                }
-            }; MAX_DIGITAL_INPUTS],
-            pins: [const { None }; MAX_DIGITAL_INPUTS],
-            count: 0,
-        }
-    }
-
-    /// Reinitialize touch pad pins from config. Drops old pins and recalibrates.
-    ///
-    /// # Safety
-    /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
-    pub unsafe fn configure(&mut self, gpio_pins: &[u8], threshold_pcts: &[u8]) {
-        // Drop all existing pins
-        for pin in self.pins.iter_mut() {
-            *pin = None;
-        }
-        self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
-
-        for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
-            let any = embassy_rp::gpio::AnyPin::steal(gpio);
-            let mut flex = Flex::new(any);
-
-            flex.set_schmitt(true);
-            flex.set_drive_strength(Drive::_4mA);
-
-            // Calibrate baseline
-            let mut sum: u32 = 0;
-            for _ in 0..8 {
-                sum += measure_touch_sync(&mut flex);
-            }
-            let baseline = sum / 8;
-            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
-            let margin = (baseline * pct / 100).max(2);
-
-            self.pads[i] = TouchPad {
-                baseline,
-                threshold: baseline + margin,
-                was_touched: false,
-            };
-            self.pins[i] = Some(flex);
-        }
-    }
-
-    /// Recalculate touch thresholds from the stored baselines when
-    /// the threshold percentages change in the configurator.
-    pub fn update_thresholds(&mut self, threshold_pcts: &[u8]) {
-        for (i, pad) in self.pads.iter_mut().take(self.count).enumerate() {
-            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
-            let margin = (pad.baseline * pct / 100).max(2);
-            pad.threshold = pad.baseline + margin;
-        }
-    }
-
-    /// Poll all touch pads. Returns up to count state-change events.
-    pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {
-        let mut events: [Option<TouchEvent>; MAX_DIGITAL_INPUTS] =
-            [const { None }; MAX_DIGITAL_INPUTS];
-        for (i, event) in events.iter_mut().enumerate().take(self.count) {
-            if let Some(pin) = &mut self.pins[i] {
-                let reading = measure_touch_async(pin).await;
-                let touched = reading > self.pads[i].threshold;
-
-                if touched != self.pads[i].was_touched {
-                    self.pads[i].was_touched = touched;
-                    *event = Some(TouchEvent {
-                        #[allow(clippy::cast_possible_truncation)]
-                        index: i as u8,
-                        pressed: touched,
-                    });
-                }
-            }
-        }
-        events
     }
 }
 
@@ -292,6 +275,12 @@ const REG_TIME_LIMIT: u8 = 0x3B;
 const REG_TIME_LATENCY: u8 = 0x3C;
 const REG_OUT_X_L: u8 = 0x28;
 
+pub struct AccelReading {
+    pub x_cc: Option<u8>,
+    pub y_cc: Option<u8>,
+    pub tapped: bool,
+}
+
 pub struct Accelerometer<'d> {
     i2c: I2c<'d, I2C1, i2c::Async>,
     x_smoothed: f32,
@@ -303,12 +292,6 @@ pub struct Accelerometer<'d> {
     last_poll: Instant,
     error_count: u8,
     pub available: bool,
-}
-
-pub struct AccelReading {
-    pub x_cc: Option<u8>,
-    pub y_cc: Option<u8>,
-    pub tapped: bool,
 }
 
 impl<'d> Accelerometer<'d> {
@@ -335,44 +318,9 @@ impl<'d> Accelerometer<'d> {
         }
     }
 
-    /// Update dead-zone and smoothing from config values without
-    /// reinitialising the hardware.  Called each poll iteration so
-    /// configurator changes take effect immediately.
     pub fn update_params(&mut self, dead_zone_tenths: u8, smoothing_pct: u8) {
         self.dead_zone = f32::from(dead_zone_tenths) / 10.0;
         self.smoothing = f32::from(smoothing_pct) / 100.0;
-    }
-
-    async fn init(i2c: &mut I2c<'_, I2C1, i2c::Async>) -> Result<(), i2c::Error> {
-        // 100Hz ODR, all axes enabled
-        i2c.write_async(LIS3DH_ADDR, [REG_CTRL1, 0x57]).await?;
-        // Route click interrupt to INT1 so the click detection logic
-        // latches events in CLICK_SRC.
-        i2c.write_async(LIS3DH_ADDR, [REG_CTRL3, 0x80]).await?;
-        // ±8g full scale, BDU enabled, high-resolution output
-        i2c.write_async(LIS3DH_ADDR, [REG_CTRL4, 0xA8]).await?;
-        // Single-click on Z-axis
-        i2c.write_async(LIS3DH_ADDR, [REG_CLICK_CFG, 0x10]).await?;
-        // Click threshold ~1.5g (8g/128 * 24 ≈ 1.5g)
-        i2c.write_async(LIS3DH_ADDR, [REG_CLICK_THS, 24]).await?;
-        i2c.write_async(LIS3DH_ADDR, [REG_TIME_LIMIT, 10]).await?;
-        // Keep the click interrupt latched long enough for the 20ms
-        // polling loop to catch it (20 × 10ms = 200ms @ 100Hz ODR).
-        i2c.write_async(LIS3DH_ADDR, [REG_TIME_LATENCY, 20]).await?;
-        Ok(())
-    }
-
-    fn axis_to_cc(&self, value: f32) -> u8 {
-        let v = if value.abs() < self.dead_zone {
-            0.0
-        } else {
-            value
-        };
-        let normalized = (v / 9.81).clamp(-1.0, 1.0);
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Result is 0..=127
-        {
-            ((normalized + 1.0) * 63.5) as u8
-        }
     }
 
     pub async fn poll(&mut self) -> AccelReading {
@@ -410,7 +358,6 @@ impl<'d> Accelerometer<'d> {
         let x_raw = f32::from(i16::from_le_bytes([buf[0], buf[1]]));
         let y_raw = f32::from(i16::from_le_bytes([buf[2], buf[3]]));
 
-        // 8g range: scale = 8g * 9.81 / 32768
         let scale = 8.0 * 9.81 / 32768.0;
         let x_ms2 = x_raw * scale;
         let y_ms2 = y_raw * scale;
@@ -460,6 +407,37 @@ impl<'d> Accelerometer<'d> {
 
     pub const fn current_y_cc(&self) -> u8 {
         self.last_y_cc
+    }
+
+    async fn init(i2c: &mut I2c<'_, I2C1, i2c::Async>) -> Result<(), i2c::Error> {
+        // 100Hz ODR, all axes enabled
+        i2c.write_async(LIS3DH_ADDR, [REG_CTRL1, 0x57]).await?;
+        // Route click interrupt to INT1
+        i2c.write_async(LIS3DH_ADDR, [REG_CTRL3, 0x80]).await?;
+        // +/-8g full scale, BDU enabled, high-resolution output
+        i2c.write_async(LIS3DH_ADDR, [REG_CTRL4, 0xA8]).await?;
+        // Single-click on Z-axis
+        i2c.write_async(LIS3DH_ADDR, [REG_CLICK_CFG, 0x10]).await?;
+        // Click threshold ~1.5g (8g/128 * 24)
+        i2c.write_async(LIS3DH_ADDR, [REG_CLICK_THS, 24]).await?;
+        i2c.write_async(LIS3DH_ADDR, [REG_TIME_LIMIT, 10]).await?;
+        // Latch click interrupt long enough for the 20ms polling loop
+        // to catch it (20 * 10ms = 200ms @ 100Hz ODR).
+        i2c.write_async(LIS3DH_ADDR, [REG_TIME_LATENCY, 20]).await?;
+        Ok(())
+    }
+
+    fn axis_to_cc(&self, value: f32) -> u8 {
+        let v = if value.abs() < self.dead_zone {
+            0.0
+        } else {
+            value
+        };
+        let normalized = (v / 9.81).clamp(-1.0, 1.0);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        {
+            ((normalized + 1.0) * 63.5) as u8
+        }
     }
 }
 

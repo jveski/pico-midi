@@ -37,11 +37,9 @@ bind_interrupts!(struct Irqs {
 });
 
 #[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    let _ = spawner; // unused but required by embassy macro signature
+async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(embassy_rp::config::Config::default());
 
-    // ---- Load config from flash ----
     let mut flash =
         flash::Flash::<_, flash::Blocking, { config::FLASH_SIZE }>::new_blocking(p.FLASH);
     let cfg = config::load_config(&mut flash).unwrap_or_else(|| {
@@ -50,7 +48,6 @@ async fn main(spawner: Spawner) {
     });
     defmt::info!("config loaded: ch={}", cfg.midi_channel);
 
-    // ---- USB composite device setup ----
     let driver = Driver::new(p.USB, Irqs);
 
     let mut usb_config = UsbConfig::new(0x1209, 0x0001);
@@ -83,8 +80,6 @@ async fn main(spawner: Spawner) {
     static INPUT_STATE: InputState = InputState::new();
     let usb_fut = usb.run();
 
-    // Shared config accessible by both the MIDI and serial futures.
-    // Embassy uses a single-threaded executor so RefCell is safe.
     let cfg = RefCell::new(cfg);
 
     let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());

@@ -45,9 +45,8 @@ const OP_IF_GT      = 0x20;
 
 // Scale intervals for each mode (ordered brightest to darkest).
 // Each sub-array has 7 semitone offsets from the root.
-// Reference only — the actual interval lookup happens on the microcontroller
-// (see SCALE_INTERVALS in firmware/src/expr.rs). Kept here to document the
-// mode numbering and to make it easy to verify JS/Rust parity.
+// The actual interval lookup happens on the microcontroller
+// (see SCALE_INTERVALS in firmware/src/expr.rs).
 const SCALE_MODES = [
   [0, 2, 4, 6, 7, 9, 11], // 0 = Lydian (default)
   [0, 2, 4, 5, 7, 9, 11], // 1 = Ionian (Major)
@@ -58,7 +57,7 @@ const SCALE_MODES = [
   [0, 1, 3, 5, 6, 8, 10], // 6 = Locrian
 ];
 
-// Named mode aliases accepted by the parser (case-insensitive lookup done by caller).
+// Named mode aliases (case-insensitive lookup done by caller).
 const MODE_NAMES = {
   lydian: 0, ionian: 1, major: 1, mixolydian: 2, dorian: 3,
   aeolian: 4, minor: 4, phrygian: 5, locrian: 6,
@@ -247,7 +246,6 @@ class Compiler {
 
 /**
  * Compile an expression string to bytecode.
- * Returns { code: Uint8Array, error: null } or { code: null, error: string }.
  */
 export function compileExpr(src) {
   if (!src || !src.trim()) return { code: new Uint8Array(0), error: null };
@@ -259,9 +257,6 @@ export function compileExpr(src) {
   }
 }
 
-/**
- * Disassemble bytecode back to a human-readable string (for debugging).
- */
 export function disassemble(code) {
   const parts = [];
   let i = 0;
