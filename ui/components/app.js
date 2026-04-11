@@ -143,6 +143,7 @@ function renderConfigObj(cfg) {
   panel.potList.render(cfg.pots, pins.analog);
   panel.ldrSection.render(cfg, pins.analog);
   panel.accelSection.render(cfg);
+  if (panel.pinoutGuide) panel.pinoutGuide.update(cfg);
 }
 
 async function connect() {
@@ -512,6 +513,7 @@ async function applyConfig() {
     const cfg = readConfigFromUI();
     if (!cfg) return false;
     saveExprSources();
+    if (configPanel.pinoutGuide) configPanel.pinoutGuide.update(cfg);
     const resp = await sendRequest(REQ_PUT_CONFIG, cfg);
     if (resp.type === "ok") return true;
     throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);

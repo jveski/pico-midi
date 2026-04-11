@@ -56,8 +56,6 @@ a.btn { text-decoration: none; }
 .item-row input:focus { border-color: var(--fg); }
 .item-row label { font-size: 11px; color: var(--dim); min-width: 28px; }
 .pin-label { font-size: 11px; color: var(--dim); min-width: 32px; flex-shrink: 0; }
-.pin-label.clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
-.pin-label.clickable:hover { color: var(--green); }
 .pin-select { padding: 3px 6px; font-family: var(--mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); outline: none; min-width: 56px; cursor: pointer; }
 .pin-select:focus { border-color: var(--fg); }
 .pin-select option:disabled { color: #555; }
@@ -204,12 +202,8 @@ config-panel.disabled .monitor-tap { opacity: 0.35; }
 .save-banner.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
 .save-banner-text { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
 
-/* Pinout modal */
-.pinout-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; }
-.pinout-backdrop.visible { display: flex; }
-.pinout-dialog { background: #111; border: 1px solid var(--border); max-width: 520px; width: 95vw; max-height: 90vh; overflow-y: auto; }
-.pinout-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
-.pinout-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-.pinout-close { background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; font-family: var(--mono); }
-.pinout-close:hover { color: var(--fg); }
-.pinout-body { padding: 16px; display: flex; justify-content: center; }
+/* Pinout guide (inline in wiring section) */
+.pinout-guide-body { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+.pinout-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; justify-content: center; }
+.pinout-legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dim); }
+.pinout-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }

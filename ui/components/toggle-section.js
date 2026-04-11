@@ -1,4 +1,4 @@
-import { num, clamp, noteName, wirePinClicks, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
+import { num, clamp, noteName, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
 
 // ── Shared monitor-bar helper ──
 
@@ -84,9 +84,6 @@ export class AccelSection extends HTMLElement {
     this.querySelector("#accelTapNote").addEventListener("input", () => this._updateHints());
     this.querySelector("#accelDeadZone").addEventListener("input", () => this._updateHints());
     this.querySelector("#accelSmoothing").addEventListener("input", () => this._updateHints());
-
-    // Pin label click → open pinout modal
-    wirePinClicks(this);
   }
 
   render(config) {

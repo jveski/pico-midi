@@ -32,17 +32,6 @@ export function pinLabel(n) {
   return n != null ? "GP" + n : "";
 }
 
-/** Wire up pin-label clicks within a container to open the pinout modal. */
-export function wirePinClicks(container) {
-  container.querySelectorAll(".pin-label.clickable").forEach(span => {
-    span.addEventListener("click", () => {
-      const gpio = parseInt(span.dataset.gpio, 10);
-      const modal = document.querySelector("pinout-modal");
-      if (modal && !isNaN(gpio)) modal.show(gpio);
-    });
-  });
-}
-
 /**
  * If `src` is a plain integer string, return the MIDI note name for it.
  * Otherwise return "".

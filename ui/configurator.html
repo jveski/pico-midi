@@ -74,8 +74,8 @@
             <span class="slider"></span>
           </label>
           <label>Enabled</label>
-          <span class="pin-label clickable" data-gpio="3">SCL GP3</span>
-          <span class="pin-label clickable" data-gpio="2">SDA GP2</span>
+          <span class="pin-label">SCL GP3</span>
+          <span class="pin-label">SDA GP2</span>
         </div>
         <div id="accelFields">
           <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
@@ -111,10 +111,12 @@
 
     <!-- Wiring Guide -->
     <collapsible-card data-title="Wiring Guide" data-collapsed>
+      <pinout-guide>
+        <div class="pinout-guide-body"></div>
+      </pinout-guide>
       <div class="wiring-ref">
         <p>How to connect components to the Raspberry Pi Pico GPIO pins.
-          All digital inputs use internal pull-ups &mdash; no external resistors needed.
-          Click any <span class="pin-label" style="display:inline">GP</span> label in the configurator to see its position on the board.</p>
+          All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
 
         <h3>Buttons</h3>
         <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
@@ -267,18 +269,6 @@
 
 <toast-notification id="toast" class="toast"></toast-notification>
 
-<pinout-modal>
-  <div class="pinout-backdrop">
-    <div class="pinout-dialog">
-      <div class="pinout-header">
-        <span class="pinout-title">Pinout</span>
-        <button class="pinout-close">&times;</button>
-      </div>
-      <div class="pinout-body"></div>
-    </div>
-  </div>
-</pinout-modal>
-
 <!-- Templates for dynamically rendered rows -->
 <template id="tpl-pot-row">
   <div class="item-row">
@@ -351,7 +341,7 @@ import "./components/midi-channel.js";
 import "./components/item-list.js";
 import "./components/toggle-section.js";
 import "./components/config-panel.js";
-import "./components/pinout-modal.js";
+import "./components/pinout-guide.js";
 import "./components/save-banner.js";
 import { init } from "./components/app.js";
 

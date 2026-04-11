@@ -30,6 +30,7 @@ export class ConfigPanel extends HTMLElement {
   get btnExport() { return this.querySelector("#btnExport"); }
   get btnImport() { return this.querySelector("#btnImport"); }
   get btnReset() { return this.querySelector("#btnReset"); }
+  get pinoutGuide() { return this.querySelector("pinout-guide"); }
 
   set projectBusy(v) {
     this.btnExport.disabled = v;
@@ -40,7 +41,7 @@ export class ConfigPanel extends HTMLElement {
   set disabled(v) {
     const on = !!v;
     this.classList.toggle("disabled", on);
-    // Disable interactive controls but keep pin labels clickable for pinout modal
+    // Disable interactive controls when no device is connected
     this.querySelectorAll("input, select, button.btn, .toggle").forEach(el => {
       el.inert = on;
     });
