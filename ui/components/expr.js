@@ -65,7 +65,7 @@ const MODE_NAMES = {
 
 const VARS = {
   pot0: [OP_LOAD_POT, 0], pot1: [OP_LOAD_POT, 1],
-  pot2: [OP_LOAD_POT, 2], pot3: [OP_LOAD_POT, 3],
+  pot2: [OP_LOAD_POT, 2],
   ldr: [OP_LOAD_LDR], accel_x: [OP_LOAD_AX], accel_y: [OP_LOAD_AY],
 };
 
@@ -105,14 +105,14 @@ class Compiler {
   expr() { return this.ternary(); }
 
   ternary() {
-    this.compare();
+    const hadCompare = this.compare();
     this.skip();
     if (this.src[this.pos] === "?") {
       // We already emitted: test_val, threshold (from compare's >)
       // But if there was no >, this is just a truthy check: val > 0 ? ...
       // The compare() already handled the > case and emitted both operands.
       // If no > was found, we need to emit: push 0 (threshold) so IF_GT does val > 0
-      if (!this._hadCompare) {
+      if (!hadCompare) {
         this.emit(OP_PUSH, 0);
       }
       this.pos++; // skip '?'
@@ -120,18 +120,22 @@ class Compiler {
       this.eat(":");
       this.expr(); // else-value
       this.emit(OP_IF_GT);
+    } else if (hadCompare) {
+      // Bare comparison without ternary, e.g. (a > b)
+      // Emit an implicit "? 1 : 0" so the result is 1 if true, 0 if false.
+      this.emit(OP_PUSH, 1, OP_PUSH, 0, OP_IF_GT);
     }
   }
 
   compare() {
-    this._hadCompare = false;
     this.additive();
     this.skip();
     if (this.src[this.pos] === ">") {
       this.pos++;
-      this._hadCompare = true;
       this.additive();
+      return true;
     }
+    return false;
   }
 
   additive() {
