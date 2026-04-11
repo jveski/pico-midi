@@ -66,11 +66,12 @@ a.btn { text-decoration: none; }
 .btn-remove:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
 .add-item-btn { margin-top: 10px; }
 
-.expr-input { padding: 4px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); width: 240px; outline: none; }
+.expr-group { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; min-width: 0; }
+.expr-input { padding: 6px 10px; font-family: var(--mono); font-size: 13px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); flex: 1 1 0; min-width: 120px; outline: none; }
 .expr-input:focus { border-color: var(--fg); }
 .expr-input.expr-invalid { border-color: var(--red); }
 .expr-input::placeholder { color: #444; }
-.expr-error { font-size: 10px; color: var(--red); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expr-error { font-size: 10px; color: var(--red); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
 .item-row { flex-wrap: wrap; }
 
 .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }

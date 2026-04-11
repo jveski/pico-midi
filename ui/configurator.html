@@ -296,13 +296,17 @@
     <span class="index"></span>
     <select class="pin-select" data-field="pin"></select>
     <div class="monitor-indicator"></div>
-    <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
-    <span class="note-hint"></span>
-    <span class="expr-error" data-field="note_expr_err"></span>
-    <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
-    <span class="expr-error" data-field="velocity_expr_err"></span>
     <label>Thr%</label><input type="number" min="1" max="255" value="33" data-field="threshold_pct">
     <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
+    <div class="expr-group" data-expr="note">
+      <label>Note</label><input type="text" class="expr-input" placeholder="e.g. scale(60, pot0, minor)" data-field="note_expr_src">
+      <span class="note-hint"></span>
+      <span class="expr-error" data-field="note_expr_err"></span>
+    </div>
+    <div class="expr-group" data-expr="vel">
+      <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. clamp(pot1, 40, 120)" data-field="velocity_expr_src">
+      <span class="expr-error" data-field="velocity_expr_err"></span>
+    </div>
   </div>
 </template>
 
@@ -311,12 +315,16 @@
     <span class="index"></span>
     <select class="pin-select" data-field="pin"></select>
     <div class="monitor-indicator"></div>
-    <label>Note</label><input type="text" class="expr-input" placeholder="e.g. pot0 + 24" data-field="note_expr_src">
-    <span class="note-hint"></span>
-    <span class="expr-error" data-field="note_expr_err"></span>
-    <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. pot1" data-field="velocity_expr_src">
-    <span class="expr-error" data-field="velocity_expr_err"></span>
     <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
+    <div class="expr-group" data-expr="note">
+      <label>Note</label><input type="text" class="expr-input" placeholder="e.g. scale(60, pot0, minor)" data-field="note_expr_src">
+      <span class="note-hint"></span>
+      <span class="expr-error" data-field="note_expr_err"></span>
+    </div>
+    <div class="expr-group" data-expr="vel">
+      <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. clamp(pot1, 40, 120)" data-field="velocity_expr_src">
+      <span class="expr-error" data-field="velocity_expr_err"></span>
+    </div>
   </div>
 </template>
 
