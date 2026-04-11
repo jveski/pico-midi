@@ -54,6 +54,16 @@ impl Expr {
     }
 }
 
+/// Common interface for input definitions that produce MIDI notes
+/// (buttons and touch pads).  Used by the polling loop to avoid
+/// duplicating event-handling and retrigger-debounce logic.
+pub trait NoteInput {
+    fn note(&self) -> u8;
+    fn velocity(&self) -> u8;
+    fn note_expr(&self) -> &Expr;
+    fn velocity_expr(&self) -> &Expr;
+}
+
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
 pub struct ButtonDef {
     pub pin: u8,
@@ -61,6 +71,21 @@ pub struct ButtonDef {
     pub velocity: u8,
     pub note_expr: Expr,
     pub velocity_expr: Expr,
+}
+
+impl NoteInput for ButtonDef {
+    fn note(&self) -> u8 {
+        self.note
+    }
+    fn velocity(&self) -> u8 {
+        self.velocity
+    }
+    fn note_expr(&self) -> &Expr {
+        &self.note_expr
+    }
+    fn velocity_expr(&self) -> &Expr {
+        &self.velocity_expr
+    }
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
@@ -72,6 +97,21 @@ pub struct TouchPadDef {
     pub threshold_pct: u8,
     pub note_expr: Expr,
     pub velocity_expr: Expr,
+}
+
+impl NoteInput for TouchPadDef {
+    fn note(&self) -> u8 {
+        self.note
+    }
+    fn velocity(&self) -> u8 {
+        self.velocity
+    }
+    fn note_expr(&self) -> &Expr {
+        &self.note_expr
+    }
+    fn velocity_expr(&self) -> &Expr {
+        &self.velocity_expr
+    }
 }
 
 #[derive(Clone, Copy, Format, Serialize, Deserialize)]
