@@ -147,11 +147,6 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_high();
     cortex_m::asm::delay(1000);
 
-    // Configure pull-down while still driving high so the output driver
-    // holds the pin; then start the timer and release to input in quick
-    // succession. This ensures we capture the full discharge time on
-    // faster chips (RP2350) where the stronger pull-downs can discharge
-    // the pad before a post-switch Instant::now() call completes.
     pin.set_pull(Pull::Down);
     let start = Instant::now();
     pin.set_as_input();
@@ -179,11 +174,6 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     pin.set_high();
     Timer::after_micros(10).await;
 
-    // Configure pull-down while still driving high so the output driver
-    // holds the pin; then start the timer and release to input in quick
-    // succession. This ensures we capture the full discharge time on
-    // faster chips (RP2350) where the stronger pull-downs can discharge
-    // the pad before a post-switch Instant::now() call completes.
     pin.set_pull(Pull::Down);
     let start = Instant::now();
     pin.set_as_input();
@@ -237,20 +227,6 @@ impl TouchPads {
             let any = embassy_rp::gpio::AnyPin::steal(gpio);
             let mut flex = Flex::new(any);
 
-            // embassy-rp's Flex::new() uses a register `write` (not `modify`) on the
-            // pad control register, starting from zero.  This silently disables the
-            // Schmitt trigger and reduces drive strength to 2 mA — both of which
-            // differ from the hardware reset defaults (Schmitt enabled, 4 mA).
-            //
-            // On RP2040 the weaker ~50 kΩ pull-down produces a slow enough discharge
-            // that the input buffer reads cleanly even without hysteresis.  On RP2350
-            // the much stronger ~28 kΩ pull-down causes sub-microsecond discharges
-            // where the voltage blasts through the input threshold zone; without
-            // Schmitt hysteresis the input oscillates at the crossing, producing noisy
-            // timing measurements that appear as inverted / phantom touches.
-            //
-            // Re-enable the Schmitt trigger and restore 4 mA drive on every touch pin
-            // so both platforms get clean, reliable readings.
             flex.set_schmitt(true);
             flex.set_drive_strength(Drive::_4mA);
 

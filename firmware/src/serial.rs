@@ -16,17 +16,11 @@ use crate::input_state::InputState;
 #[derive(Deserialize)]
 #[allow(clippy::large_enum_variant)] // no_std: can't Box
 pub enum Request {
-    /// Echo request.
     Ping,
-    /// Query firmware version.
     Version,
-    /// Read the current in-memory config.
     GetConfig,
-    /// Replace the in-memory config.
     PutConfig(Config),
-    /// Write the current config to flash.
     Save,
-    /// Restore default config (in RAM).
     Reset,
 }
 
@@ -34,17 +28,11 @@ pub enum Request {
 #[derive(Serialize)]
 #[allow(clippy::large_enum_variant)] // no_std: can't Box
 pub enum Response<'a> {
-    /// Echo reply.
     Pong,
-    /// Firmware version string.
     Version(&'a str),
-    /// Current config.
     Config(Config),
-    /// Command succeeded.
     Ok,
-    /// Command failed with a reason.
     Error(&'a str),
-    /// Live input monitor snapshot.
     Monitor(MonitorSnapshot),
 }
 
