@@ -364,7 +364,70 @@ pub async fn run(
             collect_field(cur.active_touch_pads(), 33, |t| t.threshold_pct);
         touch.update_thresholds(&thrs[..cur.num_touch_pads as usize]);
 
-        // Build expression inputs from current state
+        // Poll analog/sensor inputs and update shared state BEFORE
+        // building the expression snapshot.  This ensures that note/velocity
+        // expressions evaluated on button or touch-pad events in this
+        // iteration see the freshest sensor readings instead of values
+        // from the previous cycle (which would be zero on the first
+        // iteration, causing expressions like `pot1` to always resolve
+        // to 0 at the moment of a button press).
+
+        // Poll pots
+        let num_pots = cur.num_pots as usize;
+        for (i, pot_slot) in pots.iter_mut().take(num_pots).enumerate() {
+            if let Some(pot) = pot_slot {
+                if let Some(v) = pot.poll(adc_inst, 2).await {
+                    let pkt = control_change(cur.midi_channel, cur.pots[i].cc, v);
+                    send_midi(midi_class, &pkt).await;
+                }
+                #[allow(clippy::cast_possible_truncation)] // index fits in u8
+                input_state.set_pot(i as u8, pot.current_cc());
+            }
+        }
+
+        // Poll LDR
+        if cur.ldr_enabled {
+            if let Some(ldr_input) = &mut ldr {
+                if let Some(v) = ldr_input.poll(adc_inst, 2).await {
+                    let pkt = control_change(cur.midi_channel, cur.ldr.cc, v);
+                    send_midi(midi_class, &pkt).await;
+                }
+                input_state.set_ldr(ldr_input.current_cc());
+            }
+        }
+
+        // Poll accelerometer
+        if cur.accel.enabled && accel.available {
+            let r = accel.poll().await;
+            if let Some(x) = r.x_cc {
+                send_midi(
+                    midi_class,
+                    &control_change(cur.midi_channel, cur.accel.x_cc, x),
+                )
+                .await;
+            }
+            if let Some(y) = r.y_cc {
+                send_midi(
+                    midi_class,
+                    &control_change(cur.midi_channel, cur.accel.y_cc, y),
+                )
+                .await;
+            }
+            if r.tapped {
+                send_midi(
+                    midi_class,
+                    &note_on(cur.midi_channel, cur.accel.tap_note, cur.accel.tap_velocity),
+                )
+                .await;
+                send_midi(midi_class, &note_off(cur.midi_channel, cur.accel.tap_note)).await;
+                input_state.set_accel_tap();
+            }
+            input_state.set_accel_x(accel.current_x_cc());
+            input_state.set_accel_y(accel.current_y_cc());
+        }
+
+        // Build expression inputs from current state (now reflects
+        // the sensor readings taken above in this same iteration).
         let expr_inputs = ExprInputs {
             pots: input_state.pots_snapshot(),
             ldr: input_state.ldr_value(),
@@ -432,60 +495,6 @@ pub async fn run(
             midi_class,
         )
         .await;
-
-        // Poll pots
-        let num_pots = cur.num_pots as usize;
-        for (i, pot_slot) in pots.iter_mut().take(num_pots).enumerate() {
-            if let Some(pot) = pot_slot {
-                if let Some(v) = pot.poll(adc_inst, 2).await {
-                    let pkt = control_change(cur.midi_channel, cur.pots[i].cc, v);
-                    send_midi(midi_class, &pkt).await;
-                }
-                #[allow(clippy::cast_possible_truncation)] // index fits in u8
-                input_state.set_pot(i as u8, pot.current_cc());
-            }
-        }
-
-        // Poll LDR
-        if cur.ldr_enabled {
-            if let Some(ldr_input) = &mut ldr {
-                if let Some(v) = ldr_input.poll(adc_inst, 2).await {
-                    let pkt = control_change(cur.midi_channel, cur.ldr.cc, v);
-                    send_midi(midi_class, &pkt).await;
-                }
-                input_state.set_ldr(ldr_input.current_cc());
-            }
-        }
-
-        // Poll accelerometer
-        if cur.accel.enabled && accel.available {
-            let r = accel.poll().await;
-            if let Some(x) = r.x_cc {
-                send_midi(
-                    midi_class,
-                    &control_change(cur.midi_channel, cur.accel.x_cc, x),
-                )
-                .await;
-            }
-            if let Some(y) = r.y_cc {
-                send_midi(
-                    midi_class,
-                    &control_change(cur.midi_channel, cur.accel.y_cc, y),
-                )
-                .await;
-            }
-            if r.tapped {
-                send_midi(
-                    midi_class,
-                    &note_on(cur.midi_channel, cur.accel.tap_note, cur.accel.tap_velocity),
-                )
-                .await;
-                send_midi(midi_class, &note_off(cur.midi_channel, cur.accel.tap_note)).await;
-                input_state.set_accel_tap();
-            }
-            input_state.set_accel_x(accel.current_x_cc());
-            input_state.set_accel_y(accel.current_y_cc());
-        }
 
         // Blink status LED every 1s
         if Instant::now().duration_since(last_led_toggle).as_millis() >= 1000 {
