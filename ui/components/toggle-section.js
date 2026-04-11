@@ -1,4 +1,4 @@
-import { num, clamp, noteName, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
+import { BaseElement, num, clamp, noteName, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
 
 // ── Shared monitor-bar helper ──
 
@@ -15,11 +15,8 @@ function buildMonitorBars(container, bars) {
   }
 }
 
-export class LdrSection extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
-
+export class LdrSection extends BaseElement {
+  init() {
     this.querySelector("#ldrEnabled").addEventListener("change", () => {
       this._updateVisibility();
       this._buildMonitor();
@@ -69,13 +66,25 @@ export class LdrSection extends HTMLElement {
       { label: "Value", barId: "monLdrBar", valId: "monLdrVal" },
     ]);
   }
+
+  /**
+   * Refresh the disabled state of the LDR pin <select> options without
+   * rebuilding the DOM.
+   * @param {Set<number>} usedAnalog - Analog pins currently in use across the config.
+   */
+  refreshPinOptions(usedAnalog) {
+    const pinSelect = this.querySelector("#ldrPin");
+    if (!pinSelect) return;
+    const currentPin = num(pinSelect.value, 28);
+    for (const opt of pinSelect.options) {
+      const p = num(opt.value, -1);
+      opt.disabled = usedAnalog.has(p) && p !== currentPin;
+    }
+  }
 }
 
-export class AccelSection extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
-
+export class AccelSection extends BaseElement {
+  init() {
     this.querySelector("#accelEnabled").addEventListener("change", () => {
       this._updateVisibility();
       this._buildMonitor();

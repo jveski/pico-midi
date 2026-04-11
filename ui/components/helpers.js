@@ -1,6 +1,41 @@
 // Shared helper functions
 import { DIGITAL_PINS, ANALOG_PINS } from "./protocol.js";
 
+// ── Base Element ──
+
+/**
+ * Base class for Web Components with an idempotent init guard.
+ * Subclasses override `init()` instead of `connectedCallback()`.
+ */
+export class BaseElement extends HTMLElement {
+  connectedCallback() {
+    if (this._init) return;
+    this._init = true;
+    this.init();
+  }
+
+  /** Override in subclasses for one-time setup. */
+  init() {}
+
+  /** Dispatch a bubbling CustomEvent. */
+  emit(name, detail) {
+    this.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
+  }
+}
+
+/**
+ * Define a boolean property backed by a CSS class on the element.
+ * Usage: classProperty(MyElement, "visible", "visible");
+ */
+export function classProperty(Ctor, propName, className) {
+  Object.defineProperty(Ctor.prototype, propName, {
+    set(v) { this.classList.toggle(className, !!v); },
+    get() { return this.classList.contains(className); },
+  });
+}
+
+// ── Utilities ──
+
 export const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
 export function noteName(n) {
@@ -21,6 +56,24 @@ export function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+/**
+ * Parse a string as a plain integer (surrounding whitespace is trimmed).
+ * Returns the number, or null if it's not a plain integer.
+ */
+export function parseStaticInt(src) {
+  const v = parseInt(src, 10);
+  return (String(v) === (src || "").trim()) ? v : null;
+}
+
+/**
+ * If `src` is a plain integer string, return the MIDI note name for it.
+ * Otherwise return "".
+ */
+export function noteHintText(src) {
+  const v = parseStaticInt(src);
+  return v != null ? noteName(v) : "";
+}
+
 // ── Hardware pin pools (mirrors firmware config.rs) ──
 
 /** GPIO pins for the accelerometer I2C1 bus (SCL, SDA) in firmware. */
@@ -30,15 +83,6 @@ export const ACCEL_SDA_PIN = 2;
 /** Format a GPIO pin number as a label, e.g. "GP2". */
 export function pinLabel(n) {
   return n != null ? "GP" + n : "";
-}
-
-/**
- * If `src` is a plain integer string, return the MIDI note name for it.
- * Otherwise return "".
- */
-export function noteHintText(src) {
-  const v = parseInt(src, 10);
-  return (String(v) === (src || "").trim()) ? noteName(v) : "";
 }
 
 /** Toggle a fields container's display based on a checkbox state. */
@@ -72,49 +116,32 @@ export function usedAnalogPins(cfg) {
 }
 
 /**
- * Build <option> elements for a digital pin selector.
+ * Build <option> elements for a pin selector.
+ * @param {number[]} pinList - Available pin numbers.
  * @param {number} currentPin - The pin currently assigned to this item.
  * @param {Set<number>} usedPins - Pins in use by other items (excludes currentPin).
  * @returns {string} HTML string of <option> elements.
  */
-export function digitalPinOptions(currentPin, usedPins) {
-  return DIGITAL_PINS.map(p => {
+function pinOptions(pinList, currentPin, usedPins = new Set()) {
+  return pinList.map(p => {
     const inUse = usedPins.has(p) && p !== currentPin;
     return `<option value="${p}" ${p === currentPin ? "selected" : ""} ${inUse ? "disabled" : ""}>GP${p}</option>`;
   }).join("");
 }
 
-/**
- * Build <option> elements for an analog pin selector.
- * @param {number} currentPin - The pin currently assigned to this item.
- * @param {Set<number>} usedPins - Pins in use by other items (excludes currentPin).
- * @returns {string} HTML string of <option> elements.
- */
-export function analogPinOptions(currentPin, usedPins) {
-  return ANALOG_PINS.map(p => {
-    const inUse = usedPins.has(p) && p !== currentPin;
-    return `<option value="${p}" ${p === currentPin ? "selected" : ""} ${inUse ? "disabled" : ""}>GP${p}</option>`;
-  }).join("");
-}
+export const digitalPinOptions = (currentPin, usedPins) => pinOptions(DIGITAL_PINS, currentPin, usedPins);
+export const analogPinOptions  = (currentPin, usedPins) => pinOptions(ANALOG_PINS, currentPin, usedPins);
 
 /**
- * Find the first available (unused) digital pin.
- * Returns the pin number, or DIGITAL_PINS[0] if all are taken.
+ * Find the first available (unused) pin from a pin list.
+ * Returns the pin number, or pinList[0] if all are taken.
  */
-export function nextAvailableDigitalPin(usedPins) {
-  for (const p of DIGITAL_PINS) {
+function nextAvailablePin(pinList, usedPins) {
+  for (const p of pinList) {
     if (!usedPins.has(p)) return p;
   }
-  return DIGITAL_PINS[0];
+  return pinList[0];
 }
 
-/**
- * Find the first available (unused) analog pin.
- * Returns the pin number, or ANALOG_PINS[0] if all are taken.
- */
-export function nextAvailableAnalogPin(usedPins) {
-  for (const p of ANALOG_PINS) {
-    if (!usedPins.has(p)) return p;
-  }
-  return ANALOG_PINS[0];
-}
+export const nextAvailableDigitalPin = (usedPins) => nextAvailablePin(DIGITAL_PINS, usedPins);
+export const nextAvailableAnalogPin  = (usedPins) => nextAvailablePin(ANALOG_PINS, usedPins);

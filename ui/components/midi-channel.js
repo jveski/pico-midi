@@ -1,7 +1,7 @@
-export class MidiChannel extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+import { BaseElement } from "./helpers.js";
+
+export class MidiChannel extends BaseElement {
+  init() {
     // HTML structure is defined in configurator.html.
 
     this.querySelector("#midiChannel").addEventListener("input", () => this._updateHint());

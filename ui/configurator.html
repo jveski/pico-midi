@@ -8,8 +8,8 @@
 </head>
 <body>
 
-<connect-banner class="connect-banner visible">
-  <span class="connect-banner-text">No device connected</span>
+<connect-banner class="floating-banner connect-banner visible">
+  <span class="floating-banner-text connect-banner-text">No device connected</span>
   <button class="btn btn-primary" id="btnConnect">Connect</button>
 </connect-banner>
 
@@ -74,8 +74,8 @@
             <span class="slider"></span>
           </label>
           <label>Enabled</label>
-          <span class="pin-label">SCL GP3</span>
-          <span class="pin-label">SDA GP2</span>
+          <span class="pin-label">Accel SCL GP3</span>
+          <span class="pin-label">Accel SDA GP2</span>
         </div>
         <div id="accelFields">
           <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
@@ -114,7 +114,7 @@
       <pinout-guide>
         <div class="pinout-guide-body"></div>
       </pinout-guide>
-      <div class="wiring-ref">
+      <div class="ref-section wiring-ref">
         <p>How to connect components to the Raspberry Pi Pico GPIO pins.
           All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
 
@@ -155,10 +155,11 @@
         <h3>Accelerometer</h3>
         <p>Uses an I2C accelerometer (LIS3DH) on fixed pins:
           <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
-          Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.</p>
+          Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
+          When the accelerometer is disabled, GP2 and GP3 are not used.</p>
         <div class="wiring-diagram">
-          <span>GP3 (SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
-          <span>GP2 (SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
+          <span>GP3 (Accel SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
+          <span>GP2 (Accel SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
           <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
           <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
         </div>
@@ -168,12 +169,12 @@
           <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
           <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
           <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
-          <tr><td>I2C (accelerometer)</td><td>GP2 (SDA), GP3 (SCL)</td><td>fixed</td></tr>
+          <tr><td>I2C (accelerometer)</td><td>GP2 (Accel SDA), GP3 (Accel SCL)</td><td>fixed</td></tr>
         </table>
 
         <h3>Tips</h3>
         <ul class="wiring-tips">
-          <li>GP2 and GP3 are reserved for the accelerometer &mdash; don't assign them to buttons or touch pads</li>
+          <li>GP2 (Accel SDA) and GP3 (Accel SCL) are reserved for the accelerometer when enabled &mdash; don't assign them to buttons or touch pads</li>
           <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
           <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
           <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
@@ -184,7 +185,7 @@
 
     <!-- Expression Reference -->
     <collapsible-card data-title="Expression Reference" data-collapsed>
-      <div class="expr-ref">
+      <div class="ref-section expr-ref">
         <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
           An expression can be a plain number, a sensor variable, or a formula combining both.</p>
 
@@ -262,8 +263,8 @@
   </config-panel>
 </div>
 
-<save-banner class="save-banner">
-  <span class="save-banner-text">Unsaved changes</span>
+<save-banner class="floating-banner save-banner">
+  <span class="floating-banner-text">Unsaved changes</span>
   <button class="btn btn-primary" id="btnSave">Save to Flash</button>
 </save-banner>
 
@@ -285,7 +286,7 @@
   <div class="item-row">
     <span class="index"></span>
     <select class="pin-select" data-field="pin"></select>
-    <div class="monitor-indicator"></div>
+    <div class="monitor-dot monitor-indicator"></div>
     <label>Thr%</label><input type="number" min="1" max="255" value="33" data-field="threshold_pct">
     <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
     <div class="expr-group" data-expr="note">
@@ -304,7 +305,7 @@
   <div class="item-row">
     <span class="index"></span>
     <select class="pin-select" data-field="pin"></select>
-    <div class="monitor-indicator"></div>
+    <div class="monitor-dot monitor-indicator"></div>
     <button class="btn btn-sm btn-remove" data-action="remove" title="Remove">&times;</button>
     <div class="expr-group" data-expr="note">
       <label>Note</label><input type="text" class="expr-input" placeholder="e.g. scale(60, pot0, minor)" data-field="note_expr_src">
@@ -329,7 +330,7 @@
 <template id="tpl-monitor-tap-row">
   <div class="monitor-row">
     <span class="monitor-label">Tap</span>
-    <div class="monitor-tap"></div>
+    <div class="monitor-dot monitor-tap"></div>
   </div>
 </template>
 

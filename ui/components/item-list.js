@@ -1,12 +1,9 @@
-import { num, noteHintText, digitalPinOptions, analogPinOptions } from "./helpers.js";
+import { BaseElement, num, noteHintText, digitalPinOptions, analogPinOptions } from "./helpers.js";
 import { DIGITAL_PINS, ANALOG_PINS, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS } from "./protocol.js";
 import { compileExpr } from "./expr.js";
 
-export class ItemList extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
-
+export class ItemList extends BaseElement {
+  init() {
     this._type = this.dataset.type;         // "button" | "touch" | "pot"
     this._listId = this.dataset.listId;     // e.g. "buttonList"
     this._countId = this.dataset.countId;   // e.g. "btnCount"
@@ -15,7 +12,7 @@ export class ItemList extends HTMLElement {
     const addBtn = this.querySelector('[data-action="add"]');
     if (addBtn) {
       addBtn.addEventListener("click", () => {
-        this.dispatchEvent(new CustomEvent("item-add", { bubbles: true, detail: { type: this._type } }));
+        this.emit("item-add", { type: this._type });
       });
     }
   }
@@ -61,7 +58,7 @@ export class ItemList extends HTMLElement {
         removeBtn.dataset.type = this._type;
         removeBtn.dataset.idx = i;
         removeBtn.addEventListener("click", () => {
-          this.dispatchEvent(new CustomEvent("item-remove", { bubbles: true, detail: { type: this._type, index: i } }));
+          this.emit("item-remove", { type: this._type, index: i });
         });
       }
 
@@ -128,7 +125,7 @@ export class ItemList extends HTMLElement {
         }
 
         if (!error) {
-          this.dispatchEvent(new CustomEvent("expr-change", { bubbles: true }));
+          this.emit("expr-change");
         }
       });
     });
@@ -136,7 +133,7 @@ export class ItemList extends HTMLElement {
     // Pin select change → notify parent
     container.querySelectorAll('.pin-select').forEach(sel => {
       sel.addEventListener("change", () => {
-        this.dispatchEvent(new CustomEvent("pin-change", { bubbles: true }));
+        this.emit("pin-change");
       });
     });
   }
@@ -187,6 +184,24 @@ export class ItemList extends HTMLElement {
     const isPot = this._type === "pot";
     const max = isPot ? MAX_ANALOG_INPUTS : MAX_DIGITAL_INPUTS;
     addBtn.style.display = count >= max ? "none" : "";
+  }
+
+  /**
+   * Refresh the disabled state of all pin <select> options without
+   * rebuilding the DOM (preserves focus and selection).
+   * @param {Set<number>} usedPins - All pins currently in use across the config.
+   */
+  refreshPinOptions(usedPins) {
+    const isDigital = this._type === "button" || this._type === "touch";
+    const validPins = isDigital ? DIGITAL_PINS : ANALOG_PINS;
+    this.querySelectorAll('.pin-select').forEach(sel => {
+      const currentPin = num(sel.value, 0);
+      for (const opt of sel.options) {
+        const p = num(opt.value, -1);
+        if (!validPins.includes(p)) continue;
+        opt.disabled = usedPins.has(p) && p !== currentPin;
+      }
+    });
   }
 }
 

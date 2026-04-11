@@ -5,7 +5,7 @@ import {
   RESP_MONITOR, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
   DIGITAL_PINS, ANALOG_PINS,
 } from "./protocol.js";
-import { sleep, num, clamp, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin } from "./helpers.js";
+import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin } from "./helpers.js";
 import { compileExpr } from "./expr.js";
 
 // ── State ──
@@ -43,7 +43,14 @@ export function init(refs) {
 
   configPanel.addEventListener("expr-change", () => { markDirty(); debouncedApplyConfig(); });
   configPanel.addEventListener("input", () => { markDirty(); debouncedApplyConfig(); });
-  configPanel.addEventListener("change", () => { markDirty(); debouncedApplyConfig(); });
+  configPanel.addEventListener("change", (e) => {
+    markDirty();
+    // If a pin dropdown changed, refresh all pin constraints immediately.
+    if (e.target && e.target.classList.contains("pin-select")) {
+      refreshAllPinOptions();
+    }
+    debouncedApplyConfig();
+  });
 
   // Add/remove item events
   configPanel.addEventListener("item-add", handleItemAdd);
@@ -110,22 +117,61 @@ function allUsedPins(cfg) {
   };
 }
 
+/**
+ * Recompute used-pin sets from the current DOM and refresh the disabled
+ * state on every pin <select> across all input lists and the LDR section.
+ * Called after any pin dropdown changes so that other dropdowns immediately
+ * reflect which pins are now available.
+ */
+function refreshAllPinOptions() {
+  // Build a temporary config snapshot from the DOM so we can compute used pins.
+  const panel = configPanel;
+  const buttons = panel.buttonList.readFromDOM();
+  const touch = panel.touchList.readFromDOM();
+  const pots = panel.potList.readFromDOM();
+  const ldr = panel.ldrSection.readFromDOM();
+
+  const digital = new Set();
+  for (const b of buttons) digital.add(b.pin);
+  for (const t of touch) digital.add(t.pin);
+
+  const analog = new Set();
+  for (const p of pots) analog.add(p.pin);
+  if (ldr.ldr_enabled) analog.add(ldr.ldr.pin);
+
+  panel.buttonList.refreshPinOptions(digital);
+  panel.touchList.refreshPinOptions(digital);
+  panel.potList.refreshPinOptions(analog);
+  panel.ldrSection.refreshPinOptions(analog);
+}
+
+/** Build a default button/touch input item with expression defaults. */
+function defaultInputItem(pin, note, extras = {}) {
+  const n = clamp(note, 0, 127);
+  return {
+    pin, note: n, velocity: 100,
+    note_expr: [], velocity_expr: [],
+    note_expr_src: String(n), velocity_expr_src: "100",
+    ...extras,
+  };
+}
+
 /** Build a default config object with firmware defaults for preview. */
 function defaultConfig() {
   return {
     midi_channel: 0,
     buttons: [
-      { pin: 0, note: 60, velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: "60", velocity_expr_src: "100" },
+      defaultInputItem(0, 60),
     ],
     touch_pads: [
-      { pin: 6, note: 48, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: "48", velocity_expr_src: "100" },
+      defaultInputItem(6, 48, { threshold_pct: 33 }),
     ],
     pots: [
       { pin: 26, cc: 7 },
     ],
-    ldr_enabled: true,
+    ldr_enabled: false,
     ldr: { pin: 28, cc: 74 },
-    accel: { enabled: true, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
+    accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
   };
 }
 
@@ -371,14 +417,12 @@ function handleItemAdd(e) {
     if (config.buttons.length >= MAX_DIGITAL_INPUTS) return;
     const used = usedDigitalPins(config);
     const pin = nextAvailableDigitalPin(used);
-    const note = 60 + config.buttons.length;
-    config.buttons.push({ pin, note: clamp(note, 0, 127), velocity: 100, note_expr: [], velocity_expr: [], note_expr_src: String(clamp(note, 0, 127)), velocity_expr_src: "100" });
+    config.buttons.push(defaultInputItem(pin, 60 + config.buttons.length));
   } else if (type === "touch") {
     if (config.touch_pads.length >= MAX_DIGITAL_INPUTS) return;
     const used = usedDigitalPins(config);
     const pin = nextAvailableDigitalPin(used);
-    const note = 48 + config.touch_pads.length;
-    config.touch_pads.push({ pin, note: clamp(note, 0, 127), velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [], note_expr_src: String(clamp(note, 0, 127)), velocity_expr_src: "100" });
+    config.touch_pads.push(defaultInputItem(pin, 48 + config.touch_pads.length, { threshold_pct: 33 }));
   } else if (type === "pot") {
     if (config.pots.length >= MAX_ANALOG_INPUTS) return;
     const used = usedAnalogPins(config);
@@ -414,30 +458,39 @@ function handleItemRemove(e) {
 
 // ── Config Operations ──
 
-async function refreshConfig() {
+/** Format a protocol response as an error message. */
+function responseError(resp) {
+  return resp.type === "error" ? resp.message : "Unexpected response: " + resp.type;
+}
+
+/** Run an async operation with the toolbar in busy state. */
+async function withBusy(fn) {
   setToolbarBusy(true);
-  try {
-    const resp = await sendRequest(REQ_GET_CONFIG);
-    if (resp.type === "config") {
-      config = resp.value;
-      // Initialize expr source strings (empty by default from device)
-      initExprSources(config.buttons);
-      initExprSources(config.touch_pads);
-      loadExprSources();
-      renderConfigObj(config);
-      clearDirty();
-      toast("Config loaded", "success");
-    } else if (resp.type === "error") {
-      throw new Error(resp.message);
-    } else {
-      throw new Error("Unexpected response: " + resp.type);
+  try { return await fn(); }
+  finally { setToolbarBusy(false); }
+}
+
+async function refreshConfig() {
+  await withBusy(async () => {
+    try {
+      const resp = await sendRequest(REQ_GET_CONFIG);
+      if (resp.type === "config") {
+        config = resp.value;
+        // Initialize expr source strings (empty by default from device)
+        initExprSources(config.buttons);
+        initExprSources(config.touch_pads);
+        loadExprSources();
+        renderConfigObj(config);
+        clearDirty();
+        toast("Config loaded", "success");
+      } else {
+        throw new Error(responseError(resp));
+      }
+    } catch (e) {
+      toast("Failed to load config", "error");
+      throw e;
     }
-  } catch (e) {
-    toast("Failed to load config", "error");
-    throw e;
-  } finally {
-    setToolbarBusy(false);
-  }
+  });
 }
 
 /**
@@ -446,8 +499,7 @@ async function refreshConfig() {
  * Otherwise return the provided default.
  */
 function staticFromExpr(src, fallback) {
-  const v = parseInt(src, 10);
-  return (String(v) === (src || "").trim()) ? v : fallback;
+  return parseStaticInt(src) ?? fallback;
 }
 
 /**
@@ -516,7 +568,7 @@ async function applyConfig() {
     if (configPanel.pinoutGuide) configPanel.pinoutGuide.update(cfg);
     const resp = await sendRequest(REQ_PUT_CONFIG, cfg);
     if (resp.type === "ok") return true;
-    throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
+    throw new Error(responseError(resp));
   } catch (e) {
     toast("Apply failed: " + e.message, "error");
     return false;
@@ -529,38 +581,36 @@ function debouncedApplyConfig() {
 }
 
 async function saveConfig() {
-  setToolbarBusy(true);
-  try {
-    if (!await applyConfig()) return;
-    const resp = await sendRequest(REQ_SAVE);
-    if (resp.type === "ok") {
-      clearDirty();
-      toast("Saved to flash", "success");
+  await withBusy(async () => {
+    try {
+      if (!await applyConfig()) return;
+      const resp = await sendRequest(REQ_SAVE);
+      if (resp.type === "ok") {
+        clearDirty();
+        toast("Saved to flash", "success");
+      }
+      else toast("Save failed: " + (resp.message || resp.type), "error");
+    } catch (e) {
+      toast("Save failed", "error");
     }
-    else toast("Save failed: " + (resp.message || resp.type), "error");
-  } catch (e) {
-    toast("Save failed", "error");
-  } finally {
-    setToolbarBusy(false);
-  }
+  });
 }
 
 async function resetConfig() {
   if (!confirm("Reset all config to factory defaults? (in RAM only, use Save to persist)")) return;
-  setToolbarBusy(true);
-  try {
-    const resp = await sendRequest(REQ_RESET);
-    if (resp.type === "ok") {
-      try { localStorage.removeItem("picomidi_expr"); } catch {}
-      await refreshConfig();
-      markDirty();
-      toast("Defaults restored", "info");
+  await withBusy(async () => {
+    try {
+      const resp = await sendRequest(REQ_RESET);
+      if (resp.type === "ok") {
+        try { localStorage.removeItem("picomidi_expr"); } catch {}
+        await refreshConfig();
+        markDirty();
+        toast("Defaults restored", "info");
+      }
+    } catch (e) {
+      toast("Reset failed", "error");
     }
-  } catch (e) {
-    toast("Reset failed", "error");
-  } finally {
-    setToolbarBusy(false);
-  }
+  });
 }
 
 // ── Project Export / Import ──
@@ -627,46 +677,45 @@ async function handleProjectImport(e) {
     return;
   }
 
-  setToolbarBusy(true);
-  try {
-    // Apply imported config to the in-memory config object
-    config = {
-      midi_channel: clamp(project.midi_channel, 0, 15),
-      buttons: project.buttons.map(b => normalizeInputItem(b)),
-      touch_pads: project.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: clamp(t.threshold_pct, 1, 255) })),
-      pots: project.pots.map(p => ({ pin: clamp(p.pin, 0, 29), cc: clamp(p.cc, 0, 127) })),
-      ldr_enabled: !!project.ldr_enabled,
-      ldr: { pin: clamp(project.ldr.pin, 0, 29), cc: clamp(project.ldr.cc, 0, 127) },
-      accel: {
-        enabled: !!project.accel.enabled,
-        x_cc: clamp(project.accel.x_cc, 0, 127),
-        y_cc: clamp(project.accel.y_cc, 0, 127),
-        tap_note: clamp(project.accel.tap_note, 0, 127),
-        tap_velocity: clamp(project.accel.tap_velocity, 1, 127),
-        dead_zone_tenths: clamp(project.accel.dead_zone_tenths, 0, 255),
-        smoothing_pct: clamp(project.accel.smoothing_pct, 0, 100),
-      },
-    };
+  await withBusy(async () => {
+    try {
+      // Apply imported config to the in-memory config object
+      config = {
+        midi_channel: clamp(project.midi_channel, 0, 15),
+        buttons: project.buttons.map(b => normalizeInputItem(b)),
+        touch_pads: project.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: clamp(t.threshold_pct, 1, 255) })),
+        pots: project.pots.map(p => ({ pin: clamp(p.pin, 0, 29), cc: clamp(p.cc, 0, 127) })),
+        ldr_enabled: !!project.ldr_enabled,
+        ldr: { pin: clamp(project.ldr.pin, 0, 29), cc: clamp(project.ldr.cc, 0, 127) },
+        accel: {
+          enabled: !!project.accel.enabled,
+          x_cc: clamp(project.accel.x_cc, 0, 127),
+          y_cc: clamp(project.accel.y_cc, 0, 127),
+          tap_note: clamp(project.accel.tap_note, 0, 127),
+          tap_velocity: clamp(project.accel.tap_velocity, 1, 127),
+          dead_zone_tenths: clamp(project.accel.dead_zone_tenths, 0, 255),
+          smoothing_pct: clamp(project.accel.smoothing_pct, 0, 100),
+        },
+      };
 
-    // Render the imported config to the UI
-    renderConfigObj(config);
+      // Render the imported config to the UI
+      renderConfigObj(config);
 
-    // Save expression sources to localStorage
-    saveExprSources();
+      // Save expression sources to localStorage
+      saveExprSources();
 
-    // Send the config to the device
-    const resp = await sendRequest(REQ_PUT_CONFIG, config);
-    if (resp.type === "ok") {
-      markDirty();
-      toast("Project imported", "success");
-    } else {
-      throw new Error(resp.type === "error" ? resp.message : "Unexpected: " + resp.type);
+      // Send the config to the device
+      const resp = await sendRequest(REQ_PUT_CONFIG, config);
+      if (resp.type === "ok") {
+        markDirty();
+        toast("Project imported", "success");
+      } else {
+        throw new Error(responseError(resp));
+      }
+    } catch (e) {
+      toast("Import failed: " + e.message, "error");
     }
-  } catch (e) {
-    toast("Import failed: " + e.message, "error");
-  } finally {
-    setToolbarBusy(false);
-  }
+  });
 }
 
 function validateProject(p) {

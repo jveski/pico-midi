@@ -1,19 +1,11 @@
-export class ConnectBanner extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+import { BaseElement, classProperty } from "./helpers.js";
+
+export class ConnectBanner extends BaseElement {
+  init() {
     // HTML structure is defined in configurator.html.
   }
 
   get btnConnect() { return this.querySelector("#btnConnect"); }
-
-  set visible(v) {
-    this.classList.toggle("visible", !!v);
-  }
-
-  get visible() {
-    return this.classList.contains("visible");
-  }
 
   showUnsupported() {
     this.querySelector(".connect-banner-text").textContent =
@@ -23,4 +15,5 @@ export class ConnectBanner extends HTMLElement {
   }
 }
 
+classProperty(ConnectBanner, "visible", "visible");
 customElements.define("connect-banner", ConnectBanner);

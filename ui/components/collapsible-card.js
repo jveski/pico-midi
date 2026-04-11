@@ -1,8 +1,7 @@
-export class CollapsibleCard extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+import { BaseElement } from "./helpers.js";
 
+export class CollapsibleCard extends BaseElement {
+  init() {
     const section = this.dataset.section;
     const title = this.dataset.title;
     const badgeId = this.dataset.badgeId;

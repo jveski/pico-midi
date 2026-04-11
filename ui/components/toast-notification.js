@@ -1,7 +1,7 @@
-export class ToastNotification extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+import { BaseElement } from "./helpers.js";
+
+export class ToastNotification extends BaseElement {
+  init() {
     // HTML structure (id, className) is defined in configurator.html.
     this._timer = null;
   }

@@ -1,3 +1,5 @@
+import { BaseElement } from "./helpers.js";
+
 // Pinout Guide — inline SVG of the Raspberry Pi Pico showing current pin assignments.
 //
 // Usage:
@@ -92,8 +94,8 @@ function buildAssignments(cfg) {
     map[cfg.ldr.pin] = { type: "ldr", label: "LDR", colors: ASSIGN_COLORS.ldr };
   }
   if (cfg.accel.enabled) {
-    map[2] = { type: "accel", label: "SDA", colors: ASSIGN_COLORS.accel };
-    map[3] = { type: "accel", label: "SCL", colors: ASSIGN_COLORS.accel };
+    map[2] = { type: "accel", label: "Accel SDA", colors: ASSIGN_COLORS.accel };
+    map[3] = { type: "accel", label: "Accel SCL", colors: ASSIGN_COLORS.accel };
   }
 
   return map;
@@ -227,10 +229,8 @@ function buildLegend(assignments) {
 
 // ── Web Component ──
 
-export class PinoutGuide extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+export class PinoutGuide extends BaseElement {
+  init() {
     this._container = this.querySelector(".pinout-guide-body");
   }
 

@@ -1,8 +1,7 @@
-export class ConfigPanel extends HTMLElement {
-  connectedCallback() {
-    if (this._init) return;
-    this._init = true;
+import { BaseElement } from "./helpers.js";
 
+export class ConfigPanel extends BaseElement {
+  init() {
     // HTML structure is defined in configurator.html — just wire up events.
     this._wireProjectActions();
   }
@@ -15,7 +14,7 @@ export class ConfigPanel extends HTMLElement {
     this.querySelector("#importFile").addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) {
-        this.dispatchEvent(new CustomEvent("project-import", { detail: { file }, bubbles: true }));
+        this.emit("project-import", { file });
       }
       e.target.value = "";
     });
