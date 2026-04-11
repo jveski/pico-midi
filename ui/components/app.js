@@ -154,7 +154,10 @@ async function connect() {
     rxBuf = [];
     rxFrames = [];
     readLoop();
-    setConnected(true);
+    // Hide the connect banner but keep the config panel disabled until
+    // we've successfully loaded the config from the device.
+    connectBanner.visible = false;
+    container.classList.remove("has-connect-banner");
     const resp = await sendRequest(REQ_VERSION);
     if (resp.type === "version") {
       if (!resp.value.startsWith("midictrl")) {
@@ -164,6 +167,7 @@ async function connect() {
       toast("Unexpected response", "error");
     }
     await refreshConfig();
+    setConnected(true);
   } catch (e) {
     if (e.name !== "NotFoundError") {
       toast("Connection failed", "error");
@@ -180,6 +184,8 @@ function cleanup() {
   reader = null; writer = null; port = null;
   rxBuf = []; rxFrames = [];
   cmdLock = Promise.resolve();
+  clearTimeout(exprApplyTimer);
+  config = null;
   setConnected(false);
 }
 
@@ -427,6 +433,7 @@ async function refreshConfig() {
     }
   } catch (e) {
     toast("Failed to load config", "error");
+    throw e;
   } finally {
     setToolbarBusy(false);
   }

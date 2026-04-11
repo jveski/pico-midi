@@ -562,7 +562,7 @@ async fn main(spawner: Spawner) {
             serial_class.wait_connection().await;
             defmt::info!("serial connected");
 
-            let mut frame_buf = [0u8; 1024];
+            let mut frame_buf = [0u8; 2048];
             let mut frame_pos = 0usize;
             let mut last_monitor_send = Instant::now();
 
@@ -584,7 +584,7 @@ async fn main(spawner: Spawner) {
                                     if b == 0x00 {
                                         // End of COBS frame
                                         if frame_pos > 0 {
-                                            let mut resp = [0u8; 1024];
+                                            let mut resp = [0u8; 2048];
                                             let (resp_len, action) = serial::handle_frame(
                                                 &mut frame_buf[..frame_pos],
                                                 &mut cfg.borrow_mut(),
