@@ -210,26 +210,55 @@ impl TouchPads {
 }
 
 /// Capacitive touch measurement using GPIO charge/discharge timing.
-/// Charges the pin high, switches to input with pull-down, and measures
-/// the discharge time.  A finger touching the pad increases capacitance.
+/// A finger touching the pad increases capacitance, which increases the
+/// measured time.
+///
+/// On RP2040 the pin is charged HIGH, then switched to input with an
+/// internal pull-down and we measure the discharge time until the pin
+/// reads LOW.
+///
+/// On RP2350 the polarity is inverted: the pin is driven LOW, then
+/// switched to input with an internal pull-up and we measure the charge
+/// time until the pin reads HIGH.  This works around the RP2350-E9
+/// erratum where GPIO pads can latch at ~2 V after being driven high,
+/// causing the standard HIGH→input transition to produce stuck readings.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
-    pin.set_high();
+
+    #[cfg(feature = "rp2040")]
+    {
+        pin.set_high();
+    }
+    #[cfg(feature = "rp2350")]
+    {
+        pin.set_low();
+    }
+
     cortex_m::asm::delay(1000);
 
+    #[cfg(feature = "rp2040")]
     pin.set_pull(Pull::Down);
+    #[cfg(feature = "rp2350")]
+    pin.set_pull(Pull::Up);
+
     let start = Instant::now();
     pin.set_as_input();
 
     let mut elapsed_us;
     loop {
         elapsed_us = start.elapsed().as_micros();
-        if !pin.is_high() || elapsed_us >= 500 {
+
+        #[cfg(feature = "rp2040")]
+        let done = !pin.is_high();
+        #[cfg(feature = "rp2350")]
+        let done = pin.is_high();
+
+        if done || elapsed_us >= 500 {
             break;
         }
     }
 
-    // Remove pull-down so it doesn't parasitically discharge
+    // Remove pull so it doesn't parasitically charge/discharge
     // the pad between measurements.
     pin.set_pull(Pull::None);
 
@@ -241,17 +270,36 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
 
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
-    pin.set_high();
+
+    #[cfg(feature = "rp2040")]
+    {
+        pin.set_high();
+    }
+    #[cfg(feature = "rp2350")]
+    {
+        pin.set_low();
+    }
+
     Timer::after_micros(10).await;
 
+    #[cfg(feature = "rp2040")]
     pin.set_pull(Pull::Down);
+    #[cfg(feature = "rp2350")]
+    pin.set_pull(Pull::Up);
+
     let start = Instant::now();
     pin.set_as_input();
 
     let mut elapsed_us;
     loop {
         elapsed_us = start.elapsed().as_micros();
-        if !pin.is_high() || elapsed_us >= 500 {
+
+        #[cfg(feature = "rp2040")]
+        let done = !pin.is_high();
+        #[cfg(feature = "rp2350")]
+        let done = pin.is_high();
+
+        if done || elapsed_us >= 500 {
             break;
         }
     }
