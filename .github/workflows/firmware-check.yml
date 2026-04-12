@@ -41,5 +41,8 @@ jobs:
       - name: Clippy (rp2350)
         run: cargo clippy --no-default-features --features rp2350 --target thumbv8m.main-none-eabihf -- -D warnings
 
+      - name: Test (x86)
+        run: cargo test --no-default-features
+
       - name: Format
         run: cargo fmt --check
