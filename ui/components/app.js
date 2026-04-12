@@ -3,9 +3,8 @@ import {
   PostcardReader,
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
   RESP_MONITOR, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
-  DIGITAL_PINS, ANALOG_PINS,
 } from "./protocol.js";
-import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin } from "./helpers.js";
+import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin, isValidInputItem } from "./helpers.js";
 import { compileExpr } from "./expr.js";
 
 let port = null, reader = null, writer = null, keepReading = false;
@@ -106,18 +105,14 @@ function allUsedPins(cfg) {
 function refreshAllPinOptions() {
   // Build a temporary config snapshot from the DOM so we can compute used pins.
   const panel = configPanel;
-  const buttons = panel.buttonList.readFromDOM();
-  const touch = panel.touchList.readFromDOM();
-  const pots = panel.potList.readFromDOM();
-  const ldr = panel.ldrSection.readFromDOM();
-
-  const digital = new Set();
-  for (const b of buttons) digital.add(b.pin);
-  for (const t of touch) digital.add(t.pin);
-
-  const analog = new Set();
-  for (const p of pots) analog.add(p.pin);
-  if (ldr.ldr_enabled) analog.add(ldr.ldr.pin);
+  const tempCfg = {
+    buttons: panel.buttonList.readFromDOM(),
+    touch_pads: panel.touchList.readFromDOM(),
+    pots: panel.potList.readFromDOM(),
+    ...panel.ldrSection.readFromDOM(),
+  };
+  const digital = usedDigitalPins(tempCfg);
+  const analog = usedAnalogPins(tempCfg);
 
   panel.buttonList.refreshPinOptions(digital);
   panel.touchList.refreshPinOptions(digital);
@@ -307,15 +302,16 @@ function updateMonitorBar(barId, valId, v) {
   if (val) val.textContent = v;
 }
 
+function toggleMonitorIndicators(prefix, values) {
+  for (let i = 0; i < values.length; i++) {
+    const el = document.getElementById(prefix + i);
+    if (el) el.classList.toggle("active", values[i]);
+  }
+}
+
 function applyMonitorData(snap) {
-  for (let i = 0; i < snap.buttons.length; i++) {
-    const el = document.getElementById("monBtn" + i);
-    if (el) el.classList.toggle("active", snap.buttons[i]);
-  }
-  for (let i = 0; i < snap.touch_pads.length; i++) {
-    const el = document.getElementById("monTouch" + i);
-    if (el) el.classList.toggle("active", snap.touch_pads[i]);
-  }
+  toggleMonitorIndicators("monBtn", snap.buttons);
+  toggleMonitorIndicators("monTouch", snap.touch_pads);
   for (let i = 0; i < snap.pots.length; i++) {
     updateMonitorBar("monPotBar" + i, "monPotVal" + i, snap.pots[i]);
   }
@@ -341,10 +337,8 @@ function initExprSources(items) {
 
 function saveExprSources() {
   if (!config) return;
-  const data = {
-    buttons: config.buttons.map(b => ({ pin: b.pin, note: b.note_expr_src || "", vel: b.velocity_expr_src || "" })),
-    touch: config.touch_pads.map(t => ({ pin: t.pin, note: t.note_expr_src || "", vel: t.velocity_expr_src || "" })),
-  };
+  const summary = item => ({ pin: item.pin, note: item.note_expr_src || "", vel: item.velocity_expr_src || "" });
+  const data = { buttons: config.buttons.map(summary), touch: config.touch_pads.map(summary) };
   try { localStorage.setItem("picomidi_expr", JSON.stringify(data)); } catch {}
 }
 
@@ -367,55 +361,39 @@ function loadExprSources() {
   } catch {}
 }
 
-function handleItemAdd(e) {
-  if (!config) return;
-  const type = e.detail.type;
+const TYPE_KEYS = { button: "buttons", touch: "touch_pads", pot: "pots" };
 
-  // Read current UI state into config first
+function withConfigMutation(e, mutate) {
+  if (!config) return;
   readConfigFromUI();
   if (!config) return;
-
-  if (type === "button") {
-    if (config.buttons.length >= MAX_DIGITAL_INPUTS) return;
-    const used = usedDigitalPins(config);
-    const pin = nextAvailableDigitalPin(used);
-    config.buttons.push(defaultInputItem(pin, 60 + config.buttons.length));
-  } else if (type === "touch") {
-    if (config.touch_pads.length >= MAX_DIGITAL_INPUTS) return;
-    const used = usedDigitalPins(config);
-    const pin = nextAvailableDigitalPin(used);
-    config.touch_pads.push(defaultInputItem(pin, 48 + config.touch_pads.length, { threshold_pct: 33 }));
-  } else if (type === "pot") {
-    if (config.pots.length >= MAX_ANALOG_INPUTS) return;
-    const used = usedAnalogPins(config);
-    const pin = nextAvailableAnalogPin(used);
-    config.pots.push({ pin, cc: 1 });
-  }
-
+  if (mutate(e.detail) === false) return;
   renderConfigObj(config);
   markDirty();
   debouncedApplyConfig();
 }
 
+function handleItemAdd(e) {
+  withConfigMutation(e, ({ type }) => {
+    if (type === "button" || type === "touch") {
+      const arr = type === "button" ? config.buttons : config.touch_pads;
+      if (arr.length >= MAX_DIGITAL_INPUTS) return false;
+      const pin = nextAvailableDigitalPin(usedDigitalPins(config));
+      const baseNote = type === "button" ? 60 : 48;
+      const extras = type === "touch" ? { threshold_pct: 33 } : {};
+      arr.push(defaultInputItem(pin, baseNote + arr.length, extras));
+    } else if (type === "pot") {
+      if (config.pots.length >= MAX_ANALOG_INPUTS) return false;
+      config.pots.push({ pin: nextAvailableAnalogPin(usedAnalogPins(config)), cc: 1 });
+    }
+  });
+}
+
 function handleItemRemove(e) {
-  if (!config) return;
-  const { type, index } = e.detail;
-
-  // Read current UI state into config first
-  readConfigFromUI();
-  if (!config) return;
-
-  if (type === "button" && config.buttons.length > 0) {
-    config.buttons.splice(index, 1);
-  } else if (type === "touch" && config.touch_pads.length > 0) {
-    config.touch_pads.splice(index, 1);
-  } else if (type === "pot" && config.pots.length > 0) {
-    config.pots.splice(index, 1);
-  }
-
-  renderConfigObj(config);
-  markDirty();
-  debouncedApplyConfig();
+  withConfigMutation(e, ({ type, index }) => {
+    const key = TYPE_KEYS[type];
+    if (key && config[key].length > 0) config[key].splice(index, 1);
+  });
 }
 
 function responseError(resp) {
@@ -455,21 +433,31 @@ function staticFromExpr(src, fallback) {
   return parseStaticInt(src) ?? fallback;
 }
 
+function normalizeInputItem(item, extraFields = {}) {
+  return {
+    pin: item.pin,
+    note: clamp(item.note ?? 60, 0, 127),
+    velocity: clamp(item.velocity ?? 100, 1, 127),
+    note_expr: Array.from(item.note_expr || []),
+    velocity_expr: Array.from(item.velocity_expr || []),
+    note_expr_src: item.note_expr_src || "",
+    velocity_expr_src: item.velocity_expr_src || "",
+    ...extraFields,
+  };
+}
+
 function compileInputItem(item, label, extraFields = {}) {
   const noteResult = compileExpr(item.note_expr_src);
   const velResult = compileExpr(item.velocity_expr_src);
   if (noteResult.error) return { error: `${label} note expr: ${noteResult.error}` };
   if (velResult.error) return { error: `${label} velocity expr: ${velResult.error}` };
-  return {
-    pin: item.pin,
-    note: clamp(staticFromExpr(item.note_expr_src, 60), 0, 127),
-    velocity: clamp(staticFromExpr(item.velocity_expr_src, 100), 1, 127),
-    note_expr: Array.from(noteResult.code),
-    velocity_expr: Array.from(velResult.code),
-    note_expr_src: item.note_expr_src,
-    velocity_expr_src: item.velocity_expr_src,
-    ...extraFields,
-  };
+  return normalizeInputItem({
+    ...item,
+    note: staticFromExpr(item.note_expr_src, 60),
+    velocity: staticFromExpr(item.velocity_expr_src, 100),
+    note_expr: noteResult.code,
+    velocity_expr: velResult.code,
+  }, extraFields);
 }
 
 function readConfigFromUI() {
@@ -560,19 +548,6 @@ async function resetConfig() {
       toast("Reset failed", "error");
     }
   });
-}
-
-function normalizeInputItem(item, extraFields = {}) {
-  return {
-    pin: item.pin,
-    note: clamp(item.note, 0, 127),
-    velocity: clamp(item.velocity, 1, 127),
-    note_expr: Array.from(item.note_expr),
-    velocity_expr: Array.from(item.velocity_expr),
-    note_expr_src: item.note_expr_src || "",
-    velocity_expr_src: item.velocity_expr_src || "",
-    ...extraFields,
-  };
 }
 
 function exportProject() {
@@ -677,17 +652,8 @@ function validateProject(p) {
   if (!p.ldr || typeof p.ldr.cc !== "number") return false;
   if (!p.accel || typeof p.accel.enabled !== "boolean") return false;
 
-  for (const b of p.buttons) {
-    if (typeof b.note !== "number" || typeof b.velocity !== "number") return false;
-    if (!Array.isArray(b.note_expr) || !Array.isArray(b.velocity_expr)) return false;
-    if (typeof b.pin !== "number") return false;
-  }
-  for (const t of p.touch_pads) {
-    if (typeof t.note !== "number" || typeof t.velocity !== "number") return false;
-    if (typeof t.threshold_pct !== "number") return false;
-    if (!Array.isArray(t.note_expr) || !Array.isArray(t.velocity_expr)) return false;
-    if (typeof t.pin !== "number") return false;
-  }
+  if (!p.buttons.every(isValidInputItem)) return false;
+  if (!p.touch_pads.every(t => isValidInputItem(t) && typeof t.threshold_pct === "number")) return false;
   for (const p2 of p.pots) {
     if (typeof p2.cc !== "number") return false;
     if (typeof p2.pin !== "number") return false;

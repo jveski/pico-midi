@@ -6,9 +6,9 @@ export class ConnectBanner extends BaseElement {
   get btnConnect() { return this.querySelector("#btnConnect"); }
 
   showUnsupported() {
-    this.querySelector(".connect-banner-text").textContent =
-      "Web Serial API is not available in this browser. Use Chrome or Edge 89+ on desktop.";
-    this.querySelector(".connect-banner-text").classList.add("unsupported");
+    const el = this.querySelector(".connect-banner-text");
+    el.textContent = "Web Serial API is not available in this browser. Use Chrome or Edge 89+ on desktop.";
+    el.classList.add("unsupported");
     this.btnConnect.disabled = true;
   }
 }

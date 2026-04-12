@@ -1,5 +1,5 @@
-import { BaseElement, num, noteHintText, digitalPinOptions, analogPinOptions } from "./helpers.js";
-import { DIGITAL_PINS, ANALOG_PINS, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS } from "./protocol.js";
+import { BaseElement, num, noteHintText, digitalPinOptions, analogPinOptions, refreshSelectPinConstraints } from "./helpers.js";
+import { MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS } from "./protocol.js";
 import { compileExpr } from "./expr.js";
 
 export class ItemList extends BaseElement {
@@ -17,7 +17,7 @@ export class ItemList extends BaseElement {
     }
   }
 
-  render(items, usedPins) {
+  render(items, usedPins = new Set()) {
     const container = this.querySelector(`#${this._listId}`);
     container.innerHTML = "";
     this._updateBadge(items.length);
@@ -34,15 +34,15 @@ export class ItemList extends BaseElement {
 
     items.forEach((item, i) => {
       const row = tpl.content.firstElementChild.cloneNode(true);
+      const tag = el => { if (el) { el.dataset.type = this._type; el.dataset.idx = i; } };
 
       // Pin selector
       const pinSelect = row.querySelector('[data-field="pin"]');
       if (pinSelect) {
         pinSelect.innerHTML = isDigital
-          ? digitalPinOptions(item.pin, usedPins || new Set())
-          : analogPinOptions(item.pin, usedPins || new Set());
-        pinSelect.dataset.type = this._type;
-        pinSelect.dataset.idx = i;
+          ? digitalPinOptions(item.pin, usedPins)
+          : analogPinOptions(item.pin, usedPins);
+        tag(pinSelect);
       }
 
       row.querySelector(".index").textContent = "#" + (i + 1);
@@ -50,8 +50,7 @@ export class ItemList extends BaseElement {
       // Remove button
       const removeBtn = row.querySelector('[data-action="remove"]');
       if (removeBtn) {
-        removeBtn.dataset.type = this._type;
-        removeBtn.dataset.idx = i;
+        tag(removeBtn);
         removeBtn.addEventListener("click", () => {
           this.emit("item-remove", { type: this._type, index: i });
         });
@@ -62,8 +61,7 @@ export class ItemList extends BaseElement {
         row.querySelector(".monitor-value").id = "monPotVal" + i;
         const ccInput = row.querySelector('[data-field="cc"]');
         ccInput.value = item.cc;
-        ccInput.dataset.type = this._type;
-        ccInput.dataset.idx = i;
+        tag(ccInput);
       } else {
         const noteExprSrc = item.note_expr_src || String(item.note);
         const velExprSrc = item.velocity_expr_src || String(item.velocity);
@@ -72,8 +70,7 @@ export class ItemList extends BaseElement {
 
         const noteInput = row.querySelector('[data-field="note_expr_src"]');
         noteInput.value = noteExprSrc;
-        noteInput.dataset.type = this._type;
-        noteInput.dataset.idx = i;
+        tag(noteInput);
 
         row.querySelector(".note-hint").dataset.idx = i;
 
@@ -82,8 +79,7 @@ export class ItemList extends BaseElement {
 
         const velInput = row.querySelector('[data-field="velocity_expr_src"]');
         velInput.value = velExprSrc;
-        velInput.dataset.type = this._type;
-        velInput.dataset.idx = i;
+        tag(velInput);
 
         const velErr = row.querySelector('[data-field="velocity_expr_err"]');
         velErr.dataset.idx = i;
@@ -91,8 +87,7 @@ export class ItemList extends BaseElement {
         if (this._type === "touch") {
           const thrInput = row.querySelector('[data-field="threshold_pct"]');
           thrInput.value = item.threshold_pct;
-          thrInput.dataset.type = this._type;
-          thrInput.dataset.idx = i;
+          tag(thrInput);
         }
       }
 
@@ -182,16 +177,7 @@ export class ItemList extends BaseElement {
   }
 
   refreshPinOptions(usedPins) {
-    const isDigital = this._type === "button" || this._type === "touch";
-    const validPins = isDigital ? DIGITAL_PINS : ANALOG_PINS;
-    this.querySelectorAll('.pin-select').forEach(sel => {
-      const currentPin = num(sel.value, 0);
-      for (const opt of sel.options) {
-        const p = num(opt.value, -1);
-        if (!validPins.includes(p)) continue;
-        opt.disabled = usedPins.has(p) && p !== currentPin;
-      }
-    });
+    this.querySelectorAll('.pin-select').forEach(sel => refreshSelectPinConstraints(sel, usedPins));
   }
 }
 

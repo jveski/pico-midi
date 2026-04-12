@@ -1,4 +1,4 @@
-import { BaseElement, num, clamp, noteName, toggleFieldsVisibility, analogPinOptions } from "./helpers.js";
+import { BaseElement, num, noteName, toggleFieldsVisibility, analogPinOptions, refreshSelectPinConstraints, updateHint, readClamped } from "./helpers.js";
 
 function buildMonitorBars(container, bars) {
   const tpl = document.getElementById("tpl-monitor-bar-row");
@@ -21,14 +21,14 @@ export class LdrSection extends BaseElement {
     });
   }
 
-  render(config, usedAnalog) {
+  render(config, usedAnalog = new Set()) {
     this.querySelector("#ldrEnabled").checked = config.ldr_enabled;
     this.querySelector("#ldrCc").value = config.ldr.cc;
 
     // Populate pin selector
     const pinSelect = this.querySelector("#ldrPin");
     if (pinSelect) {
-      pinSelect.innerHTML = analogPinOptions(config.ldr.pin, usedAnalog || new Set());
+      pinSelect.innerHTML = analogPinOptions(config.ldr.pin, usedAnalog);
     }
 
     this._updateVisibility();
@@ -41,7 +41,7 @@ export class LdrSection extends BaseElement {
       ldr_enabled: this.querySelector("#ldrEnabled").checked,
       ldr: {
         pin: pinSelect ? num(pinSelect.value, 28) : 28,
-        cc: clamp(num(this.querySelector("#ldrCc").value, 0), 0, 127),
+        cc: readClamped(this, "ldrCc", 0, 0, 127),
       },
     };
   }
@@ -53,8 +53,7 @@ export class LdrSection extends BaseElement {
   _buildMonitor(config) {
     const container = this.querySelector("#ldrMonitor");
     container.innerHTML = "";
-    const enabled = config ? config.ldr_enabled : this.querySelector("#ldrEnabled").checked;
-    if (!enabled) return;
+    if (!(config ? config.ldr_enabled : this.querySelector("#ldrEnabled").checked)) return;
     buildMonitorBars(container, [
       { label: "Value", barId: "monLdrBar", valId: "monLdrVal" },
     ]);
@@ -62,12 +61,7 @@ export class LdrSection extends BaseElement {
 
   refreshPinOptions(usedAnalog) {
     const pinSelect = this.querySelector("#ldrPin");
-    if (!pinSelect) return;
-    const currentPin = num(pinSelect.value, 28);
-    for (const opt of pinSelect.options) {
-      const p = num(opt.value, -1);
-      opt.disabled = usedAnalog.has(p) && p !== currentPin;
-    }
+    if (pinSelect) refreshSelectPinConstraints(pinSelect, usedAnalog);
   }
 }
 
@@ -99,12 +93,12 @@ export class AccelSection extends BaseElement {
   readFromDOM() {
     return {
       enabled: this.querySelector("#accelEnabled").checked,
-      x_cc: clamp(num(this.querySelector("#accelXCc").value, 0), 0, 127),
-      y_cc: clamp(num(this.querySelector("#accelYCc").value, 0), 0, 127),
-      tap_note: clamp(num(this.querySelector("#accelTapNote").value, 0), 0, 127),
-      tap_velocity: clamp(num(this.querySelector("#accelTapVel").value, 1), 1, 127),
-      dead_zone_tenths: clamp(num(this.querySelector("#accelDeadZone").value, 0), 0, 255),
-      smoothing_pct: clamp(num(this.querySelector("#accelSmoothing").value, 0), 0, 100),
+      x_cc: readClamped(this, "accelXCc", 0, 0, 127),
+      y_cc: readClamped(this, "accelYCc", 0, 0, 127),
+      tap_note: readClamped(this, "accelTapNote", 0, 0, 127),
+      tap_velocity: readClamped(this, "accelTapVel", 1, 1, 127),
+      dead_zone_tenths: readClamped(this, "accelDeadZone", 0, 0, 255),
+      smoothing_pct: readClamped(this, "accelSmoothing", 0, 0, 100),
     };
   }
 
@@ -113,19 +107,15 @@ export class AccelSection extends BaseElement {
   }
 
   _updateHints() {
-    const tapNote = parseInt(this.querySelector("#accelTapNote").value, 10);
-    this.querySelector("#tapNoteHint").textContent = isNaN(tapNote) ? "" : noteName(tapNote);
-    const dz = parseInt(this.querySelector("#accelDeadZone").value, 10);
-    this.querySelector("#deadZoneHint").textContent = isNaN(dz) ? "" : (dz / 10).toFixed(1) + " m/s\u00B2";
-    const sm = parseInt(this.querySelector("#accelSmoothing").value, 10);
-    this.querySelector("#smoothingHint").textContent = isNaN(sm) ? "" : "\u03B1=" + (sm / 100).toFixed(2);
+    updateHint(this, "accelTapNote", "tapNoteHint", noteName);
+    updateHint(this, "accelDeadZone", "deadZoneHint", v => (v / 10).toFixed(1) + " m/s\u00B2");
+    updateHint(this, "accelSmoothing", "smoothingHint", v => "\u03B1=" + (v / 100).toFixed(2));
   }
 
   _buildMonitor(config) {
     const container = this.querySelector("#accelMonitor");
     container.innerHTML = "";
-    const enabled = config ? config.accel.enabled : this.querySelector("#accelEnabled").checked;
-    if (!enabled) return;
+    if (!(config ? config.accel.enabled : this.querySelector("#accelEnabled").checked)) return;
 
     buildMonitorBars(container, [
       { label: "Tilt X", barId: "monAccelXBar", valId: "monAccelXVal", defaultVal: "64" },

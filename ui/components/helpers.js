@@ -100,3 +100,28 @@ function nextAvailablePin(pinList, usedPins) {
 
 export const nextAvailableDigitalPin = (usedPins) => nextAvailablePin(DIGITAL_PINS, usedPins);
 export const nextAvailableAnalogPin  = (usedPins) => nextAvailablePin(ANALOG_PINS, usedPins);
+
+export function refreshSelectPinConstraints(selectEl, usedPins) {
+  const currentPin = num(selectEl.value, -1);
+  for (const opt of selectEl.options) {
+    const p = num(opt.value, -1);
+    opt.disabled = usedPins.has(p) && p !== currentPin;
+  }
+}
+
+export function updateHint(root, inputId, hintId, formatter) {
+  const v = parseInt(root.querySelector("#" + inputId).value, 10);
+  root.querySelector("#" + hintId).textContent = isNaN(v) ? "" : formatter(v);
+}
+
+export function isValidInputItem(item) {
+  return typeof item.pin === "number"
+    && typeof item.note === "number"
+    && typeof item.velocity === "number"
+    && Array.isArray(item.note_expr)
+    && Array.isArray(item.velocity_expr);
+}
+
+export function readClamped(root, id, fallback, min, max) {
+  return clamp(num(root.querySelector("#" + id).value, fallback), min, max);
+}

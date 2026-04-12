@@ -1,4 +1,4 @@
-import { BaseElement } from "./helpers.js";
+import { BaseElement, num, updateHint } from "./helpers.js";
 
 export class MidiChannel extends BaseElement {
   init() {
@@ -6,8 +6,7 @@ export class MidiChannel extends BaseElement {
   }
 
   _updateHint() {
-    const v = parseInt(this.querySelector("#midiChannel").value, 10);
-    this.querySelector("#midiChannelHint").textContent = isNaN(v) ? "" : "Ch " + (v + 1);
+    updateHint(this, "midiChannel", "midiChannelHint", v => "Ch " + (v + 1));
   }
 
   set value(v) {
@@ -16,7 +15,7 @@ export class MidiChannel extends BaseElement {
   }
 
   get value() {
-    return parseInt(this.querySelector("#midiChannel").value, 10);
+    return num(this.querySelector("#midiChannel").value, 0);
   }
 }
 
