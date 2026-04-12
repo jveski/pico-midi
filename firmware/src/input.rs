@@ -217,11 +217,12 @@ impl TouchPads {
 /// internal pull-down and we measure the discharge time until the pin
 /// reads LOW.
 ///
-/// On RP2350 the polarity is inverted: the pin is driven LOW, then
-/// switched to input with an internal pull-up and we measure the charge
-/// time until the pin reads HIGH.  This works around the RP2350-E9
-/// erratum where GPIO pads can latch at ~2 V after being driven high,
-/// causing the standard HIGH→input transition to produce stuck readings.
+/// On RP2350 the polarity is inverted to work around the RP2350-E9
+/// erratum: the pin is driven LOW, then switched to input with no
+/// internal pull.  An external 1 MΩ resistor to 3V3 provides the charge
+/// path, and we measure the time until the pin reads HIGH.  Using
+/// Pull::None (instead of the internal ~50 kΩ pull-up) gives a much
+/// larger RC time constant, making touch detection reliable.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
 
@@ -239,7 +240,7 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     #[cfg(feature = "rp2040")]
     pin.set_pull(Pull::Down);
     #[cfg(feature = "rp2350")]
-    pin.set_pull(Pull::Up);
+    pin.set_pull(Pull::None);
 
     let start = Instant::now();
     pin.set_as_input();
@@ -285,7 +286,7 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     #[cfg(feature = "rp2040")]
     pin.set_pull(Pull::Down);
     #[cfg(feature = "rp2350")]
-    pin.set_pull(Pull::Up);
+    pin.set_pull(Pull::None);
 
     let start = Instant::now();
     pin.set_as_input();
