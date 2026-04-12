@@ -216,3 +216,119 @@ fn triop(stack: &mut [u16; STACK_SIZE], sp: &mut usize, f: impl FnOnce(u16, u16,
         stack[*sp - 1] = f(stack[*sp - 1], stack[*sp], stack[*sp + 1]);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DUMMY: ExprInputs = ExprInputs {
+        pots: [0; MAX_ANALOG_INPUTS],
+        ldr: 0,
+        accel_x: 0,
+        accel_y: 0,
+    };
+
+    fn program(ops: &[u8]) -> [u8; MAX_EXPR] {
+        let mut buf = [0u8; MAX_EXPR];
+        buf[..ops.len()].copy_from_slice(ops);
+        buf
+    }
+
+    #[test]
+    fn empty_program_returns_fallback() {
+        let p = program(&[]);
+        assert_eq!(eval(&p, 0, &DUMMY, 42), 42);
+    }
+
+    #[test]
+    fn push_literal_and_clamp() {
+        // Push 100 -> result = 100
+        let p = program(&[OP_PUSH, 100]);
+        assert_eq!(eval(&p, 2, &DUMMY, 0), 100);
+        // Push 200 -> clamped to 127
+        let p = program(&[OP_PUSH, 200]);
+        assert_eq!(eval(&p, 2, &DUMMY, 0), 127);
+    }
+
+    #[test]
+    fn arithmetic_ops() {
+        // 10 + 20 = 30
+        let p = program(&[OP_PUSH, 10, OP_PUSH, 20, OP_ADD]);
+        assert_eq!(eval(&p, 5, &DUMMY, 0), 30);
+        // 50 - 30 = 20
+        let p = program(&[OP_PUSH, 50, OP_PUSH, 30, OP_SUB]);
+        assert_eq!(eval(&p, 5, &DUMMY, 0), 20);
+        // 10 * 10 = 100
+        let p = program(&[OP_PUSH, 10, OP_PUSH, 10, OP_MUL]);
+        assert_eq!(eval(&p, 5, &DUMMY, 0), 100);
+        // 100 / 0 -> saturates to 127 (u16::MAX clamped)
+        let p = program(&[OP_PUSH, 100, OP_PUSH, 0, OP_DIV]);
+        assert_eq!(eval(&p, 5, &DUMMY, 0), 127);
+    }
+
+    #[test]
+    fn lerp_interpolation() {
+        // lerp(0, 127, 0) = 0, lerp(0, 127, 127) = 127
+        let p = program(&[OP_PUSH, 0, OP_PUSH, 127, OP_PUSH, 0, OP_LERP]);
+        assert_eq!(eval(&p, 7, &DUMMY, 0), 0);
+        let p = program(&[OP_PUSH, 0, OP_PUSH, 127, OP_PUSH, 127, OP_LERP]);
+        assert_eq!(eval(&p, 7, &DUMMY, 0), 127);
+        // lerp(0, 100, 64) ~ halfway ~ 50
+        let p = program(&[OP_PUSH, 0, OP_PUSH, 100, OP_PUSH, 64, OP_LERP]);
+        assert_eq!(eval(&p, 7, &DUMMY, 0), 50);
+    }
+
+    #[test]
+    fn scale_major_from_c() {
+        // Scale mode 1 = Ionian (Major): C D E F G A B
+        // root=60 (C4), pos=0 -> degree 0 -> C4 = 60
+        let p = program(&[OP_PUSH, 60, OP_PUSH, 0, OP_SCALE, 1]);
+        assert_eq!(eval(&p, 6, &DUMMY, 0), 60);
+        // root=60, pos=127 -> highest degree (18*127/128=17, oct=2, step=3)
+        // semitones = 2*12 + 5 = 29, note = 89
+        let p = program(&[OP_PUSH, 60, OP_PUSH, 127, OP_SCALE, 1]);
+        assert_eq!(eval(&p, 6, &DUMMY, 0), 89);
+        // root=120, pos=127 -> 120 + 29 = 149, clamped to 127
+        let p = program(&[OP_PUSH, 120, OP_PUSH, 127, OP_SCALE, 1]);
+        assert_eq!(eval(&p, 6, &DUMMY, 0), 127);
+    }
+
+    #[test]
+    fn if_gt_conditional() {
+        // if 10 > 5 then 100 else 50 -> 100
+        let p = program(&[OP_PUSH, 10, OP_PUSH, 5, OP_PUSH, 100, OP_PUSH, 50, OP_IF_GT]);
+        assert_eq!(eval(&p, 9, &DUMMY, 0), 100);
+        // if 5 > 10 then 100 else 50 -> 50
+        let p = program(&[OP_PUSH, 5, OP_PUSH, 10, OP_PUSH, 100, OP_PUSH, 50, OP_IF_GT]);
+        assert_eq!(eval(&p, 9, &DUMMY, 0), 50);
+    }
+
+    #[test]
+    fn load_inputs() {
+        let inputs = ExprInputs {
+            pots: [42, 0, 0],
+            ldr: 99,
+            accel_x: 10,
+            accel_y: 20,
+        };
+        let p = program(&[OP_LOAD_POT, 0]);
+        assert_eq!(eval(&p, 2, &inputs, 0), 42);
+        let p = program(&[OP_LOAD_LDR]);
+        assert_eq!(eval(&p, 1, &inputs, 0), 99);
+        let p = program(&[OP_LOAD_ACCEL_X, OP_LOAD_ACCEL_Y, OP_ADD]);
+        assert_eq!(eval(&p, 3, &inputs, 0), 30);
+    }
+
+    #[test]
+    fn has_scale_detection() {
+        // Program with scale opcode
+        let p = program(&[OP_PUSH, 60, OP_PUSH, 64, OP_SCALE, 1]);
+        assert!(has_scale(&p, 6));
+        // Program without scale
+        let p = program(&[OP_PUSH, 60, OP_PUSH, 64, OP_ADD]);
+        assert!(!has_scale(&p, 5));
+        // Empty program
+        let p = program(&[]);
+        assert!(!has_scale(&p, 0));
+    }
+}

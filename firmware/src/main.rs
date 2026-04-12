@@ -1,41 +1,63 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 // Embassy uses a single-threaded executor; futures do not need to be Send.
 #![allow(clippy::future_not_send)]
 
 mod config;
 mod expr;
+#[cfg(target_os = "none")]
 mod input;
+#[cfg(target_os = "none")]
 mod input_state;
+#[cfg(target_os = "none")]
 mod polling;
 mod serial;
 
+#[cfg(target_os = "none")]
 use core::cell::RefCell;
 
+#[cfg(target_os = "none")]
 use embassy_executor::Spawner;
+#[cfg(target_os = "none")]
 use embassy_futures::join::join3;
+#[cfg(target_os = "none")]
 use embassy_rp::adc;
+#[cfg(target_os = "none")]
 use embassy_rp::bind_interrupts;
+#[cfg(target_os = "none")]
 use embassy_rp::flash;
+#[cfg(target_os = "none")]
 use embassy_rp::gpio::{Level, Output};
+#[cfg(target_os = "none")]
 use embassy_rp::i2c;
+#[cfg(target_os = "none")]
 use embassy_rp::peripherals::{I2C1, USB};
+#[cfg(target_os = "none")]
 use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
+#[cfg(target_os = "none")]
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
+#[cfg(target_os = "none")]
 use embassy_usb::class::midi::MidiClass;
+#[cfg(target_os = "none")]
 use embassy_usb::{Builder, Config as UsbConfig};
+#[cfg(target_os = "none")]
 use static_cell::StaticCell;
+#[cfg(target_os = "none")]
 use {defmt_rtt as _, panic_probe as _};
 
+#[cfg(target_os = "none")]
 use config::Config;
+#[cfg(target_os = "none")]
 use input_state::InputState;
 
+#[cfg(target_os = "none")]
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
     ADC_IRQ_FIFO => adc::InterruptHandler;
     I2C1_IRQ => i2c::InterruptHandler<I2C1>;
 });
 
+#[cfg(target_os = "none")]
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(embassy_rp::config::Config::default());

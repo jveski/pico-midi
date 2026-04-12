@@ -1,25 +1,38 @@
+#[cfg(target_os = "none")]
 use core::cell::RefCell;
 
+#[cfg(target_os = "none")]
 use embassy_futures::select::{select, Either};
+#[cfg(target_os = "none")]
 use embassy_rp::flash;
+#[cfg(target_os = "none")]
 use embassy_rp::peripherals::{FLASH, USB};
+#[cfg(target_os = "none")]
 use embassy_rp::usb::Driver;
+#[cfg(target_os = "none")]
 use embassy_time::{Duration, Instant, Timer};
+#[cfg(target_os = "none")]
 use embassy_usb::class::cdc_acm::CdcAcmClass;
+#[cfg(target_os = "none")]
 use embassy_usb::driver::EndpointError;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{self, Config};
+#[cfg(target_os = "none")]
 use crate::input_state::InputState;
 
+#[cfg(target_os = "none")]
 type Serial<'a> = CdcAcmClass<'a, Driver<'a, USB>>;
+#[cfg(target_os = "none")]
 type Flash<'a> = flash::Flash<'a, FLASH, flash::Blocking, { config::FLASH_SIZE }>;
 
+#[cfg(target_os = "none")]
 const MONITOR_INTERVAL_MS: u64 = 50;
 
 /// Run the serial command/monitor loop. Handles CDC-ACM communication with
 /// the host configurator: receives request frames, sends responses, and
 /// periodically pushes live input-monitor snapshots.
+#[cfg(target_os = "none")]
 pub async fn serial_task(
     serial: &mut Serial<'static>,
     flash: &mut Flash<'static>,
@@ -35,6 +48,7 @@ pub async fn serial_task(
 }
 
 /// Runs a single connected session until the host disconnects.
+#[cfg(target_os = "none")]
 async fn run_session(
     serial: &mut Serial<'static>,
     flash: &mut Flash<'static>,
@@ -69,6 +83,7 @@ async fn run_session(
 
 /// Feed received USB bytes into the frame assembler and handle any complete
 /// frames that result.
+#[cfg(target_os = "none")]
 async fn process_bytes(
     bytes: &[u8],
     assembler: &mut FrameAssembler,
@@ -85,6 +100,7 @@ async fn process_bytes(
 
 /// Process a single complete frame: decode the request, act on it, and send
 /// the response (including flash persistence when requested).
+#[cfg(target_os = "none")]
 async fn handle_frame(
     frame: &mut [u8],
     serial: &mut Serial<'static>,
@@ -108,6 +124,7 @@ async fn handle_frame(
 }
 
 /// Capture and send the current input-monitor snapshot.
+#[cfg(target_os = "none")]
 async fn send_monitor_snapshot(
     serial: &mut Serial<'static>,
     cfg: &RefCell<Config>,
@@ -121,6 +138,7 @@ async fn send_monitor_snapshot(
 }
 
 /// Write a byte slice over CDC-ACM serial in 64-byte chunks.
+#[cfg(target_os = "none")]
 async fn send(serial: &mut Serial<'static>, data: &[u8]) -> bool {
     for chunk in data.chunks(64) {
         if serial.write_packet(chunk).await.is_err() {
@@ -136,6 +154,7 @@ async fn send(serial: &mut Serial<'static>, data: &[u8]) -> bool {
 }
 
 /// Encode a response and send it. Returns `false` on transport failure.
+#[cfg(target_os = "none")]
 async fn send_response(serial: &mut Serial<'static>, response: &Response<'_>) -> bool {
     let mut buf = [0u8; 2048];
     let n = response.encode(&mut buf);
@@ -198,11 +217,13 @@ pub struct MonitorSnapshot {
     pub accel_tap: bool,
 }
 
+#[cfg(target_os = "none")]
 enum HandleResult<'a> {
     Reply(Response<'a>),
     ReplyAndSave(Response<'a>),
 }
 
+#[cfg(target_os = "none")]
 fn handle_request(frame: &mut [u8], config: &mut Config) -> HandleResult<'static> {
     let Ok(request) = postcard::from_bytes_cobs::<Request>(frame) else {
         return HandleResult::Reply(Response::Error("bad frame"));
@@ -229,13 +250,13 @@ fn handle_request(frame: &mut [u8], config: &mut Config) -> HandleResult<'static
 }
 
 /// Accumulates incoming bytes into complete COBS frames delimited by 0x00.
-struct FrameAssembler {
+pub(crate) struct FrameAssembler {
     buf: [u8; 2048],
     pos: usize,
 }
 
 impl FrameAssembler {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             buf: [0u8; 2048],
             pos: 0,
@@ -244,7 +265,7 @@ impl FrameAssembler {
 
     /// Returns `Some(slice)` when a complete frame is ready (the 0x00
     /// delimiter was received), or `None` otherwise.
-    fn push(&mut self, byte: u8) -> Option<&mut [u8]> {
+    pub fn push(&mut self, byte: u8) -> Option<&mut [u8]> {
         if byte == 0x00 {
             if self.pos > 0 {
                 let len = self.pos;
@@ -257,8 +278,34 @@ impl FrameAssembler {
             self.buf[self.pos] = byte;
             self.pos += 1;
         }
-        // Silently drop bytes beyond capacity — the frame will be malformed
+        // Silently drop bytes beyond capacity -- the frame will be malformed
         // and `handle_request` will return an error when decoding fails.
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frame_assembler() {
+        let mut fa = FrameAssembler::new();
+        // Non-zero bytes accumulate, no frame yet
+        assert!(fa.push(0x01).is_none());
+        assert!(fa.push(0x02).is_none());
+        assert!(fa.push(0x03).is_none());
+        // Zero delimiter returns the accumulated frame
+        let frame = fa.push(0x00).unwrap();
+        assert_eq!(frame, &[0x01, 0x02, 0x03]);
+
+        // Consecutive delimiters produce no frame
+        assert!(fa.push(0x00).is_none());
+
+        // New frame works after reset
+        fa.push(0xBB);
+        fa.push(0xCC);
+        let frame = fa.push(0x00).unwrap();
+        assert_eq!(frame, &[0xBB, 0xCC]);
     }
 }

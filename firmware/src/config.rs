@@ -1,5 +1,8 @@
+#[cfg(target_os = "none")]
 use defmt::Format;
+#[cfg(target_os = "none")]
 use embassy_rp::flash::{self, Flash};
+#[cfg(target_os = "none")]
 use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
@@ -9,13 +12,14 @@ pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
 pub const SECTOR_SIZE: usize = 4096;
+#[cfg(target_os = "none")]
 #[allow(clippy::cast_possible_truncation)]
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
 
-#[cfg(feature = "rp2040")]
+#[cfg(all(target_os = "none", feature = "rp2040"))]
 pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
-#[cfg(feature = "rp2350")]
+#[cfg(all(target_os = "none", feature = "rp2350"))]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
 /// All GPIOs 0-22 except GP2 (I2C SDA), GP3 (I2C SCL), GP25 (LED).
@@ -35,7 +39,8 @@ pub fn is_valid_analog_pin(gpio: u8) -> bool {
 
 /// A compact bytecode expression (up to `MAX_EXPR` bytes).
 /// When `len == 0` the static value is used instead.
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct Expr {
     pub len: u8,
     pub code: [u8; MAX_EXPR],
@@ -58,7 +63,8 @@ pub trait NoteInput {
     fn velocity_expr(&self) -> &Expr;
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct ButtonDef {
     pub pin: u8,
     pub note: u8,
@@ -82,7 +88,8 @@ impl NoteInput for ButtonDef {
     }
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct TouchPadDef {
     pub pin: u8,
     pub note: u8,
@@ -108,19 +115,22 @@ impl NoteInput for TouchPadDef {
     }
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct PotDef {
     pub pin: u8,
     pub cc: u8,
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct LdrDef {
     pub pin: u8,
     pub cc: u8,
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct AccelConfig {
     pub enabled: bool,
     pub x_cc: u8,
@@ -133,7 +143,8 @@ pub struct AccelConfig {
     pub smoothing_pct: u8,
 }
 
-#[derive(Clone, Copy, Format, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
 pub struct Config {
     pub midi_channel: u8,
     pub num_buttons: u8,
@@ -316,6 +327,7 @@ impl Default for Config {
     }
 }
 
+#[cfg(target_os = "none")]
 pub fn save_config(
     flash: &mut Flash<'static, FLASH, flash::Blocking, { FLASH_SIZE }>,
     config: &Config,
@@ -343,6 +355,7 @@ pub fn save_config(
     true
 }
 
+#[cfg(target_os = "none")]
 pub fn load_config(
     flash: &mut Flash<'static, FLASH, flash::Blocking, { FLASH_SIZE }>,
 ) -> Option<Config> {
@@ -352,4 +365,68 @@ pub fn load_config(
         return None;
     }
     Config::decode(&buf)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_is_valid() {
+        assert!(Config::default().validate());
+    }
+
+    #[test]
+    fn validate_rejects_bad_pins() {
+        // Invalid pin (GP25 = LED)
+        let mut cfg = Config::default();
+        cfg.buttons[0].pin = 25;
+        assert!(!cfg.validate());
+
+        // Duplicate pin within buttons
+        let mut cfg = Config::default();
+        cfg.num_buttons = 2;
+        cfg.buttons[0].pin = 0;
+        cfg.buttons[1].pin = 0;
+        assert!(!cfg.validate());
+
+        // Same pin used by button and touch pad
+        let mut cfg = Config::default();
+        cfg.buttons[0].pin = 6;
+        cfg.touch_pads[0].pin = 6;
+        assert!(!cfg.validate());
+    }
+
+    #[test]
+    fn encode_decode_round_trip() {
+        let cfg = Config::default();
+        let mut buf = [0u8; SECTOR_SIZE];
+        let n = cfg.encode(&mut buf);
+        assert!(n > HEADER_SIZE);
+        let decoded = Config::decode(&buf).expect("decode failed");
+        assert_eq!(decoded.midi_channel, cfg.midi_channel);
+        assert_eq!(decoded.num_buttons, cfg.num_buttons);
+        assert_eq!(decoded.buttons[0].pin, cfg.buttons[0].pin);
+        assert_eq!(decoded.buttons[0].note, cfg.buttons[0].note);
+        assert_eq!(decoded.num_pots, cfg.num_pots);
+        assert_eq!(decoded.pots[0].cc, cfg.pots[0].cc);
+    }
+
+    #[test]
+    fn decode_rejects_bad_header() {
+        // Wrong magic
+        let mut buf = [0u8; 64];
+        buf[0..4].copy_from_slice(&0xDEAD_BEEFu32.to_le_bytes());
+        buf[4] = VERSION;
+        assert!(Config::decode(&buf).is_none());
+
+        // Wrong version
+        let mut buf = [0u8; 64];
+        buf[0..4].copy_from_slice(&MAGIC.to_le_bytes());
+        buf[4] = VERSION.wrapping_add(1);
+        assert!(Config::decode(&buf).is_none());
+
+        // Too short
+        assert!(Config::decode(&[0u8; 4]).is_none());
+    }
 }
