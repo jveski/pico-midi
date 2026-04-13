@@ -1,8 +1,11 @@
 //! USB Audio Class 1.0 — device-to-host audio source (microphone).
 //!
-//! Implements a minimal UAC 1.0 streaming interface that sends mono 16-bit
+//! Implements a minimal UAC 1.0 streaming interface that sends stereo 16-bit
 //! PCM audio at 22 050 Hz from the synth engine to the USB host. The device
 //! acts as a USB microphone.
+//!
+//! The stereo output comes from the Freeverb reverb processor which
+//! decorrelates the mono synth signal into a natural-sounding stereo pair.
 //!
 //! The design closely follows the existing `embassy_usb::class::uac1::speaker`
 //! module but reverses the data flow direction:
@@ -98,7 +101,7 @@ impl<'d> UacState<'d> {
 /// * `builder`  – the composite USB device builder
 /// * `state`    – static state storage
 /// * `max_packet_size` – max bytes per isochronous IN packet.
-///   At 22 050 Hz mono 16-bit that is ≈ 44 bytes/frame, but we use a
+///   At 22 050 Hz stereo 16-bit that is ≈ 88 bytes/frame, but we use a
 ///   generous value to absorb jitter.
 ///
 /// # Returns
@@ -134,21 +137,22 @@ pub fn build<'d, D: Driver<'d>>(
         IN_MICROPHONE as u8,        // wTerminalType low
         (IN_MICROPHONE >> 8) as u8, // wTerminalType high
         0x00,                       // bAssocTerminal
-        0x01,                       // bNrChannels (mono)
-        0x00,                       // wChannelConfig low (mono = center)
+        0x02,                       // bNrChannels (stereo)
+        0x03,                       // wChannelConfig low (left + right)
         0x00,                       // wChannelConfig high
         0x00,                       // iChannelNames
         0x00,                       // iTerminal
     ];
 
-    // Feature Unit: mute + volume on one channel
+    // Feature Unit: mute + volume on two channels
     let feature_unit = [
         FEATURE_UNIT,                  // bDescriptorSubtype
         FEATURE_UNIT_ID,               // bUnitID
         INPUT_UNIT_ID,                 // bSourceID
         0x01,                          // bControlSize (1 byte)
         FU_CONTROL_UNDEFINED,          // Master controls (none)
-        MUTE_CONTROL | VOLUME_CONTROL, // Channel 1 controls
+        MUTE_CONTROL | VOLUME_CONTROL, // Channel 1 (left) controls
+        MUTE_CONTROL | VOLUME_CONTROL, // Channel 2 (right) controls
         0x00,                          // iFeature
     ];
 
@@ -218,12 +222,12 @@ pub fn build<'d, D: Driver<'d>>(
         ],
     );
 
-    // Format Type I descriptor (mono, 16-bit, one sample rate)
+    // Format Type I descriptor (stereo, 16-bit, one sample rate)
     let sr = SAMPLE_RATE;
     let format_type = [
         FORMAT_TYPE,               // bDescriptorSubtype
         FORMAT_TYPE_I,             // bFormatType
-        0x01,                      // bNrChannels (mono)
+        0x02,                      // bNrChannels (stereo)
         0x02,                      // bSubframeSize (2 bytes = 16 bit)
         16,                        // bBitResolution
         0x01,                      // bSamFreqType (1 discrete rate)
@@ -328,8 +332,8 @@ impl<'d> UacControl<'d> {
             return Some(InResponse::Rejected);
         }
 
-        // Only channel 1 (our single mono channel) is valid, or channel 0 (master).
-        if channel > 1 {
+        // Channels 1 and 2 (stereo left/right) are valid, or channel 0 (master).
+        if channel > 2 {
             return Some(InResponse::Rejected);
         }
 

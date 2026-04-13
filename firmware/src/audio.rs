@@ -3,10 +3,11 @@
 //! Provides two output paths:
 //! 1. **PWM** – a PWM peripheral at high frequency (~490 kHz) acts as a crude
 //!    DAC, modulated at the audio sample rate (22,050 Hz). An external RC
-//!    low-pass filter smooths the output into an analog signal.
-//! 2. **USB Audio** – 16-bit PCM samples are buffered in a lock-free ring
-//!    buffer and drained into USB isochronous IN packets by a separate task,
-//!    presenting the device as a UAC 1.0 microphone.
+//!    low-pass filter smooths the output into an analog signal. PWM is mono
+//!    (uses the left channel of the stereo signal).
+//! 2. **USB Audio** – stereo 16-bit PCM samples are buffered in a lock-free
+//!    ring buffer and drained into USB isochronous IN packets by a separate
+//!    task, presenting the device as a UAC 1.0 stereo microphone.
 //!
 //! Recommended PWM output circuit:
 //! ```text
@@ -32,25 +33,31 @@ use crate::synth::{SynthEngine, SAMPLE_RATE};
 const PWM_TOP: u16 = 255;
 
 // ---------------------------------------------------------------------------
-// Lock-free SPSC ring buffer for passing i16 samples from the ticker ISR
-// context to the USB audio streaming task.
+// Lock-free SPSC ring buffer for passing stereo i16 sample pairs from the
+// ticker ISR context to the USB audio streaming task.
 //
-// The buffer is sized to hold several USB frames' worth of samples so the
-// USB task can drain a full frame even if it runs slightly behind.
-// At 22 050 Hz with 1 ms USB frames, one frame is ~22 samples.
-// 128 samples ≈ 5.8 ms of buffering, which is generous.
+// Each slot holds a stereo pair (left, right) stored as two consecutive
+// AtomicU16 values. The buffer is sized to hold several USB frames' worth
+// of stereo samples so the USB task can drain a full frame even if it runs
+// slightly behind.
+// At 22 050 Hz stereo with 1 ms USB frames, one frame is ~22 stereo pairs.
+// 128 stereo pairs ≈ 5.8 ms of buffering, which is generous.
 // ---------------------------------------------------------------------------
 
-/// Number of i16 samples the ring buffer can hold. Must be a power of two.
+/// Number of stereo sample pairs the ring buffer can hold. Must be a power of two.
 const RING_BUF_LEN: usize = 128;
 const RING_BUF_MASK: usize = RING_BUF_LEN - 1;
 
-/// Ring buffer storage. Written by the ticker task, read by the USB task.
-/// We use `AtomicU16` for each slot to allow lock-free access between tasks
-/// running on a single-threaded executor (no actual contention, but this
-/// keeps the borrow checker happy without `unsafe` shared mutable state).
+/// Ring buffer storage for left samples. Written by the ticker task, read by the USB task.
 #[allow(clippy::declare_interior_mutable_const)]
-static RING_BUF: [AtomicU16; RING_BUF_LEN] = {
+static RING_BUF_L: [AtomicU16; RING_BUF_LEN] = {
+    const INIT: AtomicU16 = AtomicU16::new(0);
+    [INIT; RING_BUF_LEN]
+};
+
+/// Ring buffer storage for right samples.
+#[allow(clippy::declare_interior_mutable_const)]
+static RING_BUF_R: [AtomicU16; RING_BUF_LEN] = {
     const INIT: AtomicU16 = AtomicU16::new(0);
     [INIT; RING_BUF_LEN]
 };
@@ -60,33 +67,35 @@ static RING_WR: AtomicU16 = AtomicU16::new(0);
 /// Read index (only modified by the USB/consumer task).
 static RING_RD: AtomicU16 = AtomicU16::new(0);
 
-/// Push one i16 sample into the ring buffer. Drops the sample if full.
+/// Push one stereo sample pair into the ring buffer. Drops the sample if full.
 #[inline]
-fn ring_push(sample: i16) {
+fn ring_push_stereo(left: i16, right: i16) {
     let wr = RING_WR.load(Ordering::Relaxed) as usize;
     let rd = RING_RD.load(Ordering::Acquire) as usize;
     let next = (wr + 1) & RING_BUF_MASK;
     if next == rd {
-        return; // full — drop sample
+        return; // full — drop sample pair
     }
-    RING_BUF[wr].store(sample as u16, Ordering::Relaxed);
+    RING_BUF_L[wr].store(left as u16, Ordering::Relaxed);
+    RING_BUF_R[wr].store(right as u16, Ordering::Relaxed);
     RING_WR.store(next as u16, Ordering::Release);
 }
 
-/// Pop one i16 sample from the ring buffer. Returns `None` if empty.
+/// Pop one stereo sample pair from the ring buffer. Returns `None` if empty.
 #[inline]
-fn ring_pop() -> Option<i16> {
+fn ring_pop_stereo() -> Option<(i16, i16)> {
     let rd = RING_RD.load(Ordering::Relaxed) as usize;
     let wr = RING_WR.load(Ordering::Acquire) as usize;
     if rd == wr {
         return None; // empty
     }
-    let val = RING_BUF[rd].load(Ordering::Relaxed) as i16;
+    let left = RING_BUF_L[rd].load(Ordering::Relaxed) as i16;
+    let right = RING_BUF_R[rd].load(Ordering::Relaxed) as i16;
     RING_RD.store(((rd + 1) & RING_BUF_MASK) as u16, Ordering::Release);
-    Some(val)
+    Some((left, right))
 }
 
-/// Number of samples currently available in the ring buffer.
+/// Number of stereo sample pairs currently available in the ring buffer.
 #[inline]
 fn ring_len() -> usize {
     let wr = RING_WR.load(Ordering::Acquire) as usize;
@@ -129,20 +138,20 @@ pub async fn run<'d, T: embassy_rp::pwm::Slice>(
     loop {
         ticker.next().await;
 
-        // Generate one audio sample from the synth engine.
+        // Generate one stereo sample pair from the synth engine.
         // The borrow is released before the next await point, ensuring
         // no overlap with the polling task's borrows.
-        let sample_i16 = synth.borrow_mut().tick_i16();
+        let (left, right) = synth.borrow_mut().tick_stereo();
 
-        // Update PWM duty cycle with the 8-bit sample
+        // Update PWM duty cycle with the 8-bit sample (mono — uses left channel)
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let pwm_val = ((i32::from(sample_i16) + 32768) >> 8) as u16;
+        let pwm_val = ((i32::from(left) + 32768) >> 8) as u16;
         config.compare_a = pwm_val;
         pwm.set_config(&config);
 
-        // Feed the USB audio ring buffer with the full 16-bit sample
+        // Feed the USB audio ring buffer with the full 16-bit stereo pair
         if usb_audio_enabled {
-            ring_push(sample_i16);
+            ring_push_stereo(left, right);
         }
     }
 }
@@ -151,12 +160,12 @@ pub async fn run<'d, T: embassy_rp::pwm::Slice>(
 // USB audio streaming task
 // ---------------------------------------------------------------------------
 
-/// Maximum samples per USB frame at 22 050 Hz (1 ms frame period).
-/// 22.05 samples/frame — we budget 23 to handle timing jitter.
+/// Maximum stereo sample pairs per USB frame at 22 050 Hz (1 ms frame period).
+/// 22.05 pairs/frame — we budget 23 to handle timing jitter.
 const MAX_SAMPLES_PER_FRAME: usize = 23;
 
-/// Size of the USB packet buffer: 23 samples * 2 bytes = 46 bytes.
-const USB_PACKET_BUF_SIZE: usize = MAX_SAMPLES_PER_FRAME * 2;
+/// Size of the USB packet buffer: 23 stereo pairs * 4 bytes (2 × i16) = 92 bytes.
+const USB_PACKET_BUF_SIZE: usize = MAX_SAMPLES_PER_FRAME * 4;
 
 /// Run the USB audio streaming loop. Waits for the host to enable the
 /// streaming interface, then continuously drains the ring buffer into
@@ -173,8 +182,10 @@ pub async fn run_usb_audio<'d, D: embassy_usb::driver::Driver<'d>>(
 
         // Stream until disconnected
         loop {
-            // Collect available samples into a packet buffer.
-            // At 22 050 Hz, we expect ~22 samples per 1 ms USB frame.
+            // Collect available stereo sample pairs into a packet buffer.
+            // At 22 050 Hz, we expect ~22 pairs per 1 ms USB frame.
+            // Samples are packed as interleaved little-endian 16-bit PCM:
+            // [L0_lo, L0_hi, R0_lo, R0_hi, L1_lo, L1_hi, R1_lo, R1_hi, ...]
             let mut buf = [0u8; USB_PACKET_BUF_SIZE];
             let avail = ring_len().min(MAX_SAMPLES_PER_FRAME);
 
@@ -188,12 +199,15 @@ pub async fn run_usb_audio<'d, D: embassy_usb::driver::Driver<'d>>(
                 }
             }
 
-            let byte_len = avail * 2;
+            let byte_len = avail * 4; // 4 bytes per stereo pair
             for i in 0..avail {
-                let sample = ring_pop().unwrap_or(0);
-                let le = sample.to_le_bytes();
-                buf[i * 2] = le[0];
-                buf[i * 2 + 1] = le[1];
+                let (left, right) = ring_pop_stereo().unwrap_or((0, 0));
+                let le_l = left.to_le_bytes();
+                let le_r = right.to_le_bytes();
+                buf[i * 4] = le_l[0];
+                buf[i * 4 + 1] = le_l[1];
+                buf[i * 4 + 2] = le_r[0];
+                buf[i * 4 + 3] = le_r[1];
             }
 
             match stream.write(&buf[..byte_len]).await {

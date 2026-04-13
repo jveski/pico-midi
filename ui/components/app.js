@@ -145,6 +145,7 @@ function defaultSynthConfig() {
     amp_attack_ms: 10, amp_decay_ms: 200, amp_sustain_pct: 70, amp_release_ms: 300,
     filter_attack_ms: 5, filter_decay_ms: 300, filter_sustain_pct: 30, filter_release_ms: 200,
     master_volume: 80,
+    reverb_mix: 40, reverb_size: 80, reverb_damping: 50,
   };
 }
 

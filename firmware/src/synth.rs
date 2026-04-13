@@ -11,6 +11,7 @@
 //! This keeps everything efficient on the RP2350 Cortex-M33 which has no FPU in the default configuration.
 
 use crate::config::SynthConfig;
+use crate::reverb::Freeverb;
 
 // ---------------------------------------------------------------------------
 // Fixed-point constants and helpers
@@ -686,6 +687,8 @@ pub struct SynthEngine {
     filter_resonance: u8,
     filter_env_amount: i16,
     master_volume: i16,
+    /// Stereo reverb processor (Freeverb algorithm).
+    reverb: Freeverb,
 }
 
 impl SynthEngine {
@@ -701,6 +704,7 @@ impl SynthEngine {
             filter_resonance: 40,
             filter_env_amount: Q15_MAX / 2,
             master_volume: Q15_MAX / 2,
+            reverb: Freeverb::new(),
         }
     }
 
@@ -735,6 +739,9 @@ impl SynthEngine {
             cfg.filter_sustain_pct,
             cfg.filter_release_ms,
         );
+
+        self.reverb
+            .set_params(cfg.reverb_size, cfg.reverb_damping, cfg.reverb_mix);
     }
 
     /// Trigger a note-on event.
@@ -824,7 +831,19 @@ impl SynthEngine {
         final_sample
     }
 
+    /// Generate one stereo audio sample pair as Q15 signed values.
+    ///
+    /// The mono synth output is processed through the Freeverb stereo
+    /// reverb, producing a decorrelated left/right pair suitable for
+    /// USB stereo audio output.
+    pub fn tick_stereo(&mut self) -> (i16, i16) {
+        let mono = self.tick_i16();
+        self.reverb.process(mono)
+    }
+
     /// Generate one audio sample, returned as a u8 (0-255) suitable for PWM output.
+    /// NOTE: Returns dry mono output without reverb processing.
+    /// For reverb-processed stereo output, use [`tick_stereo()`].
     #[allow(dead_code)]
     pub fn tick(&mut self) -> u8 {
         let sample = self.tick_i16();

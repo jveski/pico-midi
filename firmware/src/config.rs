@@ -7,7 +7,7 @@ use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 9;
+pub const VERSION: u8 = 10;
 pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
@@ -172,6 +172,12 @@ pub struct SynthConfig {
     pub filter_release_ms: u16,
     /// Master output volume (0-127).
     pub master_volume: u8,
+    /// Reverb dry/wet mix (0-127). 0 = fully dry, 127 = fully wet.
+    pub reverb_mix: u8,
+    /// Reverb room size / decay time (0-127). Higher = longer tail.
+    pub reverb_size: u8,
+    /// Reverb damping / high-frequency absorption (0-127). Higher = darker.
+    pub reverb_damping: u8,
 }
 
 /// Maximum number of loop layers (simultaneous loops).
@@ -439,6 +445,9 @@ impl Default for Config {
                 filter_sustain_pct: 30,
                 filter_release_ms: 200,
                 master_volume: 80,
+                reverb_mix: 40,
+                reverb_size: 80,
+                reverb_damping: 50,
             },
             loop_cfg: LoopConfig {
                 enabled: false,

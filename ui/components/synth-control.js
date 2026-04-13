@@ -27,6 +27,9 @@ export class SynthControl extends BaseElement {
     this.querySelector("#synthFilterSustain").value = s.filter_sustain_pct;
     this.querySelector("#synthFilterRelease").value = s.filter_release_ms;
     this.querySelector("#synthVolume").value = s.master_volume;
+    this.querySelector("#synthReverbMix").value = s.reverb_mix;
+    this.querySelector("#synthReverbSize").value = s.reverb_size;
+    this.querySelector("#synthReverbDamping").value = s.reverb_damping;
     this._updateVisibility();
   }
 
@@ -51,6 +54,9 @@ export class SynthControl extends BaseElement {
       filter_sustain_pct: clamp(num(this.querySelector("#synthFilterSustain").value, 30), 0, 100),
       filter_release_ms: clamp(num(this.querySelector("#synthFilterRelease").value, 200), 0, 5000),
       master_volume: clamp(num(this.querySelector("#synthVolume").value, 80), 0, 127),
+      reverb_mix: clamp(num(this.querySelector("#synthReverbMix").value, 40), 0, 127),
+      reverb_size: clamp(num(this.querySelector("#synthReverbSize").value, 80), 0, 127),
+      reverb_damping: clamp(num(this.querySelector("#synthReverbDamping").value, 50), 0, 127),
     };
   }
 

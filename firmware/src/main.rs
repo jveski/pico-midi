@@ -14,6 +14,7 @@ mod input_state;
 mod looper;
 #[cfg(target_os = "none")]
 mod polling;
+mod reverb;
 mod serial;
 mod synth;
 #[cfg(target_os = "none")]
@@ -108,11 +109,11 @@ async fn main(_spawner: Spawner) {
     let mut midi_class = MidiClass::new(&mut builder, 1, 1, 64);
 
     // Build USB Audio Class (microphone) for synth-to-host streaming.
-    // Max packet size: at 22050 Hz mono 16-bit, one USB frame (1 ms) holds
-    // ~22 samples = 44 bytes. We use 48 to absorb jitter.
+    // Max packet size: at 22050 Hz stereo 16-bit, one USB frame (1 ms) holds
+    // ~22 stereo pairs × 4 bytes = 88 bytes. We use 96 to absorb jitter.
     static UAC_STATE: StaticCell<usb_audio::UacState<'static>> = StaticCell::new();
     let mut usb_audio_stream =
-        usb_audio::build(&mut builder, UAC_STATE.init(usb_audio::UacState::new()), 48);
+        usb_audio::build(&mut builder, UAC_STATE.init(usb_audio::UacState::new()), 96);
 
     let mut usb = builder.build();
     let mut led = Output::new(p.PIN_25, Level::Low);

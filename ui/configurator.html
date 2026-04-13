@@ -151,6 +151,13 @@
             <div class="field"><label>Release ms</label><input type="number" id="synthFilterRelease" min="0" max="5000" value="200"></div>
           </div>
 
+          <div class="synth-section-label">Reverb</div>
+          <div class="synth-row">
+            <div class="field"><label>Mix</label><input type="number" id="synthReverbMix" min="0" max="127" value="40"><span class="note-hint">0=dry 127=wet</span></div>
+            <div class="field"><label>Size</label><input type="number" id="synthReverbSize" min="0" max="127" value="80"><span class="note-hint">room size / decay</span></div>
+            <div class="field"><label>Damping</label><input type="number" id="synthReverbDamping" min="0" max="127" value="50"><span class="note-hint">HF absorption</span></div>
+          </div>
+
           <div class="synth-section-label">Output</div>
           <div class="synth-row">
             <div class="field"><label>Volume</label><input type="number" id="synthVolume" min="0" max="127" value="80"></div>
