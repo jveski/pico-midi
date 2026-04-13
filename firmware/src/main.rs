@@ -122,17 +122,26 @@ async fn main(_spawner: Spawner) {
     static INPUT_STATE: InputState = InputState::new();
     let usb_fut = usb.run();
 
-    // Initialize synth engine and apply saved config
-    let mut synth_engine = SynthEngine::new();
-    synth_engine.apply_config(&cfg.synth);
-    let synth_engine = RefCell::new(synth_engine);
+    // Place large structs in static storage to avoid stack overflow.
+    // SynthEngine (~26 KB) and Looper (~4 KB) would otherwise live on the
+    // stack for the entire duration of main(), alongside the async join
+    // futures, easily exceeding the available stack space.
+    static SYNTH_ENGINE: StaticCell<RefCell<SynthEngine>> = StaticCell::new();
+    let synth_engine = SYNTH_ENGINE.init_with(|| {
+        let mut se = SynthEngine::new();
+        se.apply_config(&cfg.synth);
+        RefCell::new(se)
+    });
 
-    // Initialize looper and apply saved config
-    let mut looper_engine = Looper::new();
-    looper_engine.apply_config(&cfg.loop_cfg);
-    let looper_engine = RefCell::new(looper_engine);
+    static LOOPER_ENGINE: StaticCell<RefCell<Looper>> = StaticCell::new();
+    let looper_engine = LOOPER_ENGINE.init_with(|| {
+        let mut le = Looper::new();
+        le.apply_config(&cfg.loop_cfg);
+        RefCell::new(le)
+    });
 
-    let cfg = RefCell::new(cfg);
+    static CONFIG: StaticCell<RefCell<Config>> = StaticCell::new();
+    let cfg = CONFIG.init(RefCell::new(cfg));
 
     let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
     let midi_fut = polling::run(
@@ -140,18 +149,18 @@ async fn main(_spawner: Spawner) {
         &mut led,
         &mut adc_inst,
         i2c1,
-        &cfg,
+        cfg,
         &INPUT_STATE,
-        &synth_engine,
-        &looper_engine,
+        synth_engine,
+        looper_engine,
     );
 
     let serial_fut = serial::serial_task(
         &mut serial_class,
         &mut flash,
-        &cfg,
+        cfg,
         &INPUT_STATE,
-        &looper_engine,
+        looper_engine,
     );
 
     // If synth is enabled, run the audio output task alongside MIDI.
@@ -170,7 +179,7 @@ async fn main(_spawner: Spawner) {
         // Currently only GP14 is supported for PWM audio output.
         let pwm_slice = unsafe { embassy_rp::peripherals::PWM_SLICE7::steal() };
         let audio_pin = unsafe { embassy_rp::peripherals::PIN_14::steal() };
-        let audio_fut = audio::run(&synth_engine, pwm_slice, audio_pin, true);
+        let audio_fut = audio::run(synth_engine, pwm_slice, audio_pin, true);
         let usb_audio_fut = audio::run_usb_audio(&mut usb_audio_stream);
 
         // join5: USB + MIDI polling + serial + PWM audio + USB audio streaming
