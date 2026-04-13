@@ -6,18 +6,11 @@ use std::path::PathBuf;
 fn main() {
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
-    let memory_x = if env::var("CARGO_FEATURE_RP2350").is_ok() {
-        include_bytes!("memory-rp2350.x").as_slice()
-    } else {
-        include_bytes!("memory-rp2040.x").as_slice()
-    };
-
     File::create(out.join("memory.x"))
         .unwrap()
-        .write_all(memory_x)
+        .write_all(include_bytes!("memory-rp2350.x"))
         .unwrap();
     println!("cargo:rustc-link-search={}", out.display());
-    println!("cargo:rerun-if-changed=memory-rp2040.x");
     println!("cargo:rerun-if-changed=memory-rp2350.x");
     println!("cargo:rerun-if-changed=build.rs");
 }

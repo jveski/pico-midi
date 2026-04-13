@@ -16,7 +16,7 @@
 //!                        |
 //!                       GND
 //! ```
-//! For better quality, use a second-stage RC filter (see RP2040 HW design guide).
+//! For better quality, use a second-stage RC filter (see RP2350 HW design guide).
 
 use core::cell::RefCell;
 use core::sync::atomic::{AtomicU16, Ordering};
@@ -27,8 +27,8 @@ use embassy_time::Ticker;
 
 use crate::synth::{SynthEngine, SAMPLE_RATE};
 
-/// PWM top value. 255 gives ~490 kHz carrier frequency on RP2040 (125 MHz / 256)
-/// and ~586 kHz on RP2350 (150 MHz / 256). Both are well above audible range.
+/// PWM top value. 255 gives ~586 kHz carrier frequency on RP2350 (150 MHz / 256),
+/// well above audible range.
 const PWM_TOP: u16 = 255;
 
 // ---------------------------------------------------------------------------

@@ -5,8 +5,7 @@ edition = "2021"
 license = "MIT"
 
 [features]
-default = ["rp2040"]
-rp2040 = ["embassy-rp/rp2040", "embassy-rp/boot2-w25q080"]
+default = ["rp2350"]
 rp2350 = ["embassy-rp/rp235xa"]
 
 [target.'cfg(target_os = "none")'.dependencies]

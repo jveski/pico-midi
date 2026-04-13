@@ -213,33 +213,19 @@ impl TouchPads {
 /// A finger touching the pad increases capacitance, which increases the
 /// measured time.
 ///
-/// On RP2040 the pin is charged HIGH, then switched to input with an
-/// internal pull-down and we measure the discharge time until the pin
-/// reads LOW.
-///
-/// On RP2350 the polarity is inverted to work around the RP2350-E9
-/// erratum (which causes pins to stick at ~2 V when pull-down is used
-/// after being driven HIGH).  The pin is driven LOW, then switched to
-/// input with an internal pull-up.  The ~50 kΩ pull-up charges the pad
-/// through the touch capacitance, and we measure the time until the pin
-/// reads HIGH.  No external resistor is required.
+/// The polarity is inverted to work around the RP2350-E9 erratum (which
+/// causes pins to stick at ~2 V when pull-down is used after being driven
+/// HIGH).  The pin is driven LOW, then switched to input with an internal
+/// pull-up.  The ~50 kΩ pull-up charges the pad through the touch
+/// capacitance, and we measure the time until the pin reads HIGH.  No
+/// external resistor is required.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
 
-    #[cfg(feature = "rp2040")]
-    {
-        pin.set_high();
-    }
-    #[cfg(feature = "rp2350")]
-    {
-        pin.set_low();
-    }
+    pin.set_low();
 
     cortex_m::asm::delay(1000);
 
-    #[cfg(feature = "rp2040")]
-    pin.set_pull(Pull::Down);
-    #[cfg(feature = "rp2350")]
     pin.set_pull(Pull::Up);
 
     let start = Instant::now();
@@ -249,9 +235,6 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     loop {
         elapsed_us = start.elapsed().as_micros();
 
-        #[cfg(feature = "rp2040")]
-        let done = !pin.is_high();
-        #[cfg(feature = "rp2350")]
         let done = pin.is_high();
 
         if done || elapsed_us >= 500 {
@@ -272,20 +255,10 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     pin.set_as_output();
 
-    #[cfg(feature = "rp2040")]
-    {
-        pin.set_high();
-    }
-    #[cfg(feature = "rp2350")]
-    {
-        pin.set_low();
-    }
+    pin.set_low();
 
     Timer::after_micros(10).await;
 
-    #[cfg(feature = "rp2040")]
-    pin.set_pull(Pull::Down);
-    #[cfg(feature = "rp2350")]
     pin.set_pull(Pull::Up);
 
     let start = Instant::now();
@@ -295,9 +268,6 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
     loop {
         elapsed_us = start.elapsed().as_micros();
 
-        #[cfg(feature = "rp2040")]
-        let done = !pin.is_high();
-        #[cfg(feature = "rp2350")]
         let done = pin.is_high();
 
         if done || elapsed_us >= 500 {

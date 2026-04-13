@@ -2,7 +2,7 @@
 
 A firmware for building custom midi controllers with Raspberry Pi Pico microcontrollers.
 
-- Supports RP2040 and RP2350
+- Supports RP2350 (Raspberry Pi Pico 2)
 - Easy installation - download one file and drop it on the pi!
 - Web interface for configuration
 

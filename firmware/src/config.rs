@@ -17,9 +17,7 @@ pub const SECTOR_SIZE: usize = 4096;
 pub const CONFIG_OFFSET: u32 = (FLASH_SIZE - SECTOR_SIZE) as u32;
 const HEADER_SIZE: usize = 5;
 
-#[cfg(all(target_os = "none", feature = "rp2040"))]
-pub const FLASH_SIZE: usize = 2 * 1024 * 1024;
-#[cfg(all(target_os = "none", feature = "rp2350"))]
+#[cfg(target_os = "none")]
 pub const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
 /// All GPIOs 0-22 except GP2 (I2C SDA), GP3 (I2C SCL), GP25 (LED).

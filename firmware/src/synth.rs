@@ -8,7 +8,7 @@
 //!
 //! All DSP uses Q15 fixed-point (i16 with 15 fractional bits) for audio samples
 //! and Q16 fixed-point (i32 with 16 fractional bits) for intermediate calculations.
-//! This keeps everything efficient on the RP2040 Cortex-M0+ which has no FPU.
+//! This keeps everything efficient on the RP2350 Cortex-M33 which has no FPU in the default configuration.
 
 use crate::config::SynthConfig;
 
