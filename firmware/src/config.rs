@@ -138,7 +138,7 @@ pub struct LdrDef {
 pub struct SynthConfig {
     /// Enable the synth engine (outputs audio on the configured PWM pin).
     pub enabled: bool,
-    /// GPIO pin for PWM audio output (default: GP15).
+    /// GPIO pin for PWM audio output (default: GP14).
     pub audio_pin: u8,
     /// Oscillator 1 waveform: 0=saw, 1=square, 2=triangle, 3=sine.
     pub osc1_waveform: u8,

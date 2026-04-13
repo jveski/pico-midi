@@ -192,6 +192,7 @@ function renderConfigObj(cfg) {
   panel.potList.render(cfg.pots, pins.analog);
   panel.ldrSection.render(cfg, pins.analog);
   panel.accelSection.render(cfg);
+  if (panel.synthControl) panel.synthControl.render(cfg);
   if (panel.loopControl) panel.loopControl.render(cfg);
   if (panel.pinoutGuide) panel.pinoutGuide.update(cfg);
 }
@@ -569,6 +570,11 @@ function readConfigFromUI() {
   config.ldr = ldrData.ldr;
 
   config.accel = panel.accelSection.readFromDOM();
+
+  // Synth config
+  if (panel.synthControl) {
+    config.synth = panel.synthControl.readFromDOM();
+  }
 
   // Loop config
   if (panel.loopControl) {

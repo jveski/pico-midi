@@ -649,6 +649,9 @@ struct Voice {
     filter: LadderFilter,
     note: u8,
     active: bool,
+    /// Velocity gain in Q15 (0..Q15_MAX). Scales the amplitude envelope
+    /// so softer hits produce quieter sounds.
+    velocity_gain: i16,
 }
 
 impl Voice {
@@ -661,6 +664,7 @@ impl Voice {
             filter: LadderFilter::new(),
             note: 0,
             active: false,
+            velocity_gain: Q15_MAX,
         }
     }
 }
@@ -752,8 +756,8 @@ impl SynthEngine {
         v.amp_env.gate_on();
         v.filter_env.gate_on();
 
-        // Scale initial amplitude by velocity
-        let _ = velocity; // Velocity is handled by envelope scaling
+        // Scale amplitude by velocity (0-127 -> Q15 gain)
+        v.velocity_gain = (i32::from(velocity.clamp(1, 127)) * i32::from(Q15_MAX) / 127) as i16;
     }
 
     /// Trigger a note-off event.
@@ -803,8 +807,11 @@ impl SynthEngine {
         let amp_env_val = v.amp_env.tick();
         let shaped = q15_mul(filtered, amp_env_val);
 
+        // Apply velocity scaling
+        let velocity_scaled = q15_mul(shaped, v.velocity_gain);
+
         // Apply master volume
-        let final_sample = q15_mul(shaped, self.master_volume);
+        let final_sample = q15_mul(velocity_scaled, self.master_volume);
 
         // Check if voice has finished releasing
         if !v.amp_env.is_active() {
