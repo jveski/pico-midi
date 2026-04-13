@@ -16,6 +16,8 @@ mod looper;
 mod polling;
 mod serial;
 mod synth;
+#[cfg(target_os = "none")]
+mod usb_audio;
 
 #[cfg(target_os = "none")]
 use core::cell::RefCell;
@@ -87,7 +89,7 @@ async fn main(_spawner: Spawner) {
     usb_config.max_power = 100;
     usb_config.max_packet_size_0 = 64;
 
-    static CONFIG_DESC: StaticCell<[u8; 256]> = StaticCell::new();
+    static CONFIG_DESC: StaticCell<[u8; 512]> = StaticCell::new();
     static BOS_DESC: StaticCell<[u8; 256]> = StaticCell::new();
     static MSOS_DESC: StaticCell<[u8; 256]> = StaticCell::new();
     static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
@@ -95,7 +97,7 @@ async fn main(_spawner: Spawner) {
     let mut builder = Builder::new(
         driver,
         usb_config,
-        CONFIG_DESC.init([0; 256]),
+        CONFIG_DESC.init([0; 512]),
         BOS_DESC.init([0; 256]),
         MSOS_DESC.init([0; 256]),
         CONTROL_BUF.init([0; 64]),
@@ -104,6 +106,14 @@ async fn main(_spawner: Spawner) {
     static CDC_STATE: StaticCell<State> = StaticCell::new();
     let mut serial_class = CdcAcmClass::new(&mut builder, CDC_STATE.init(State::new()), 64);
     let mut midi_class = MidiClass::new(&mut builder, 1, 1, 64);
+
+    // Build USB Audio Class (microphone) for synth-to-host streaming.
+    // Max packet size: at 22050 Hz mono 16-bit, one USB frame (1 ms) holds
+    // ~22 samples = 44 bytes. We use 48 to absorb jitter.
+    static UAC_STATE: StaticCell<usb_audio::UacState<'static>> = StaticCell::new();
+    let mut usb_audio_stream =
+        usb_audio::build(&mut builder, UAC_STATE.init(usb_audio::UacState::new()), 48);
+
     let mut usb = builder.build();
     let mut led = Output::new(p.PIN_25, Level::Low);
     let mut adc_inst = adc::Adc::new(p.ADC, Irqs, adc::Config::default());
@@ -143,7 +153,9 @@ async fn main(_spawner: Spawner) {
     );
 
     // If synth is enabled, run the audio output task alongside MIDI.
-    // Otherwise, run the three original tasks without audio.
+    // The USB audio streaming task always runs (it waits for the host to
+    // activate the interface), but the ring buffer is only fed when PWM
+    // audio is active.
     let synth_enabled = cfg.borrow().synth.enabled;
     let synth_audio_pin = cfg.borrow().synth.audio_pin;
 
@@ -156,10 +168,11 @@ async fn main(_spawner: Spawner) {
         // Currently only GP14 is supported for PWM audio output.
         let pwm_slice = unsafe { embassy_rp::peripherals::PWM_SLICE7::steal() };
         let audio_pin = unsafe { embassy_rp::peripherals::PIN_14::steal() };
-        let audio_fut = audio::run(&synth_engine, pwm_slice, audio_pin);
+        let audio_fut = audio::run(&synth_engine, pwm_slice, audio_pin, true);
+        let usb_audio_fut = audio::run_usb_audio(&mut usb_audio_stream);
 
-        // join4: USB + MIDI polling + serial + audio
-        embassy_futures::join::join4(usb_fut, midi_fut, serial_fut, audio_fut).await;
+        // join5: USB + MIDI polling + serial + PWM audio + USB audio streaming
+        embassy_futures::join::join5(usb_fut, midi_fut, serial_fut, audio_fut, usb_audio_fut).await;
     } else {
         if synth_enabled {
             defmt::warn!(

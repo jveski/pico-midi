@@ -769,12 +769,15 @@ impl SynthEngine {
         }
     }
 
-    /// Generate one audio sample, returned as a u8 (0-255) suitable for PWM output.
-    pub fn tick(&mut self) -> u8 {
+    /// Generate one audio sample as a Q15 signed value (-32768..32767).
+    ///
+    /// This is the core sample generation method. Use [`tick`] for 8-bit PWM
+    /// output or call this directly for 16-bit USB audio output.
+    pub fn tick_i16(&mut self) -> i16 {
         let v = &mut self.voice;
 
         if !v.active && !v.amp_env.is_active() {
-            return 128; // Silence = midpoint for unsigned PWM
+            return 0; // Silence
         }
 
         // Update oscillator drift periodically
@@ -818,9 +821,17 @@ impl SynthEngine {
             v.active = false;
         }
 
+        final_sample
+    }
+
+    /// Generate one audio sample, returned as a u8 (0-255) suitable for PWM output.
+    #[allow(dead_code)]
+    pub fn tick(&mut self) -> u8 {
+        let sample = self.tick_i16();
+
         // Convert Q15 signed (-32768..32767) to unsigned 8-bit (0..255) for PWM
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let pwm_val = ((i32::from(final_sample) + Q15_ONE) >> 8) as u8;
+        let pwm_val = ((i32::from(sample) + Q15_ONE) >> 8) as u8;
         pwm_val
     }
 }
