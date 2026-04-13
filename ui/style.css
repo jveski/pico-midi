@@ -5,20 +5,167 @@
   --surface: #111;
   --green: #0f0; --red: #f00; --orange: #f80;
   --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+  --header-h: 52px;
+  --nav-h: 36px;
+  --banner-h: 48px;
 }
 
 body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; font-size: 13px; }
 input, select, button, textarea { font-family: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--border); outline: none; }
 input:focus, select:focus { border-color: var(--fg); }
-.container { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-.container.has-connect-banner { padding-top: 72px; }
 collapsible-card { display: block; }
 
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-header h1 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+/* ==========================================================================
+   Two-Column Layout
+   ========================================================================== */
+
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.layout.has-connect-banner {
+  padding-top: var(--banner-h);
+}
+
+.layout-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.layout-main > config-panel {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 20px 80px;
+  scroll-behavior: smooth;
+}
+
+.layout-context {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Header
+   ========================================================================== */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-h);
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+header h1 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 header h1 a { color: var(--fg); text-decoration: none; }
 header h1 a:hover { color: var(--dim); }
 header h1 span { color: var(--dim); font-weight: 400; }
+
+.context-toggle { display: none; }
+
+/* ==========================================================================
+   Section Navigation
+   ========================================================================== */
+
+section-nav { display: block; flex-shrink: 0; }
+
+.section-nav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--nav-h);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.section-nav::-webkit-scrollbar { display: none; }
+
+.section-nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.1s, border-color 0.1s;
+}
+.section-nav-item:hover { color: var(--fg); }
+.section-nav-item.active {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+
+/* ==========================================================================
+   Context Panel
+   ========================================================================== */
+
+.context-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--header-h);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.context-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  transition: color 0.1s, border-color 0.1s;
+}
+.context-tab:hover { color: var(--fg); }
+.context-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+
+.context-panel-body {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+.context-pane { display: none; }
+.context-pane.active { display: block; }
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
@@ -34,6 +181,10 @@ a.btn { text-decoration: none; }
 .btn-primary:disabled:hover { background: var(--fg); color: var(--bg); }
 .btn-sm { padding: 3px 10px; font-size: 11px; }
 
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
 .card { border: 1px solid var(--border); margin-bottom: 12px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
 .card-header:hover { background: var(--surface); }
@@ -44,6 +195,10 @@ a.btn { text-decoration: none; }
 .card-body { padding: 16px; }
 .card-body.collapsed { display: none; }
 
+/* ==========================================================================
+   Fields
+   ========================================================================== */
+
 .field { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .field:last-child { margin-bottom: 0; }
 .field label { color: var(--dim); min-width: 100px; flex-shrink: 0; }
@@ -51,7 +206,11 @@ a.btn { text-decoration: none; }
 .field input[type="number"] { -moz-appearance: textfield; }
 .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-.item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+/* ==========================================================================
+   Item Rows
+   ========================================================================== */
+
+.item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .item-row:last-of-type { border-bottom: none; }
 .item-row .index { font-size: 11px; color: var(--dim); min-width: 20px; }
 .item-row input { padding: 4px 8px; font-size: 13px; width: 64px; }
@@ -69,7 +228,10 @@ a.btn { text-decoration: none; }
 .expr-input.expr-invalid { border-color: var(--red); }
 .expr-input::placeholder { color: #444; }
 .expr-error { font-size: 10px; color: var(--red); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
-.item-row { flex-wrap: wrap; }
+
+/* ==========================================================================
+   Toggle Switch
+   ========================================================================== */
 
 .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .toggle-row label { color: var(--dim); }
@@ -82,11 +244,19 @@ a.btn { text-decoration: none; }
 
 .note-hint { font-size: 11px; color: var(--dim); min-width: 32px; }
 
+/* ==========================================================================
+   Toast Notification
+   ========================================================================== */
+
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 100; pointer-events: none; }
 .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { background: var(--green); color: var(--bg); }
 .toast.error { background: var(--red); color: var(--bg); }
 .toast.info { background: var(--fg); color: var(--bg); }
+
+/* ==========================================================================
+   Monitor Elements
+   ========================================================================== */
 
 .monitor-row { display: flex; align-items: center; gap: 10px; height: 28px; margin-top: 6px; }
 .monitor-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
@@ -99,7 +269,12 @@ a.btn { text-decoration: none; }
 .monitor-tap.active { background: var(--orange); border-color: var(--orange); }
 .monitor-label { font-size: 12px; color: var(--dim); min-width: 56px; flex-shrink: 0; }
 
-/* Landing page */
+/* ==========================================================================
+   Landing Page
+   ========================================================================== */
+
+.container { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+
 .landing-intro { color: var(--dim); margin-bottom: 32px; line-height: 1.7; }
 .landing-intro a { color: var(--fg); }
 .landing-intro a:hover { color: var(--dim); }
@@ -131,7 +306,10 @@ a.btn { text-decoration: none; }
 .download-name { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
 .download-desc { font-size: 11px; color: var(--dim); }
 
-/* Reference section docs (shared by expr-ref and wiring-ref) */
+/* ==========================================================================
+   Reference Sections (shared by expr-ref and wiring-ref)
+   ========================================================================== */
+
 .ref-section p { color: var(--dim); margin-bottom: 12px; line-height: 1.7; }
 .ref-section strong { color: var(--fg); }
 .ref-section h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; color: var(--fg); }
@@ -156,12 +334,18 @@ a.btn { text-decoration: none; }
 .wiring-tips li { margin-bottom: 4px; line-height: 1.6; }
 .wiring-tips strong { color: var(--fg); }
 
-/* Project actions (inside Settings card) */
+/* ==========================================================================
+   Project Actions (inside Settings card)
+   ========================================================================== */
+
 .project-actions-inline { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
 .project-actions-inline h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 10px; }
 .project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Floating banners (shared base) */
+/* ==========================================================================
+   Floating Banners
+   ========================================================================== */
+
 .floating-banner {
   position: fixed; left: 0; right: 0; z-index: 50;
   display: flex; align-items: center; justify-content: center; gap: 16px;
@@ -181,7 +365,7 @@ a.btn { text-decoration: none; }
 .connect-banner.visible { transform: translateY(0); }
 .connect-banner-text.unsupported { color: var(--red); }
 
-/* Disabled config panel (when no device connected) */
+/* Disabled config panel */
 config-panel.disabled input,
 config-panel.disabled select,
 config-panel.disabled .toggle { opacity: 0.35; pointer-events: none; }
@@ -198,23 +382,21 @@ config-panel.disabled .monitor-tap { opacity: 0.35; }
 }
 .save-banner.visible { transform: translateY(0); }
 
-/* Pinout guide (inline in wiring section) */
-.pinout-guide-body { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+/* ==========================================================================
+   Pinout Guide
+   ========================================================================== */
+
+.pinout-guide-body { display: flex; flex-direction: column; align-items: center; }
 .pinout-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; justify-content: center; }
 .pinout-legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dim); }
 .pinout-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-/* Looper */
+/* ==========================================================================
+   Looper
+   ========================================================================== */
+
 .loop-config-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .loop-config-row .field { margin-bottom: 0; }
-
-/* Synth */
-.synth-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 14px 0 8px; }
-.synth-section-label:first-child { margin-top: 0; }
-.synth-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
-.synth-row .field { margin-bottom: 0; }
-.synth-row .field label { min-width: 90px; }
-.synth-note { font-size: 11px; color: var(--dim); margin-top: 16px; line-height: 1.6; }
 
 .loop-transport { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .loop-transport-btn { min-width: 56px; text-align: center; }
@@ -245,3 +427,75 @@ config-panel.disabled .monitor-tap { opacity: 0.35; }
 .loop-layer-lane.recording .loop-layer-state { color: var(--red); }
 .loop-layer-lane.playing .loop-layer-state { color: var(--green); }
 .loop-layer-lane.muted .loop-layer-state { color: var(--orange); }
+
+/* ==========================================================================
+   Synth
+   ========================================================================== */
+
+.synth-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 14px 0 8px; }
+.synth-section-label:first-child { margin-top: 0; }
+.synth-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.synth-row .field { margin-bottom: 0; }
+.synth-row .field label { min-width: 90px; }
+.synth-note { font-size: 11px; color: var(--dim); margin-top: 16px; line-height: 1.6; }
+
+/* ==========================================================================
+   Responsive: Collapse to single column below 1024px
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .layout-main {
+    height: auto;
+    overflow: visible;
+  }
+
+  .layout-main > config-panel {
+    overflow: visible;
+    padding-bottom: 80px;
+  }
+
+  .layout-context {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    max-width: 90vw;
+    z-index: 60;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .layout-context.drawer-open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .context-toggle { display: inline-flex; }
+
+  .context-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  .context-backdrop.visible { display: block; }
+}
+
+@media (max-width: 600px) {
+  .section-nav-item { padding: 0 8px; font-size: 10px; }
+  .layout-context { width: 100vw; max-width: 100vw; }
+  header h1 { font-size: 12px; }
+}

@@ -30,7 +30,6 @@ export class ConfigPanel extends BaseElement {
   get btnExport() { return this.querySelector("#btnExport"); }
   get btnImport() { return this.querySelector("#btnImport"); }
   get btnReset() { return this.querySelector("#btnReset"); }
-  get pinoutGuide() { return this.querySelector("pinout-guide"); }
 
   set projectBusy(v) {
     this.btnExport.disabled = v;

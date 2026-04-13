@@ -2,10 +2,8 @@ import { BaseElement } from "./helpers.js";
 
 export class CollapsibleCard extends BaseElement {
   init() {
-    const section = this.dataset.section;
     const title = this.dataset.title;
     const badgeId = this.dataset.badgeId;
-    const bodyId = section ? "section" + section[0].toUpperCase() + section.slice(1) : null;
 
     const fragment = document.createDocumentFragment();
     while (this.firstChild) fragment.appendChild(this.firstChild);
@@ -15,7 +13,6 @@ export class CollapsibleCard extends BaseElement {
 
     const header = document.createElement("div");
     header.className = "card-header";
-    if (section) header.dataset.section = section;
 
     const h2 = document.createElement("h2");
     h2.textContent = title;
@@ -36,7 +33,6 @@ export class CollapsibleCard extends BaseElement {
 
     const body = document.createElement("div");
     body.className = "card-body";
-    if (bodyId) body.id = bodyId;
     body.appendChild(fragment);
 
     header.addEventListener("click", () => {

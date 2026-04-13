@@ -17,12 +17,15 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let connectBanner, container, configPanel, saveBanner, toastEl;
+let connectBanner, layout, configPanel, contextPanel, sectionNav, saveBanner, toastEl;
+let contextBackdrop = null;
 
 export function init(refs) {
   connectBanner = refs.connectBanner;
-  container = refs.container;
+  layout = refs.layout;
   configPanel = refs.configPanel;
+  contextPanel = refs.contextPanel;
+  sectionNav = refs.sectionNav;
   saveBanner = refs.saveBanner;
   toastEl = refs.toast;
 
@@ -52,6 +55,28 @@ export function init(refs) {
   // Looper button events — delegate clicks from the loop-control component
   configPanel.addEventListener("click", handleLoopClick);
 
+  // Context panel auto-switching: expression inputs -> expr ref, pin selects -> pinout
+  configPanel.addEventListener("focusin", (e) => {
+    if (!contextPanel) return;
+    if (e.target.classList.contains("expr-input")) {
+      contextPanel.switchTo("expr");
+    } else if (e.target.classList.contains("pin-select")) {
+      contextPanel.switchTo("pinout");
+    }
+  });
+
+  // Mobile drawer toggle for context panel
+  const toggleBtn = document.getElementById("btnContextToggle");
+  if (toggleBtn) {
+    // Create backdrop element for mobile drawer
+    contextBackdrop = document.createElement("div");
+    contextBackdrop.className = "context-backdrop";
+    document.body.appendChild(contextBackdrop);
+
+    toggleBtn.addEventListener("click", toggleContextDrawer);
+    contextBackdrop.addEventListener("click", closeContextDrawer);
+  }
+
   if (!("serial" in navigator)) {
     connectBanner.showUnsupported();
   } else {
@@ -68,13 +93,29 @@ export function init(refs) {
   renderDefaultConfig();
 }
 
+function toggleContextDrawer() {
+  if (!contextPanel) return;
+  const isOpen = contextPanel.classList.contains("drawer-open");
+  if (isOpen) {
+    closeContextDrawer();
+  } else {
+    contextPanel.classList.add("drawer-open");
+    if (contextBackdrop) contextBackdrop.classList.add("visible");
+  }
+}
+
+function closeContextDrawer() {
+  if (contextPanel) contextPanel.classList.remove("drawer-open");
+  if (contextBackdrop) contextBackdrop.classList.remove("visible");
+}
+
 function toast(msg, type) {
   toastEl.show(msg, type);
 }
 
 function setConnected(connected) {
   connectBanner.visible = !connected;
-  container.classList.toggle("has-connect-banner", !connected);
+  layout.classList.toggle("has-connect-banner", !connected);
   configPanel.disabled = !connected;
   if (!connected) {
     dirty = false;
@@ -196,7 +237,9 @@ function renderConfigObj(cfg) {
   panel.accelSection.render(cfg);
   if (panel.synthControl) panel.synthControl.render(cfg);
   if (panel.loopControl) panel.loopControl.render(cfg);
-  if (panel.pinoutGuide) panel.pinoutGuide.update(cfg);
+  // Pinout guide is now in the context panel
+  const pinout = contextPanel ? contextPanel.pinoutGuide : null;
+  if (pinout) pinout.update(cfg);
 }
 
 async function connect() {
@@ -211,7 +254,7 @@ async function connect() {
     // Hide the connect banner but keep the config panel disabled until
     // we've successfully loaded the config from the device.
     connectBanner.visible = false;
-    container.classList.remove("has-connect-banner");
+    layout.classList.remove("has-connect-banner");
     const resp = await sendRequest(REQ_VERSION);
     if (resp.type === "version") {
       if (!resp.value.startsWith("midictrl")) {
@@ -591,7 +634,8 @@ async function applyConfig() {
     const cfg = readConfigFromUI();
     if (!cfg) return false;
     saveExprSources();
-    if (configPanel.pinoutGuide) configPanel.pinoutGuide.update(cfg);
+    const pinout = contextPanel ? contextPanel.pinoutGuide : null;
+    if (pinout) pinout.update(cfg);
     const resp = await sendRequest(REQ_PUT_CONFIG, cfg);
     if (resp.type === "ok") return true;
     throw new Error(responseError(resp));

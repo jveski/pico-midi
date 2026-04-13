@@ -13,391 +13,423 @@
   <button class="btn btn-primary" id="btnConnect">Connect</button>
 </connect-banner>
 
-<div class="container has-connect-banner">
-  <header>
-    <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
-  </header>
+<div class="layout has-connect-banner">
 
-  <config-panel id="configPanel">
+  <!-- Left column: header + nav + config -->
+  <div class="layout-main">
+    <header>
+      <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
+      <button class="btn btn-sm context-toggle" id="btnContextToggle" title="Toggle reference panel">REF</button>
+    </header>
 
-    <!-- Buttons -->
-    <collapsible-card data-section="buttons" data-title="Buttons" data-badge-id="btnCount">
-      <item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount">
-        <div id="buttonList"></div>
-        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Button</button>
-      </item-list>
-    </collapsible-card>
+    <section-nav>
+      <nav class="section-nav" id="sectionNav">
+        <a class="section-nav-item active" href="#sectionButtons" data-target="sectionButtons">Buttons</a>
+        <a class="section-nav-item" href="#sectionTouch" data-target="sectionTouch">Touch</a>
+        <a class="section-nav-item" href="#sectionPots" data-target="sectionPots">Pots</a>
+        <a class="section-nav-item" href="#sectionLdr" data-target="sectionLdr">LDR</a>
+        <a class="section-nav-item" href="#sectionAccel" data-target="sectionAccel">Accel</a>
+        <a class="section-nav-item" href="#sectionSynth" data-target="sectionSynth">Synth</a>
+        <a class="section-nav-item" href="#sectionLooper" data-target="sectionLooper">Looper</a>
+        <a class="section-nav-item" href="#sectionSettings" data-target="sectionSettings">Settings</a>
+      </nav>
+    </section-nav>
 
-    <!-- Touch Pads -->
-    <collapsible-card data-section="touch" data-title="Touch Pads" data-badge-id="touchCount">
-      <item-list data-type="touch" data-list-id="touchList" data-count-id="touchCount">
-        <div id="touchList"></div>
-        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Touch Pad</button>
-      </item-list>
-    </collapsible-card>
+    <config-panel id="configPanel">
 
-    <!-- Pots -->
-    <collapsible-card data-section="pots" data-title="Potentiometers" data-badge-id="potCount">
-      <item-list data-type="pot" data-list-id="potList" data-count-id="potCount">
-        <div id="potList"></div>
-        <button class="btn btn-sm add-item-btn" data-action="add">+ Add Pot</button>
-      </item-list>
-    </collapsible-card>
+      <!-- Buttons -->
+      <collapsible-card data-title="Buttons" data-badge-id="btnCount" id="sectionButtons">
+        <item-list data-type="button" data-list-id="buttonList" data-count-id="btnCount">
+          <div id="buttonList"></div>
+          <button class="btn btn-sm add-item-btn" data-action="add">+ Add Button</button>
+        </item-list>
+      </collapsible-card>
 
-    <!-- LDR -->
-    <collapsible-card data-section="ldr" data-title="LDR (Light Sensor)">
-      <ldr-section>
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="ldrEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
-          <select id="ldrPin" class="pin-select"></select>
-        </div>
-        <div id="ldrFields">
+      <!-- Touch Pads -->
+      <collapsible-card data-title="Touch Pads" data-badge-id="touchCount" id="sectionTouch">
+        <item-list data-type="touch" data-list-id="touchList" data-count-id="touchCount">
+          <div id="touchList"></div>
+          <button class="btn btn-sm add-item-btn" data-action="add">+ Add Touch Pad</button>
+        </item-list>
+      </collapsible-card>
+
+      <!-- Pots -->
+      <collapsible-card data-title="Potentiometers" data-badge-id="potCount" id="sectionPots">
+        <item-list data-type="pot" data-list-id="potList" data-count-id="potCount">
+          <div id="potList"></div>
+          <button class="btn btn-sm add-item-btn" data-action="add">+ Add Pot</button>
+        </item-list>
+      </collapsible-card>
+
+      <!-- LDR -->
+      <collapsible-card data-title="LDR (Light Sensor)" id="sectionLdr">
+        <ldr-section>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input type="checkbox" id="ldrEnabled">
+              <span class="slider"></span>
+            </label>
+            <label>Enabled</label>
+            <select id="ldrPin" class="pin-select"></select>
+          </div>
+          <div id="ldrFields">
+            <div class="field">
+              <label>CC Number</label>
+              <input type="number" id="ldrCc" min="0" max="127" value="74">
+            </div>
+            <div id="ldrMonitor"></div>
+          </div>
+        </ldr-section>
+      </collapsible-card>
+
+      <!-- Accelerometer -->
+      <collapsible-card data-title="Accelerometer" id="sectionAccel">
+        <accel-section>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input type="checkbox" id="accelEnabled">
+              <span class="slider"></span>
+            </label>
+            <label>Enabled</label>
+            <span class="pin-label">Accel SCL GP3</span>
+            <span class="pin-label">Accel SDA GP2</span>
+          </div>
+          <div id="accelFields">
+            <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
+            <div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>
+            <div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>
+            <div class="field"><label>Tap Velocity</label><input type="number" id="accelTapVel" min="1" max="127" value="127"></div>
+            <div class="field"><label>Dead Zone</label><input type="number" id="accelDeadZone" min="0" max="255" value="13"><span class="note-hint" id="deadZoneHint"></span></div>
+            <div class="field"><label>Smoothing</label><input type="number" id="accelSmoothing" min="0" max="100" value="25"><span class="note-hint" id="smoothingHint"></span></div>
+            <div id="accelMonitor"></div>
+          </div>
+        </accel-section>
+      </collapsible-card>
+
+      <!-- Synth -->
+      <collapsible-card data-title="Synth" id="sectionSynth">
+        <synth-control>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input type="checkbox" id="synthEnabled">
+              <span class="slider"></span>
+            </label>
+            <label>Enabled</label>
+            <span class="pin-label">Audio GP14</span>
+          </div>
+          <div id="synthFields">
+            <div class="synth-section-label">Oscillators</div>
+            <div class="synth-row">
+              <div class="field">
+                <label>Osc 1</label>
+                <select id="synthOsc1Wave">
+                  <option value="0">Saw</option>
+                  <option value="1">Square</option>
+                  <option value="2">Triangle</option>
+                  <option value="3">Sine</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Osc 2</label>
+                <select id="synthOsc2Wave">
+                  <option value="0">Saw</option>
+                  <option value="1">Square</option>
+                  <option value="2">Triangle</option>
+                  <option value="3">Sine</option>
+                </select>
+              </div>
+            </div>
+            <div class="synth-row">
+              <div class="field"><label>Detune (cents)</label><input type="number" id="synthDetune" min="-50" max="50" value="7"></div>
+              <div class="field"><label>Semitone</label><input type="number" id="synthSemitone" min="-24" max="24" value="0"></div>
+              <div class="field"><label>Mix</label><input type="number" id="synthOscMix" min="0" max="127" value="64"><span class="note-hint">0=osc1 127=osc2</span></div>
+            </div>
+
+            <div class="synth-section-label">Filter</div>
+            <div class="synth-row">
+              <div class="field"><label>Cutoff</label><input type="number" id="synthFilterCutoff" min="0" max="127" value="80"></div>
+              <div class="field"><label>Resonance</label><input type="number" id="synthFilterReso" min="0" max="127" value="40"></div>
+              <div class="field"><label>Env Amount</label><input type="number" id="synthFilterEnvAmt" min="0" max="127" value="64"></div>
+            </div>
+
+            <div class="synth-section-label">Amp Envelope</div>
+            <div class="synth-row">
+              <div class="field"><label>Attack ms</label><input type="number" id="synthAmpAttack" min="0" max="5000" value="10"></div>
+              <div class="field"><label>Decay ms</label><input type="number" id="synthAmpDecay" min="0" max="5000" value="200"></div>
+              <div class="field"><label>Sustain %</label><input type="number" id="synthAmpSustain" min="0" max="100" value="70"></div>
+              <div class="field"><label>Release ms</label><input type="number" id="synthAmpRelease" min="0" max="5000" value="300"></div>
+            </div>
+
+            <div class="synth-section-label">Filter Envelope</div>
+            <div class="synth-row">
+              <div class="field"><label>Attack ms</label><input type="number" id="synthFilterAttack" min="0" max="5000" value="5"></div>
+              <div class="field"><label>Decay ms</label><input type="number" id="synthFilterDecay" min="0" max="5000" value="300"></div>
+              <div class="field"><label>Sustain %</label><input type="number" id="synthFilterSustain" min="0" max="100" value="30"></div>
+              <div class="field"><label>Release ms</label><input type="number" id="synthFilterRelease" min="0" max="5000" value="200"></div>
+            </div>
+
+            <div class="synth-section-label">Reverb</div>
+            <div class="synth-row">
+              <div class="field"><label>Mix</label><input type="number" id="synthReverbMix" min="0" max="127" value="40"><span class="note-hint">0=dry 127=wet</span></div>
+              <div class="field"><label>Size</label><input type="number" id="synthReverbSize" min="0" max="127" value="80"><span class="note-hint">room size / decay</span></div>
+              <div class="field"><label>Damping</label><input type="number" id="synthReverbDamping" min="0" max="127" value="50"><span class="note-hint">HF absorption</span></div>
+            </div>
+
+            <div class="synth-section-label">Compressor <span class="note-hint">(LA-2A style)</span></div>
+            <div class="synth-row">
+              <div class="field"><label>Mix</label><input type="number" id="synthCompMix" min="0" max="127" value="0"><span class="note-hint">0=off 127=full</span></div>
+              <div class="field"><label>Peak Reduction</label><input type="number" id="synthCompPeakReduction" min="0" max="127" value="40"><span class="note-hint">threshold / amount</span></div>
+              <div class="field"><label>Gain</label><input type="number" id="synthCompGain" min="0" max="127" value="30"><span class="note-hint">makeup gain</span></div>
+              <div class="field">
+                <label>Mode</label>
+                <select id="synthCompMode">
+                  <option value="0">Compress</option>
+                  <option value="1">Limit</option>
+                </select>
+                <span class="note-hint">3:1 soft / 20:1 hard</span>
+              </div>
+            </div>
+
+            <div class="synth-section-label">Output</div>
+            <div class="synth-row">
+              <div class="field"><label>Volume</label><input type="number" id="synthVolume" min="0" max="127" value="80"></div>
+            </div>
+
+            <p class="synth-note">Audio output on GP14 via PWM. Requires an external RC low-pass filter (68&ohm; + 100nF to GND).</p>
+          </div>
+        </synth-control>
+      </collapsible-card>
+
+      <!-- Looper -->
+      <collapsible-card data-title="Looper" id="sectionLooper">
+        <loop-control>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input type="checkbox" id="loopEnabled">
+              <span class="slider"></span>
+            </label>
+            <label>Enabled</label>
+          </div>
+          <div id="loopFields">
+            <div class="loop-config-row">
+              <div class="field"><label>BPM</label><input type="number" id="loopBpm" min="40" max="240" value="120"></div>
+              <div class="field"><label>Bars</label><input type="number" id="loopBars" min="1" max="8" value="4"></div>
+              <div class="field">
+                <label>Quantize</label>
+                <select id="loopQuantize">
+                  <option value="0">Off</option>
+                  <option value="1">1/4</option>
+                  <option value="2" selected>1/8</option>
+                  <option value="3">1/16</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Layers</label>
+                <select id="loopNumLayers">
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4" selected>4</option>
+                </select>
+              </div>
+            </div>
+            <div class="loop-transport">
+              <button class="btn btn-sm loop-transport-btn" data-action="play" title="Play">PLAY</button>
+              <button class="btn btn-sm loop-transport-btn" data-action="stop" title="Stop">STOP</button>
+              <button class="btn btn-sm loop-transport-btn loop-stop-all-btn" data-action="stop-all" title="Stop All &amp; Clear">CLEAR ALL</button>
+              <div class="loop-progress-track"><div class="loop-progress-fill" id="loopProgress"></div></div>
+            </div>
+            <div id="loopLayers" class="loop-layers"></div>
+          </div>
+        </loop-control>
+      </collapsible-card>
+
+      <!-- Settings -->
+      <collapsible-card data-title="Settings" id="sectionSettings">
+        <midi-channel>
           <div class="field">
-            <label>CC Number</label>
-            <input type="number" id="ldrCc" min="0" max="127" value="74">
+            <label>MIDI Channel</label>
+            <input type="number" id="midiChannel" min="0" max="15" value="0">
+            <span class="note-hint" id="midiChannelHint">Ch 1</span>
           </div>
-          <div id="ldrMonitor"></div>
+        </midi-channel>
+        <div class="project-actions-inline">
+          <h3>Project</h3>
+          <div class="project-actions">
+            <button class="btn" id="btnExport">Export Project</button>
+            <button class="btn" id="btnImport">Import Project</button>
+            <button class="btn" id="btnReset">Reset Defaults</button>
+          </div>
+          <input type="file" id="importFile" accept=".json" style="display:none">
         </div>
-      </ldr-section>
-    </collapsible-card>
+      </collapsible-card>
 
-    <!-- Accelerometer -->
-    <collapsible-card data-section="accel" data-title="Accelerometer">
-      <accel-section>
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="accelEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
-          <span class="pin-label">Accel SCL GP3</span>
-          <span class="pin-label">Accel SDA GP2</span>
-        </div>
-        <div id="accelFields">
-          <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
-          <div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>
-          <div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>
-          <div class="field"><label>Tap Velocity</label><input type="number" id="accelTapVel" min="1" max="127" value="127"></div>
-          <div class="field"><label>Dead Zone</label><input type="number" id="accelDeadZone" min="0" max="255" value="13"><span class="note-hint" id="deadZoneHint"></span></div>
-          <div class="field"><label>Smoothing</label><input type="number" id="accelSmoothing" min="0" max="100" value="25"><span class="note-hint" id="smoothingHint"></span></div>
-          <div id="accelMonitor"></div>
-        </div>
-      </accel-section>
-    </collapsible-card>
+    </config-panel>
+  </div>
 
-    <!-- Synth -->
-    <collapsible-card data-section="synth" data-title="Synth">
-      <synth-control>
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="synthEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
-          <span class="pin-label">Audio GP14</span>
-        </div>
-        <div id="synthFields">
-          <div class="synth-section-label">Oscillators</div>
-          <div class="synth-row">
-            <div class="field">
-              <label>Osc 1</label>
-              <select id="synthOsc1Wave">
-                <option value="0">Saw</option>
-                <option value="1">Square</option>
-                <option value="2">Triangle</option>
-                <option value="3">Sine</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Osc 2</label>
-              <select id="synthOsc2Wave">
-                <option value="0">Saw</option>
-                <option value="1">Square</option>
-                <option value="2">Triangle</option>
-                <option value="3">Sine</option>
-              </select>
-            </div>
-          </div>
-          <div class="synth-row">
-            <div class="field"><label>Detune (cents)</label><input type="number" id="synthDetune" min="-50" max="50" value="7"></div>
-            <div class="field"><label>Semitone</label><input type="number" id="synthSemitone" min="-24" max="24" value="0"></div>
-            <div class="field"><label>Mix</label><input type="number" id="synthOscMix" min="0" max="127" value="64"><span class="note-hint">0=osc1 127=osc2</span></div>
-          </div>
+  <!-- Right column: context/reference panel -->
+  <context-panel id="contextPanel" class="layout-context">
+    <div class="context-panel-header">
+      <button class="context-tab active" data-tab="pinout">Pinout</button>
+      <button class="context-tab" data-tab="wiring">Wiring</button>
+      <button class="context-tab" data-tab="expr">Expressions</button>
+    </div>
+    <div class="context-panel-body">
 
-          <div class="synth-section-label">Filter</div>
-          <div class="synth-row">
-            <div class="field"><label>Cutoff</label><input type="number" id="synthFilterCutoff" min="0" max="127" value="80"></div>
-            <div class="field"><label>Resonance</label><input type="number" id="synthFilterReso" min="0" max="127" value="40"></div>
-            <div class="field"><label>Env Amount</label><input type="number" id="synthFilterEnvAmt" min="0" max="127" value="64"></div>
-          </div>
-
-          <div class="synth-section-label">Amp Envelope</div>
-          <div class="synth-row">
-            <div class="field"><label>Attack ms</label><input type="number" id="synthAmpAttack" min="0" max="5000" value="10"></div>
-            <div class="field"><label>Decay ms</label><input type="number" id="synthAmpDecay" min="0" max="5000" value="200"></div>
-            <div class="field"><label>Sustain %</label><input type="number" id="synthAmpSustain" min="0" max="100" value="70"></div>
-            <div class="field"><label>Release ms</label><input type="number" id="synthAmpRelease" min="0" max="5000" value="300"></div>
-          </div>
-
-          <div class="synth-section-label">Filter Envelope</div>
-          <div class="synth-row">
-            <div class="field"><label>Attack ms</label><input type="number" id="synthFilterAttack" min="0" max="5000" value="5"></div>
-            <div class="field"><label>Decay ms</label><input type="number" id="synthFilterDecay" min="0" max="5000" value="300"></div>
-            <div class="field"><label>Sustain %</label><input type="number" id="synthFilterSustain" min="0" max="100" value="30"></div>
-            <div class="field"><label>Release ms</label><input type="number" id="synthFilterRelease" min="0" max="5000" value="200"></div>
-          </div>
-
-          <div class="synth-section-label">Reverb</div>
-          <div class="synth-row">
-            <div class="field"><label>Mix</label><input type="number" id="synthReverbMix" min="0" max="127" value="40"><span class="note-hint">0=dry 127=wet</span></div>
-            <div class="field"><label>Size</label><input type="number" id="synthReverbSize" min="0" max="127" value="80"><span class="note-hint">room size / decay</span></div>
-            <div class="field"><label>Damping</label><input type="number" id="synthReverbDamping" min="0" max="127" value="50"><span class="note-hint">HF absorption</span></div>
-          </div>
-
-          <div class="synth-section-label">Compressor <span class="note-hint">(LA-2A style)</span></div>
-          <div class="synth-row">
-            <div class="field"><label>Mix</label><input type="number" id="synthCompMix" min="0" max="127" value="0"><span class="note-hint">0=off 127=full</span></div>
-            <div class="field"><label>Peak Reduction</label><input type="number" id="synthCompPeakReduction" min="0" max="127" value="40"><span class="note-hint">threshold / amount</span></div>
-            <div class="field"><label>Gain</label><input type="number" id="synthCompGain" min="0" max="127" value="30"><span class="note-hint">makeup gain</span></div>
-            <div class="field">
-              <label>Mode</label>
-              <select id="synthCompMode">
-                <option value="0">Compress</option>
-                <option value="1">Limit</option>
-              </select>
-              <span class="note-hint">3:1 soft / 20:1 hard</span>
-            </div>
-          </div>
-
-          <div class="synth-section-label">Output</div>
-          <div class="synth-row">
-            <div class="field"><label>Volume</label><input type="number" id="synthVolume" min="0" max="127" value="80"></div>
-          </div>
-
-          <p class="synth-note">Audio output on GP14 via PWM. Requires an external RC low-pass filter (68&ohm; + 100nF to GND).</p>
-        </div>
-      </synth-control>
-    </collapsible-card>
-
-    <!-- Looper -->
-    <collapsible-card data-section="looper" data-title="Looper">
-      <loop-control>
-        <div class="toggle-row">
-          <label class="toggle">
-            <input type="checkbox" id="loopEnabled">
-            <span class="slider"></span>
-          </label>
-          <label>Enabled</label>
-        </div>
-        <div id="loopFields">
-          <div class="loop-config-row">
-            <div class="field"><label>BPM</label><input type="number" id="loopBpm" min="40" max="240" value="120"></div>
-            <div class="field"><label>Bars</label><input type="number" id="loopBars" min="1" max="8" value="4"></div>
-            <div class="field">
-              <label>Quantize</label>
-              <select id="loopQuantize">
-                <option value="0">Off</option>
-                <option value="1">1/4</option>
-                <option value="2" selected>1/8</option>
-                <option value="3">1/16</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Layers</label>
-              <select id="loopNumLayers">
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4" selected>4</option>
-              </select>
-            </div>
-          </div>
-          <div class="loop-transport">
-            <button class="btn btn-sm loop-transport-btn" data-action="play" title="Play">PLAY</button>
-            <button class="btn btn-sm loop-transport-btn" data-action="stop" title="Stop">STOP</button>
-            <button class="btn btn-sm loop-transport-btn loop-stop-all-btn" data-action="stop-all" title="Stop All &amp; Clear">CLEAR ALL</button>
-            <div class="loop-progress-track"><div class="loop-progress-fill" id="loopProgress"></div></div>
-          </div>
-          <div id="loopLayers" class="loop-layers"></div>
-        </div>
-      </loop-control>
-    </collapsible-card>
-
-    <!-- Settings -->
-    <collapsible-card data-section="settings" data-title="Settings">
-      <midi-channel>
-        <div class="field">
-          <label>MIDI Channel</label>
-          <input type="number" id="midiChannel" min="0" max="15" value="0">
-          <span class="note-hint" id="midiChannelHint">Ch 1</span>
-        </div>
-      </midi-channel>
-      <div class="project-actions-inline">
-        <h3>Project</h3>
-        <div class="project-actions">
-          <button class="btn" id="btnExport">Export Project</button>
-          <button class="btn" id="btnImport">Import Project</button>
-          <button class="btn" id="btnReset">Reset Defaults</button>
-        </div>
-        <input type="file" id="importFile" accept=".json" style="display:none">
+      <div class="context-pane active" id="contextPinout">
+        <pinout-guide>
+          <div class="pinout-guide-body"></div>
+        </pinout-guide>
       </div>
-    </collapsible-card>
 
-    <!-- Wiring Guide -->
-    <collapsible-card data-title="Wiring Guide" data-collapsed>
-      <pinout-guide>
-        <div class="pinout-guide-body"></div>
-      </pinout-guide>
-      <div class="ref-section wiring-ref">
-        <p>How to connect components to the Raspberry Pi Pico GPIO pins.
-          All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
+      <div class="context-pane" id="contextWiring">
+        <div class="ref-section wiring-ref">
+          <p>How to connect components to the Raspberry Pi Pico GPIO pins.
+            All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
 
-        <h3>Buttons</h3>
-        <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
-          The firmware activates the internal pull-up, so the pin reads high when open and low when pressed.
-          Any of the 21 digital pins can be used: GP0&ndash;GP1, GP4&ndash;GP22.</p>
-        <div class="wiring-diagram">
-          <span>GPIO pin</span> &larr;&mdash; [switch] &mdash;&rarr; <span>GND</span>
+          <h3>Buttons</h3>
+          <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
+            The firmware activates the internal pull-up, so the pin reads high when open and low when pressed.
+            Any of the 21 digital pins can be used: GP0&ndash;GP1, GP4&ndash;GP22.</p>
+          <div class="wiring-diagram">
+            <span>GPIO pin</span> &larr;&mdash; [switch] &mdash;&rarr; <span>GND</span>
+          </div>
+
+          <h3>Touch Pads</h3>
+          <p>Connect a conductive pad (copper tape, bare PCB, foil) directly to a digital GPIO pin.
+            No connection to GND &mdash; the firmware senses capacitance changes when you touch the pad.
+            Uses the same digital pin pool as buttons (GP0&ndash;GP1, GP4&ndash;GP22).</p>
+          <div class="wiring-diagram">
+            <span>GPIO pin</span> &larr;&mdash; [conductive pad]
+          </div>
+
+          <h3>Potentiometers</h3>
+          <p>Wire the outer legs to <strong>3V3</strong> and <strong>GND</strong>, and the wiper (middle leg)
+            to an analog pin: <strong>GP26</strong>, <strong>GP27</strong>, or <strong>GP28</strong>.
+            Max 3 pots. Values are read as 0&ndash;127.</p>
+          <div class="wiring-diagram">
+            <span>3V3</span> &larr;&mdash; [pot outer] &mdash; [pot wiper] &mdash;&rarr; <span>ADC pin</span><br>
+            <span>GND</span> &larr;&mdash; [pot outer]
+          </div>
+
+          <h3>LDR (Light Sensor)</h3>
+          <p>Wire the LDR and a fixed resistor (e.g. 10k) as a voltage divider between
+            <strong>3V3</strong> and <strong>GND</strong>, with the midpoint going to an analog pin
+            (GP26&ndash;GP28). Shares the analog pin pool with pots.</p>
+          <div class="wiring-diagram">
+            <span>3V3</span> &larr;&mdash; [LDR] &mdash; midpoint &mdash;&rarr; <span>ADC pin</span><br>
+            <span>GND</span> &larr;&mdash; [10k resistor] &mdash; midpoint
+          </div>
+
+          <h3>Accelerometer</h3>
+          <p>Uses an I2C accelerometer (LIS3DH) on fixed pins:
+            <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
+            Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
+            When the accelerometer is disabled, GP2 and GP3 are not used.</p>
+          <div class="wiring-diagram">
+            <span>GP3 (Accel SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
+            <span>GP2 (Accel SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
+            <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
+            <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
+          </div>
+
+          <h3>Pin Summary</h3>
+          <table>
+            <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
+            <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
+            <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
+            <tr><td>I2C (accelerometer)</td><td>GP2 (Accel SDA), GP3 (Accel SCL)</td><td>fixed</td></tr>
+          </table>
+
+          <h3>Tips</h3>
+          <ul class="wiring-tips">
+            <li>GP2 (Accel SDA) and GP3 (Accel SCL) are reserved for the accelerometer when enabled &mdash; don't assign them to buttons or touch pads</li>
+            <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
+            <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
+            <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
+            <li>Use <strong>Export Project</strong> to back up your configuration as a JSON file</li>
+          </ul>
         </div>
-
-        <h3>Touch Pads</h3>
-        <p>Connect a conductive pad (copper tape, bare PCB, foil) directly to a digital GPIO pin.
-          No connection to GND &mdash; the firmware senses capacitance changes when you touch the pad.
-          Uses the same digital pin pool as buttons (GP0&ndash;GP1, GP4&ndash;GP22).</p>
-        <div class="wiring-diagram">
-          <span>GPIO pin</span> &larr;&mdash; [conductive pad]
-        </div>
-
-        <h3>Potentiometers</h3>
-        <p>Wire the outer legs to <strong>3V3</strong> and <strong>GND</strong>, and the wiper (middle leg)
-          to an analog pin: <strong>GP26</strong>, <strong>GP27</strong>, or <strong>GP28</strong>.
-          Max 3 pots. Values are read as 0&ndash;127.</p>
-        <div class="wiring-diagram">
-          <span>3V3</span> &larr;&mdash; [pot outer] &mdash; [pot wiper] &mdash;&rarr; <span>ADC pin</span><br>
-          <span>GND</span> &larr;&mdash; [pot outer]
-        </div>
-
-        <h3>LDR (Light Sensor)</h3>
-        <p>Wire the LDR and a fixed resistor (e.g. 10k) as a voltage divider between
-          <strong>3V3</strong> and <strong>GND</strong>, with the midpoint going to an analog pin
-          (GP26&ndash;GP28). Shares the analog pin pool with pots.</p>
-        <div class="wiring-diagram">
-          <span>3V3</span> &larr;&mdash; [LDR] &mdash; midpoint &mdash;&rarr; <span>ADC pin</span><br>
-          <span>GND</span> &larr;&mdash; [10k resistor] &mdash; midpoint
-        </div>
-
-        <h3>Accelerometer</h3>
-        <p>Uses an I2C accelerometer (LIS3DH) on fixed pins:
-          <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
-          Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
-          When the accelerometer is disabled, GP2 and GP3 are not used.</p>
-        <div class="wiring-diagram">
-          <span>GP3 (Accel SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
-          <span>GP2 (Accel SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
-          <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
-          <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
-        </div>
-
-        <h3>Pin Summary</h3>
-        <table>
-          <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
-          <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
-          <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
-          <tr><td>I2C (accelerometer)</td><td>GP2 (Accel SDA), GP3 (Accel SCL)</td><td>fixed</td></tr>
-        </table>
-
-        <h3>Tips</h3>
-        <ul class="wiring-tips">
-          <li>GP2 (Accel SDA) and GP3 (Accel SCL) are reserved for the accelerometer when enabled &mdash; don't assign them to buttons or touch pads</li>
-          <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
-          <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
-          <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
-          <li>Use <strong>Export Project</strong> to back up your configuration as a JSON file</li>
-        </ul>
       </div>
-    </collapsible-card>
 
-    <!-- Expression Reference -->
-    <collapsible-card data-title="Expression Reference" data-collapsed>
-      <div class="ref-section expr-ref">
-        <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
-          An expression can be a plain number, a sensor variable, or a formula combining both.</p>
+      <div class="context-pane" id="contextExpr">
+        <div class="ref-section expr-ref">
+          <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
+            An expression can be a plain number, a sensor variable, or a formula combining both.</p>
 
-        <h3>Variables</h3>
-        <table>
-          <tr><th>Variable</th><th>Description</th></tr>
-          <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
-          <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
-          <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
-          <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
-        </table>
+          <h3>Variables</h3>
+          <table>
+            <tr><th>Variable</th><th>Description</th></tr>
+            <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
+            <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
+            <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
+            <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
+          </table>
 
-        <h3>Operators</h3>
-        <table>
-          <tr><th>Operator</th><th>Description</th></tr>
-          <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
-          <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
-          <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
-          <tr><td><code>/</code></td><td>Integer divide</td></tr>
-        </table>
+          <h3>Operators</h3>
+          <table>
+            <tr><th>Operator</th><th>Description</th></tr>
+            <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
+            <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
+            <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
+            <tr><td><code>/</code></td><td>Integer divide</td></tr>
+          </table>
 
-        <h3>Functions</h3>
-        <table>
-          <tr><th>Function</th><th>Description</th></tr>
-          <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
-          <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
-          <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
-          <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
-          <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
-          <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
-        </table>
+          <h3>Functions</h3>
+          <table>
+            <tr><th>Function</th><th>Description</th></tr>
+            <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
+            <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
+            <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
+            <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
+            <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
+            <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
+          </table>
 
-        <h3>Scale Modes</h3>
-        <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
-          of a diatonic scale, spanning about 2.5 octaves from the root note.
-          This makes it easy to assign musically consonant notes to controls.</p>
-        <table>
-          <tr><th>Mode</th><th>#</th><th>Character</th></tr>
-          <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
-          <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
-          <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
-          <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
-          <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
-          <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
-          <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
-        </table>
+          <h3>Scale Modes</h3>
+          <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
+            of a diatonic scale, spanning about 2.5 octaves from the root note.
+            This makes it easy to assign musically consonant notes to controls.</p>
+          <table>
+            <tr><th>Mode</th><th>#</th><th>Character</th></tr>
+            <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
+            <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
+            <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
+            <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
+            <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
+            <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
+            <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
+          </table>
 
-        <h3>Conditionals</h3>
-        <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
+          <h3>Conditionals</h3>
+          <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
 
-        <h3>Examples</h3>
-        <ul class="expr-examples">
-          <li><code>60</code> &mdash; fixed note: middle C</li>
-          <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
-          <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
-          <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
-          <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
-          <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
-          <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
-          <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
-          <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
-        </ul>
+          <h3>Examples</h3>
+          <ul class="expr-examples">
+            <li><code>60</code> &mdash; fixed note: middle C</li>
+            <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
+            <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
+            <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
+            <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
+            <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
+            <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
+            <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
+            <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
+          </ul>
 
-        <h3>Notes</h3>
-        <ul class="expr-notes">
-          <li>All values are integers in the range 0&ndash;127</li>
-          <li>Arithmetic saturates (never wraps around)</li>
-          <li>Division by zero returns 127</li>
-          <li>Expressions compile to a max of 16 bytes of bytecode</li>
-          <li>Parentheses <code>()</code> can be used for grouping</li>
-        </ul>
+          <h3>Notes</h3>
+          <ul class="expr-notes">
+            <li>All values are integers in the range 0&ndash;127</li>
+            <li>Arithmetic saturates (never wraps around)</li>
+            <li>Division by zero returns 127</li>
+            <li>Expressions compile to a max of 16 bytes of bytecode</li>
+            <li>Parentheses <code>()</code> can be used for grouping</li>
+          </ul>
+        </div>
       </div>
-    </collapsible-card>
 
-  </config-panel>
+    </div>
+  </context-panel>
+
 </div>
 
 <save-banner class="floating-banner save-banner">
@@ -483,12 +515,16 @@ import "./components/pinout-guide.js";
 import "./components/save-banner.js";
 import "./components/loop-control.js";
 import "./components/synth-control.js";
+import "./components/context-panel.js";
+import "./components/section-nav.js";
 import { init } from "./components/app.js";
 
 init({
   connectBanner: document.querySelector("connect-banner"),
-  container: document.querySelector(".container"),
+  layout: document.querySelector(".layout"),
   configPanel: document.querySelector("config-panel"),
+  contextPanel: document.querySelector("context-panel"),
+  sectionNav: document.querySelector("section-nav"),
   saveBanner: document.querySelector("save-banner"),
   toast: document.querySelector("toast-notification"),
 });
