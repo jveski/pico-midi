@@ -310,6 +310,9 @@ pub struct Accelerometer<'d> {
     smoothing: f32,
     last_poll: Instant,
     error_count: u8,
+    /// `None` when the sensor is reachable; `Some(instant)` records when it
+    /// was disabled so we can attempt periodic re-initialisation.
+    disabled_at: Option<Instant>,
     pub available: bool,
 }
 
@@ -327,12 +330,17 @@ impl<'d> Accelerometer<'d> {
             i2c,
             x_smoothed: 0.0,
             y_smoothed: 0.0,
-            last_x_cc: 64,
-            last_y_cc: 64,
+            last_x_cc: 63, // matches axis_to_cc(0.0) to avoid startup jitter
+            last_y_cc: 63,
             dead_zone: f32::from(dead_zone_tenths) / 10.0,
             smoothing: f32::from(smoothing_pct) / 100.0,
             last_poll: Instant::now(),
             error_count: 0,
+            disabled_at: if available {
+                None
+            } else {
+                Some(Instant::now())
+            },
             available,
         }
     }
@@ -344,6 +352,21 @@ impl<'d> Accelerometer<'d> {
 
     pub async fn poll(&mut self) -> AccelReading {
         let now = Instant::now();
+
+        // Attempt re-initialisation every 5 seconds after being disabled.
+        if let Some(disabled) = self.disabled_at {
+            if now.duration_since(disabled).as_secs() >= 5 {
+                if Self::init(&mut self.i2c).await.is_ok() {
+                    defmt::info!("LIS3DH recovered");
+                    self.available = true;
+                    self.disabled_at = None;
+                    self.error_count = 0;
+                } else {
+                    self.disabled_at = Some(now);
+                }
+            }
+        }
+
         if now.duration_since(self.last_poll).as_millis() < 20 || !self.available {
             return AccelReading {
                 x_cc: None,
@@ -364,6 +387,7 @@ impl<'d> Accelerometer<'d> {
             self.error_count += 1;
             if self.error_count > 10 {
                 self.available = false;
+                self.disabled_at = Some(Instant::now());
                 defmt::error!("LIS3DH disabled after repeated I2C failures");
             }
             return AccelReading {
@@ -447,12 +471,19 @@ impl<'d> Accelerometer<'d> {
     }
 
     fn axis_to_cc(&self, value: f32) -> u8 {
+        // Subtract dead zone so the output transitions smoothly from 0
+        // at the boundary instead of jumping discontinuously.
         let v = if value.abs() < self.dead_zone {
             0.0
         } else {
-            value
+            value - value.signum() * self.dead_zone
         };
-        let normalized = (v / 9.81).clamp(-1.0, 1.0);
+        let range = 9.81 - self.dead_zone;
+        let normalized = if range > 0.0 {
+            (v / range).clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         {
             ((normalized + 1.0) * 63.5) as u8

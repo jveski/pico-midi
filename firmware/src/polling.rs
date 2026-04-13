@@ -397,6 +397,9 @@ pub async fn run(
                     &note_on(cur.midi_channel, cur.accel.tap_note, cur.accel.tap_velocity),
                 )
                 .await;
+                // Brief delay so MIDI receivers register the note before the
+                // immediate note-off.
+                Timer::after(Duration::from_millis(10)).await;
                 send_midi(midi_class, &note_off(cur.midi_channel, cur.accel.tap_note)).await;
                 input_state.set_accel_tap();
             }

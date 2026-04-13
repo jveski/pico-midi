@@ -37,8 +37,8 @@ impl InputState {
             touch_pads: atomic_bool_array!(config::MAX_DIGITAL_INPUTS),
             pots: atomic_u8_array!(config::MAX_ANALOG_INPUTS, 0),
             ldr: AtomicU8::new(0),
-            accel_x: AtomicU8::new(64),
-            accel_y: AtomicU8::new(64),
+            accel_x: AtomicU8::new(63),
+            accel_y: AtomicU8::new(63),
             accel_tap: AtomicBool::new(false),
         }
     }
