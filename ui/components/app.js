@@ -130,6 +130,19 @@ function defaultInputItem(pin, note, extras = {}) {
   };
 }
 
+function defaultSynthConfig() {
+  return {
+    enabled: false, audio_pin: 14,
+    osc1_waveform: 0, osc2_waveform: 0,
+    osc2_detune_cents: 7, osc2_semitone: 0,
+    osc_mix: 64,
+    filter_cutoff: 80, filter_resonance: 40, filter_env_amount: 64,
+    amp_attack_ms: 10, amp_decay_ms: 200, amp_sustain_pct: 70, amp_release_ms: 300,
+    filter_attack_ms: 5, filter_decay_ms: 300, filter_sustain_pct: 30, filter_release_ms: 200,
+    master_volume: 80,
+  };
+}
+
 function defaultConfig() {
   return {
     midi_channel: 0,
@@ -145,6 +158,7 @@ function defaultConfig() {
     ldr_enabled: false,
     ldr: { pin: 28, cc: 74 },
     accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
+    synth: defaultSynthConfig(),
   };
 }
 
@@ -566,6 +580,7 @@ function exportProject() {
     ldr_enabled: cfg.ldr_enabled,
     ldr: { pin: cfg.ldr.pin, cc: cfg.ldr.cc },
     accel: { ...cfg.accel },
+    synth: { ...cfg.synth },
   };
 
   const json = JSON.stringify(project, null, 2);
@@ -617,6 +632,7 @@ async function handleProjectImport(e) {
           dead_zone_tenths: clamp(project.accel.dead_zone_tenths, 0, 255),
           smoothing_pct: clamp(project.accel.smoothing_pct, 0, 100),
         },
+        synth: project.synth ? { ...project.synth } : defaultSynthConfig(),
       };
 
       // Render the imported config to the UI

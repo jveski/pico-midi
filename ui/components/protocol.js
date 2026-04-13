@@ -43,7 +43,9 @@ export function cobsDecode(buf) {
 export class PostcardReader {
   constructor(buf) { this.buf = buf; this.pos = 0; }
   u8() { return this.buf[this.pos++]; }
+  i8() { const v = this.u8(); return v > 127 ? v - 256 : v; }
   bool() { return this.u8() !== 0; }
+  u16() { return this.varint(); }
   varint() {
     let val = 0, shift = 0;
     while (true) {
@@ -65,7 +67,9 @@ export class PostcardReader {
 export class PostcardWriter {
   constructor() { this.buf = []; }
   u8(v) { this.buf.push(v & 0xFF); }
+  i8(v) { this.u8(v < 0 ? v + 256 : v); }
   bool(v) { this.u8(v ? 1 : 0); }
+  u16(v) { this.varint(v); }
   varint(v) {
     v = v >>> 0;
     while (v >= 0x80) {
@@ -120,7 +124,7 @@ function readExpr(r) {
 //   midi_channel, num_buttons, buttons[MAX_DIGITAL_INPUTS],
 //   num_touch_pads, touch_pads[MAX_DIGITAL_INPUTS],
 //   num_pots, pots[MAX_ANALOG_INPUTS],
-//   ldr_enabled, ldr, accel
+//   ldr_enabled, ldr, accel, synth
 
 function writeInputBlock(w, items, maxLen, defaultItem, writeExtra) {
   w.u8(items.length);
@@ -176,6 +180,21 @@ export function writeConfig(w, cfg) {
   w.u8(cfg.accel.x_cc); w.u8(cfg.accel.y_cc);
   w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_velocity);
   w.u8(cfg.accel.dead_zone_tenths); w.u8(cfg.accel.smoothing_pct);
+
+  w.bool(cfg.synth.enabled);
+  w.u8(cfg.synth.audio_pin);
+  w.u8(cfg.synth.osc1_waveform); w.u8(cfg.synth.osc2_waveform);
+  w.i8(cfg.synth.osc2_detune_cents); w.i8(cfg.synth.osc2_semitone);
+  w.u8(cfg.synth.osc_mix);
+  w.u8(cfg.synth.filter_cutoff); w.u8(cfg.synth.filter_resonance);
+  w.u8(cfg.synth.filter_env_amount);
+  w.u16(cfg.synth.amp_attack_ms); w.u16(cfg.synth.amp_decay_ms);
+  w.u8(cfg.synth.amp_sustain_pct);
+  w.u16(cfg.synth.amp_release_ms);
+  w.u16(cfg.synth.filter_attack_ms); w.u16(cfg.synth.filter_decay_ms);
+  w.u8(cfg.synth.filter_sustain_pct);
+  w.u16(cfg.synth.filter_release_ms);
+  w.u8(cfg.synth.master_volume);
 }
 
 export function readConfig(r) {
@@ -191,6 +210,22 @@ export function readConfig(r) {
       x_cc: r.u8(), y_cc: r.u8(),
       tap_note: r.u8(), tap_velocity: r.u8(),
       dead_zone_tenths: r.u8(), smoothing_pct: r.u8(),
+    },
+    synth: {
+      enabled: r.bool(),
+      audio_pin: r.u8(),
+      osc1_waveform: r.u8(), osc2_waveform: r.u8(),
+      osc2_detune_cents: r.i8(), osc2_semitone: r.i8(),
+      osc_mix: r.u8(),
+      filter_cutoff: r.u8(), filter_resonance: r.u8(),
+      filter_env_amount: r.u8(),
+      amp_attack_ms: r.u16(), amp_decay_ms: r.u16(),
+      amp_sustain_pct: r.u8(),
+      amp_release_ms: r.u16(),
+      filter_attack_ms: r.u16(), filter_decay_ms: r.u16(),
+      filter_sustain_pct: r.u8(),
+      filter_release_ms: r.u16(),
+      master_volume: r.u8(),
     },
   };
   return cfg;
