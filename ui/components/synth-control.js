@@ -30,6 +30,10 @@ export class SynthControl extends BaseElement {
     this.querySelector("#synthReverbMix").value = s.reverb_mix;
     this.querySelector("#synthReverbSize").value = s.reverb_size;
     this.querySelector("#synthReverbDamping").value = s.reverb_damping;
+    this.querySelector("#synthCompMix").value = s.comp_mix;
+    this.querySelector("#synthCompPeakReduction").value = s.comp_peak_reduction;
+    this.querySelector("#synthCompGain").value = s.comp_gain;
+    this.querySelector("#synthCompMode").value = s.comp_mode;
     this._updateVisibility();
   }
 
@@ -57,6 +61,10 @@ export class SynthControl extends BaseElement {
       reverb_mix: clamp(num(this.querySelector("#synthReverbMix").value, 40), 0, 127),
       reverb_size: clamp(num(this.querySelector("#synthReverbSize").value, 80), 0, 127),
       reverb_damping: clamp(num(this.querySelector("#synthReverbDamping").value, 50), 0, 127),
+      comp_mix: clamp(num(this.querySelector("#synthCompMix").value, 0), 0, 127),
+      comp_peak_reduction: clamp(num(this.querySelector("#synthCompPeakReduction").value, 40), 0, 127),
+      comp_gain: clamp(num(this.querySelector("#synthCompGain").value, 30), 0, 127),
+      comp_mode: clamp(num(this.querySelector("#synthCompMode").value, 0), 0, 1),
     };
   }
 

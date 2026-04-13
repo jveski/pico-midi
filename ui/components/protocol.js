@@ -207,6 +207,10 @@ export function writeConfig(w, cfg) {
   w.u8(cfg.synth.reverb_mix);
   w.u8(cfg.synth.reverb_size);
   w.u8(cfg.synth.reverb_damping);
+  w.u8(cfg.synth.comp_mix);
+  w.u8(cfg.synth.comp_peak_reduction);
+  w.u8(cfg.synth.comp_gain);
+  w.u8(cfg.synth.comp_mode);
 
   // LoopConfig — must match firmware LoopConfig field order
   w.bool(cfg.loop_cfg.enabled);
@@ -248,6 +252,10 @@ export function readConfig(r) {
       reverb_mix: r.u8(),
       reverb_size: r.u8(),
       reverb_damping: r.u8(),
+      comp_mix: r.u8(),
+      comp_peak_reduction: r.u8(),
+      comp_gain: r.u8(),
+      comp_mode: r.u8(),
     },
     loop_cfg: {
       enabled: r.bool(),

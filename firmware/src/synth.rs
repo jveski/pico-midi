@@ -10,6 +10,7 @@
 //! and Q16 fixed-point (i32 with 16 fractional bits) for intermediate calculations.
 //! This keeps everything efficient on the RP2350 Cortex-M33 which has no FPU in the default configuration.
 
+use crate::compressor::La2aCompressor;
 use crate::config::SynthConfig;
 use crate::reverb::Freeverb;
 
@@ -689,6 +690,8 @@ pub struct SynthEngine {
     master_volume: i16,
     /// Stereo reverb processor (Freeverb algorithm).
     reverb: Freeverb,
+    /// LA-2A–style compressor (placed after reverb in the chain).
+    compressor: La2aCompressor,
 }
 
 impl SynthEngine {
@@ -705,6 +708,7 @@ impl SynthEngine {
             filter_env_amount: Q15_MAX / 2,
             master_volume: Q15_MAX / 2,
             reverb: Freeverb::new(),
+            compressor: La2aCompressor::new(),
         }
     }
 
@@ -742,6 +746,10 @@ impl SynthEngine {
 
         self.reverb
             .set_params(cfg.reverb_size, cfg.reverb_damping, cfg.reverb_mix);
+
+        self.compressor
+            .set_params(cfg.comp_peak_reduction, cfg.comp_gain, cfg.comp_mode);
+        self.compressor.set_mix(cfg.comp_mix);
     }
 
     /// Trigger a note-on event.
@@ -834,11 +842,12 @@ impl SynthEngine {
     /// Generate one stereo audio sample pair as Q15 signed values.
     ///
     /// The mono synth output is processed through the Freeverb stereo
-    /// reverb, producing a decorrelated left/right pair suitable for
-    /// USB stereo audio output.
+    /// reverb, then through the LA-2A–style compressor, producing a
+    /// polished stereo pair suitable for USB audio output.
     pub fn tick_stereo(&mut self) -> (i16, i16) {
         let mono = self.tick_i16();
-        self.reverb.process(mono)
+        let (rev_l, rev_r) = self.reverb.process(mono);
+        self.compressor.process(rev_l, rev_r)
     }
 
     /// Generate one audio sample, returned as a u8 (0-255) suitable for PWM output.

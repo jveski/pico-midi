@@ -5,6 +5,7 @@
 
 #[cfg(target_os = "none")]
 mod audio;
+mod compressor;
 mod config;
 mod expr;
 #[cfg(target_os = "none")]

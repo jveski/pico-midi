@@ -7,7 +7,7 @@ use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 10;
+pub const VERSION: u8 = 11;
 pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
@@ -178,6 +178,14 @@ pub struct SynthConfig {
     pub reverb_size: u8,
     /// Reverb damping / high-frequency absorption (0-127). Higher = darker.
     pub reverb_damping: u8,
+    /// LA-2A compressor dry/wet mix (0-127). 0 = bypass, 127 = fully compressed.
+    pub comp_mix: u8,
+    /// Compressor peak reduction / threshold (0-127). Higher = more compression.
+    pub comp_peak_reduction: u8,
+    /// Compressor makeup gain (0-127). Higher = louder output.
+    pub comp_gain: u8,
+    /// Compressor mode: 0 = Compress (~3:1 soft knee), 1 = Limit (~20:1).
+    pub comp_mode: u8,
 }
 
 /// Maximum number of loop layers (simultaneous loops).
@@ -448,6 +456,10 @@ impl Default for Config {
                 reverb_mix: 40,
                 reverb_size: 80,
                 reverb_damping: 50,
+                comp_mix: 0,
+                comp_peak_reduction: 40,
+                comp_gain: 30,
+                comp_mode: 0,
             },
             loop_cfg: LoopConfig {
                 enabled: false,
@@ -554,6 +566,13 @@ mod tests {
         assert_eq!(decoded.synth.osc1_waveform, cfg.synth.osc1_waveform);
         assert_eq!(decoded.synth.filter_cutoff, cfg.synth.filter_cutoff);
         assert_eq!(decoded.synth.amp_attack_ms, cfg.synth.amp_attack_ms);
+        assert_eq!(decoded.synth.comp_mix, cfg.synth.comp_mix);
+        assert_eq!(
+            decoded.synth.comp_peak_reduction,
+            cfg.synth.comp_peak_reduction
+        );
+        assert_eq!(decoded.synth.comp_gain, cfg.synth.comp_gain);
+        assert_eq!(decoded.synth.comp_mode, cfg.synth.comp_mode);
         assert_eq!(decoded.loop_cfg.enabled, cfg.loop_cfg.enabled);
         assert_eq!(decoded.loop_cfg.bpm, cfg.loop_cfg.bpm);
         assert_eq!(decoded.loop_cfg.num_layers, cfg.loop_cfg.num_layers);
