@@ -3,23 +3,15 @@
 // Embassy uses a single-threaded executor; futures do not need to be Send.
 #![allow(clippy::future_not_send)]
 
-#[cfg(target_os = "none")]
-mod audio;
-mod compressor;
 mod config;
 mod expr;
 #[cfg(target_os = "none")]
 mod input;
 #[cfg(target_os = "none")]
 mod input_state;
-mod looper;
 #[cfg(target_os = "none")]
 mod polling;
-mod reverb;
 mod serial;
-mod synth;
-#[cfg(target_os = "none")]
-mod usb_audio;
 
 #[cfg(target_os = "none")]
 use core::cell::RefCell;
@@ -57,10 +49,6 @@ use {defmt_rtt as _, panic_probe as _};
 use config::Config;
 #[cfg(target_os = "none")]
 use input_state::InputState;
-#[cfg(target_os = "none")]
-use looper::Looper;
-#[cfg(target_os = "none")]
-use synth::SynthEngine;
 
 #[cfg(target_os = "none")]
 bind_interrupts!(struct Irqs {
@@ -91,7 +79,7 @@ async fn main(_spawner: Spawner) {
     usb_config.max_power = 100;
     usb_config.max_packet_size_0 = 64;
 
-    static CONFIG_DESC: StaticCell<[u8; 512]> = StaticCell::new();
+    static CONFIG_DESC: StaticCell<[u8; 256]> = StaticCell::new();
     static BOS_DESC: StaticCell<[u8; 256]> = StaticCell::new();
     static MSOS_DESC: StaticCell<[u8; 256]> = StaticCell::new();
     static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
@@ -99,7 +87,7 @@ async fn main(_spawner: Spawner) {
     let mut builder = Builder::new(
         driver,
         usb_config,
-        CONFIG_DESC.init([0; 512]),
+        CONFIG_DESC.init([0; 256]),
         BOS_DESC.init([0; 256]),
         MSOS_DESC.init([0; 256]),
         CONTROL_BUF.init([0; 64]),
@@ -108,40 +96,13 @@ async fn main(_spawner: Spawner) {
     static CDC_STATE: StaticCell<State> = StaticCell::new();
     let mut serial_class = CdcAcmClass::new(&mut builder, CDC_STATE.init(State::new()), 64);
     let mut midi_class = MidiClass::new(&mut builder, 1, 1, 64);
-
-    // Build USB Audio Class (microphone) for synth-to-host streaming.
-    // Max packet size: at 22050 Hz stereo 16-bit, one USB frame (1 ms) holds
-    // ~22 stereo pairs × 4 bytes = 88 bytes. We use 96 to absorb jitter.
-    static UAC_STATE: StaticCell<usb_audio::UacState<'static>> = StaticCell::new();
-    let mut usb_audio_stream =
-        usb_audio::build(&mut builder, UAC_STATE.init(usb_audio::UacState::new()), 96);
-
     let mut usb = builder.build();
     let mut led = Output::new(p.PIN_25, Level::Low);
     let mut adc_inst = adc::Adc::new(p.ADC, Irqs, adc::Config::default());
     static INPUT_STATE: InputState = InputState::new();
     let usb_fut = usb.run();
 
-    // Place large structs in static storage to avoid stack overflow.
-    // SynthEngine (~26 KB) and Looper (~4 KB) would otherwise live on the
-    // stack for the entire duration of main(), alongside the async join
-    // futures, easily exceeding the available stack space.
-    static SYNTH_ENGINE: StaticCell<RefCell<SynthEngine>> = StaticCell::new();
-    let synth_engine = SYNTH_ENGINE.init_with(|| {
-        let mut se = SynthEngine::new();
-        se.apply_config(&cfg.synth);
-        RefCell::new(se)
-    });
-
-    static LOOPER_ENGINE: StaticCell<RefCell<Looper>> = StaticCell::new();
-    let looper_engine = LOOPER_ENGINE.init_with(|| {
-        let mut le = Looper::new();
-        le.apply_config(&cfg.loop_cfg);
-        RefCell::new(le)
-    });
-
-    static CONFIG: StaticCell<RefCell<Config>> = StaticCell::new();
-    let cfg = CONFIG.init(RefCell::new(cfg));
+    let cfg = RefCell::new(cfg);
 
     let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
     let midi_fut = polling::run(
@@ -149,49 +110,11 @@ async fn main(_spawner: Spawner) {
         &mut led,
         &mut adc_inst,
         i2c1,
-        cfg,
+        &cfg,
         &INPUT_STATE,
-        synth_engine,
-        looper_engine,
     );
 
-    let serial_fut = serial::serial_task(
-        &mut serial_class,
-        &mut flash,
-        cfg,
-        &INPUT_STATE,
-        looper_engine,
-    );
+    let serial_fut = serial::serial_task(&mut serial_class, &mut flash, &cfg, &INPUT_STATE);
 
-    // If synth is enabled, run the audio output task alongside MIDI.
-    // The USB audio streaming task always runs (it waits for the host to
-    // activate the interface), but the ring buffer is only fed when PWM
-    // audio is active.
-    let synth_enabled = cfg.borrow().synth.enabled;
-    let synth_audio_pin = cfg.borrow().synth.audio_pin;
-
-    if synth_enabled && synth_audio_pin == config::DEFAULT_AUDIO_PIN {
-        // Safety: we checked that the audio pin doesn't conflict with other
-        // peripherals via config validation, and we only steal it once here.
-        //
-        // Pin-to-slice mapping: pin N -> slice N/2, channel A if even, B if odd.
-        // GP14 = slice 7 channel A.
-        // Currently only GP14 is supported for PWM audio output.
-        let pwm_slice = unsafe { embassy_rp::peripherals::PWM_SLICE7::steal() };
-        let audio_pin = unsafe { embassy_rp::peripherals::PIN_14::steal() };
-        let audio_fut = audio::run(synth_engine, pwm_slice, audio_pin, true);
-        let usb_audio_fut = audio::run_usb_audio(&mut usb_audio_stream);
-
-        // join5: USB + MIDI polling + serial + PWM audio + USB audio streaming
-        embassy_futures::join::join5(usb_fut, midi_fut, serial_fut, audio_fut, usb_audio_fut).await;
-    } else {
-        if synth_enabled {
-            defmt::warn!(
-                "synth audio_pin {} is not supported (only GP{} works), synth disabled",
-                synth_audio_pin,
-                config::DEFAULT_AUDIO_PIN
-            );
-        }
-        join3(usb_fut, midi_fut, serial_fut).await;
-    }
+    join3(usb_fut, midi_fut, serial_fut).await;
 }

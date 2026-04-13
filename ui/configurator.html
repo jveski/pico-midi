@@ -29,8 +29,6 @@
         <a class="section-nav-item" href="#sectionPots" data-target="sectionPots">Pots</a>
         <a class="section-nav-item" href="#sectionLdr" data-target="sectionLdr">LDR</a>
         <a class="section-nav-item" href="#sectionAccel" data-target="sectionAccel">Accel</a>
-        <a class="section-nav-item" href="#sectionSynth" data-target="sectionSynth">Synth</a>
-        <a class="section-nav-item" href="#sectionLooper" data-target="sectionLooper">Looper</a>
         <a class="section-nav-item" href="#sectionSettings" data-target="sectionSettings">Settings</a>
       </nav>
     </section-nav>
@@ -104,143 +102,6 @@
             <div id="accelMonitor"></div>
           </div>
         </accel-section>
-      </collapsible-card>
-
-      <!-- Synth -->
-      <collapsible-card data-title="Synth" id="sectionSynth">
-        <synth-control>
-          <div class="toggle-row">
-            <label class="toggle">
-              <input type="checkbox" id="synthEnabled">
-              <span class="slider"></span>
-            </label>
-            <label>Enabled</label>
-            <span class="pin-label">Audio GP14</span>
-          </div>
-          <div id="synthFields">
-            <div class="synth-section-label">Oscillators</div>
-            <div class="synth-row">
-              <div class="field">
-                <label>Osc 1</label>
-                <select id="synthOsc1Wave">
-                  <option value="0">Saw</option>
-                  <option value="1">Square</option>
-                  <option value="2">Triangle</option>
-                  <option value="3">Sine</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Osc 2</label>
-                <select id="synthOsc2Wave">
-                  <option value="0">Saw</option>
-                  <option value="1">Square</option>
-                  <option value="2">Triangle</option>
-                  <option value="3">Sine</option>
-                </select>
-              </div>
-            </div>
-            <div class="synth-row">
-              <div class="field"><label>Detune (cents)</label><input type="number" id="synthDetune" min="-50" max="50" value="7"></div>
-              <div class="field"><label>Semitone</label><input type="number" id="synthSemitone" min="-24" max="24" value="0"></div>
-              <div class="field"><label>Mix</label><input type="number" id="synthOscMix" min="0" max="127" value="64"><span class="note-hint">0=osc1 127=osc2</span></div>
-            </div>
-
-            <div class="synth-section-label">Filter</div>
-            <div class="synth-row">
-              <div class="field"><label>Cutoff</label><input type="number" id="synthFilterCutoff" min="0" max="127" value="80"></div>
-              <div class="field"><label>Resonance</label><input type="number" id="synthFilterReso" min="0" max="127" value="40"></div>
-              <div class="field"><label>Env Amount</label><input type="number" id="synthFilterEnvAmt" min="0" max="127" value="64"></div>
-            </div>
-
-            <div class="synth-section-label">Amp Envelope</div>
-            <div class="synth-row">
-              <div class="field"><label>Attack ms</label><input type="number" id="synthAmpAttack" min="0" max="5000" value="10"></div>
-              <div class="field"><label>Decay ms</label><input type="number" id="synthAmpDecay" min="0" max="5000" value="200"></div>
-              <div class="field"><label>Sustain %</label><input type="number" id="synthAmpSustain" min="0" max="100" value="70"></div>
-              <div class="field"><label>Release ms</label><input type="number" id="synthAmpRelease" min="0" max="5000" value="300"></div>
-            </div>
-
-            <div class="synth-section-label">Filter Envelope</div>
-            <div class="synth-row">
-              <div class="field"><label>Attack ms</label><input type="number" id="synthFilterAttack" min="0" max="5000" value="5"></div>
-              <div class="field"><label>Decay ms</label><input type="number" id="synthFilterDecay" min="0" max="5000" value="300"></div>
-              <div class="field"><label>Sustain %</label><input type="number" id="synthFilterSustain" min="0" max="100" value="30"></div>
-              <div class="field"><label>Release ms</label><input type="number" id="synthFilterRelease" min="0" max="5000" value="200"></div>
-            </div>
-
-            <div class="synth-section-label">Reverb</div>
-            <div class="synth-row">
-              <div class="field"><label>Mix</label><input type="number" id="synthReverbMix" min="0" max="127" value="40"><span class="note-hint">0=dry 127=wet</span></div>
-              <div class="field"><label>Size</label><input type="number" id="synthReverbSize" min="0" max="127" value="80"><span class="note-hint">room size / decay</span></div>
-              <div class="field"><label>Damping</label><input type="number" id="synthReverbDamping" min="0" max="127" value="50"><span class="note-hint">HF absorption</span></div>
-            </div>
-
-            <div class="synth-section-label">Compressor <span class="note-hint">(LA-2A style)</span></div>
-            <div class="synth-row">
-              <div class="field"><label>Mix</label><input type="number" id="synthCompMix" min="0" max="127" value="0"><span class="note-hint">0=off 127=full</span></div>
-              <div class="field"><label>Peak Reduction</label><input type="number" id="synthCompPeakReduction" min="0" max="127" value="40"><span class="note-hint">threshold / amount</span></div>
-              <div class="field"><label>Gain</label><input type="number" id="synthCompGain" min="0" max="127" value="30"><span class="note-hint">makeup gain</span></div>
-              <div class="field">
-                <label>Mode</label>
-                <select id="synthCompMode">
-                  <option value="0">Compress</option>
-                  <option value="1">Limit</option>
-                </select>
-                <span class="note-hint">3:1 soft / 20:1 hard</span>
-              </div>
-            </div>
-
-            <div class="synth-section-label">Output</div>
-            <div class="synth-row">
-              <div class="field"><label>Volume</label><input type="number" id="synthVolume" min="0" max="127" value="80"></div>
-            </div>
-
-            <p class="synth-note">Audio output on GP14 via PWM. Requires an external RC low-pass filter (68&ohm; + 100nF to GND).</p>
-          </div>
-        </synth-control>
-      </collapsible-card>
-
-      <!-- Looper -->
-      <collapsible-card data-title="Looper" id="sectionLooper">
-        <loop-control>
-          <div class="toggle-row">
-            <label class="toggle">
-              <input type="checkbox" id="loopEnabled">
-              <span class="slider"></span>
-            </label>
-            <label>Enabled</label>
-          </div>
-          <div id="loopFields">
-            <div class="loop-config-row">
-              <div class="field"><label>BPM</label><input type="number" id="loopBpm" min="40" max="240" value="120"></div>
-              <div class="field"><label>Bars</label><input type="number" id="loopBars" min="1" max="8" value="4"></div>
-              <div class="field">
-                <label>Quantize</label>
-                <select id="loopQuantize">
-                  <option value="0">Off</option>
-                  <option value="1">1/4</option>
-                  <option value="2" selected>1/8</option>
-                  <option value="3">1/16</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Layers</label>
-                <select id="loopNumLayers">
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4" selected>4</option>
-                </select>
-              </div>
-            </div>
-            <div class="loop-transport">
-              <button class="btn btn-sm loop-transport-btn" data-action="play" title="Play">PLAY</button>
-              <button class="btn btn-sm loop-transport-btn" data-action="stop" title="Stop">STOP</button>
-              <button class="btn btn-sm loop-transport-btn loop-stop-all-btn" data-action="stop-all" title="Stop All &amp; Clear">CLEAR ALL</button>
-              <div class="loop-progress-track"><div class="loop-progress-fill" id="loopProgress"></div></div>
-            </div>
-            <div id="loopLayers" class="loop-layers"></div>
-          </div>
-        </loop-control>
       </collapsible-card>
 
       <!-- Settings -->
@@ -513,8 +374,6 @@ import "./components/toggle-section.js";
 import "./components/config-panel.js";
 import "./components/pinout-guide.js";
 import "./components/save-banner.js";
-import "./components/loop-control.js";
-import "./components/synth-control.js";
 import "./components/context-panel.js";
 import "./components/section-nav.js";
 import { init } from "./components/app.js";

@@ -7,7 +7,7 @@ use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 11;
+pub const VERSION: u8 = 7;
 pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
@@ -127,107 +127,6 @@ pub struct LdrDef {
     pub cc: u8,
 }
 
-/// Synthesizer configuration for the built-in analog-style synth engine.
-///
-/// The synth has two oscillators, a Moog-style 4-pole ladder filter with
-/// resonance, and independent ADSR envelopes for amplitude and filter cutoff.
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(target_os = "none", derive(Format))]
-pub struct SynthConfig {
-    /// Enable the synth engine (outputs audio on the configured PWM pin).
-    pub enabled: bool,
-    /// GPIO pin for PWM audio output (default: GP14).
-    pub audio_pin: u8,
-    /// Oscillator 1 waveform: 0=saw, 1=square, 2=triangle, 3=sine.
-    pub osc1_waveform: u8,
-    /// Oscillator 2 waveform: 0=saw, 1=square, 2=triangle, 3=sine.
-    pub osc2_waveform: u8,
-    /// Oscillator 2 detune in cents (-50..+50).
-    pub osc2_detune_cents: i8,
-    /// Oscillator 2 semitone offset (-24..+24).
-    pub osc2_semitone: i8,
-    /// Oscillator mix (0 = all osc1, 127 = all osc2).
-    pub osc_mix: u8,
-    /// Filter cutoff (0-127, exponentially mapped).
-    pub filter_cutoff: u8,
-    /// Filter resonance (0-127, 127 = self-oscillation).
-    pub filter_resonance: u8,
-    /// Filter envelope modulation amount (0-127).
-    pub filter_env_amount: u8,
-    /// Amplitude envelope attack time in milliseconds.
-    pub amp_attack_ms: u16,
-    /// Amplitude envelope decay time in milliseconds.
-    pub amp_decay_ms: u16,
-    /// Amplitude envelope sustain level (0-100 percent).
-    pub amp_sustain_pct: u8,
-    /// Amplitude envelope release time in milliseconds.
-    pub amp_release_ms: u16,
-    /// Filter envelope attack time in milliseconds.
-    pub filter_attack_ms: u16,
-    /// Filter envelope decay time in milliseconds.
-    pub filter_decay_ms: u16,
-    /// Filter envelope sustain level (0-100 percent).
-    pub filter_sustain_pct: u8,
-    /// Filter envelope release time in milliseconds.
-    pub filter_release_ms: u16,
-    /// Master output volume (0-127).
-    pub master_volume: u8,
-    /// Reverb dry/wet mix (0-127). 0 = fully dry, 127 = fully wet.
-    pub reverb_mix: u8,
-    /// Reverb room size / decay time (0-127). Higher = longer tail.
-    pub reverb_size: u8,
-    /// Reverb damping / high-frequency absorption (0-127). Higher = darker.
-    pub reverb_damping: u8,
-    /// LA-2A compressor dry/wet mix (0-127). 0 = bypass, 127 = fully compressed.
-    pub comp_mix: u8,
-    /// Compressor peak reduction / threshold (0-127). Higher = more compression.
-    pub comp_peak_reduction: u8,
-    /// Compressor makeup gain (0-127). Higher = louder output.
-    pub comp_gain: u8,
-    /// Compressor mode: 0 = Compress (~3:1 soft knee), 1 = Limit (~20:1).
-    pub comp_mode: u8,
-}
-
-/// Maximum number of loop layers (simultaneous loops).
-pub const MAX_LOOP_LAYERS: usize = 4;
-
-/// Maximum number of events per loop layer.
-pub const MAX_LOOP_EVENTS: usize = 256;
-
-/// Quantization grid options: 0=off, 1=1/4 note, 2=1/8 note, 3=1/16 note.
-#[allow(dead_code)] // Used as the default / by tests; embedded code uses `_` catch-all.
-pub const QUANTIZE_OFF: u8 = 0;
-pub const QUANTIZE_QUARTER: u8 = 1;
-pub const QUANTIZE_EIGHTH: u8 = 2;
-pub const QUANTIZE_SIXTEENTH: u8 = 3;
-
-/// Live looper configuration.
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(target_os = "none", derive(Format))]
-pub struct LoopConfig {
-    /// Enable the looper.
-    pub enabled: bool,
-    /// Number of active loop layers (2-4).
-    pub num_layers: u8,
-    /// Tempo in BPM (40-240).
-    pub bpm: u8,
-    /// Quantization grid (0=off, 1=1/4, 2=1/8, 3=1/16).
-    pub quantize: u8,
-    /// Loop length in bars (1-8), assuming 4/4 time.
-    pub bars: u8,
-}
-
-/// Synth audio output pin. Must not conflict with digital/analog/I2C/LED pins.
-/// GP14 is used because it maps to PWM slice 7 channel A, which allows
-/// simple single-channel PWM output.
-pub const DEFAULT_AUDIO_PIN: u8 = 14;
-
-/// Valid GPIO range for audio output (any digital-capable pin that isn't
-/// reserved for I2C or the LED).
-pub fn is_valid_audio_pin(gpio: u8) -> bool {
-    is_valid_digital_pin(gpio)
-}
-
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(target_os = "none", derive(Format))]
 pub struct AccelConfig {
@@ -255,8 +154,6 @@ pub struct Config {
     pub ldr_enabled: bool,
     pub ldr: LdrDef,
     pub accel: AccelConfig,
-    pub synth: SynthConfig,
-    pub loop_cfg: LoopConfig,
 }
 
 impl Config {
@@ -313,15 +210,6 @@ impl Config {
                 return false;
             }
             if used[self.ldr.pin as usize] {
-                return false;
-            }
-        }
-
-        if self.synth.enabled {
-            if !is_valid_audio_pin(self.synth.audio_pin) {
-                return false;
-            }
-            if used[self.synth.audio_pin as usize] {
                 return false;
             }
         }
@@ -433,41 +321,6 @@ impl Default for Config {
                 dead_zone_tenths: 13,
                 smoothing_pct: 25,
             },
-            synth: SynthConfig {
-                enabled: false,
-                audio_pin: DEFAULT_AUDIO_PIN,
-                osc1_waveform: 0, // Saw
-                osc2_waveform: 0, // Saw
-                osc2_detune_cents: 7,
-                osc2_semitone: 0,
-                osc_mix: 64, // Equal mix
-                filter_cutoff: 80,
-                filter_resonance: 40,
-                filter_env_amount: 64,
-                amp_attack_ms: 10,
-                amp_decay_ms: 200,
-                amp_sustain_pct: 70,
-                amp_release_ms: 300,
-                filter_attack_ms: 5,
-                filter_decay_ms: 300,
-                filter_sustain_pct: 30,
-                filter_release_ms: 200,
-                master_volume: 80,
-                reverb_mix: 40,
-                reverb_size: 80,
-                reverb_damping: 50,
-                comp_mix: 0,
-                comp_peak_reduction: 40,
-                comp_gain: 30,
-                comp_mode: 0,
-            },
-            loop_cfg: LoopConfig {
-                enabled: false,
-                num_layers: 4,
-                bpm: 120,
-                quantize: QUANTIZE_EIGHTH,
-                bars: 4,
-            },
         }
     }
 }
@@ -540,12 +393,6 @@ mod tests {
         cfg.buttons[0].pin = 6;
         cfg.touch_pads[0].pin = 6;
         assert!(!cfg.validate());
-
-        // Synth audio pin conflicts with button pin
-        let mut cfg = Config::default();
-        cfg.synth.enabled = true;
-        cfg.synth.audio_pin = cfg.buttons[0].pin;
-        assert!(!cfg.validate());
     }
 
     #[test]
@@ -561,23 +408,6 @@ mod tests {
         assert_eq!(decoded.buttons[0].note, cfg.buttons[0].note);
         assert_eq!(decoded.num_pots, cfg.num_pots);
         assert_eq!(decoded.pots[0].cc, cfg.pots[0].cc);
-        assert_eq!(decoded.synth.enabled, cfg.synth.enabled);
-        assert_eq!(decoded.synth.audio_pin, cfg.synth.audio_pin);
-        assert_eq!(decoded.synth.osc1_waveform, cfg.synth.osc1_waveform);
-        assert_eq!(decoded.synth.filter_cutoff, cfg.synth.filter_cutoff);
-        assert_eq!(decoded.synth.amp_attack_ms, cfg.synth.amp_attack_ms);
-        assert_eq!(decoded.synth.comp_mix, cfg.synth.comp_mix);
-        assert_eq!(
-            decoded.synth.comp_peak_reduction,
-            cfg.synth.comp_peak_reduction
-        );
-        assert_eq!(decoded.synth.comp_gain, cfg.synth.comp_gain);
-        assert_eq!(decoded.synth.comp_mode, cfg.synth.comp_mode);
-        assert_eq!(decoded.loop_cfg.enabled, cfg.loop_cfg.enabled);
-        assert_eq!(decoded.loop_cfg.bpm, cfg.loop_cfg.bpm);
-        assert_eq!(decoded.loop_cfg.num_layers, cfg.loop_cfg.num_layers);
-        assert_eq!(decoded.loop_cfg.quantize, cfg.loop_cfg.quantize);
-        assert_eq!(decoded.loop_cfg.bars, cfg.loop_cfg.bars);
     }
 
     #[test]

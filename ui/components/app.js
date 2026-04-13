@@ -1,10 +1,8 @@
 import {
-  cobsDecode, buildRequest, parseResponse, readMonitorSnapshot, readLoopState,
+  cobsDecode, buildRequest, parseResponse, readMonitorSnapshot,
   PostcardReader,
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
-  REQ_LOOP_RECORD, REQ_LOOP_STOP_RECORD, REQ_LOOP_TOGGLE_MUTE,
-  REQ_LOOP_CLEAR, REQ_LOOP_STOP_ALL, REQ_LOOP_PLAY, REQ_LOOP_STOP,
-  RESP_MONITOR, RESP_LOOP_STATE, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
+  RESP_MONITOR, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
 } from "./protocol.js";
 import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin, isValidInputItem } from "./helpers.js";
 import { compileExpr } from "./expr.js";
@@ -51,9 +49,6 @@ export function init(refs) {
   configPanel.addEventListener("item-add", handleItemAdd);
   configPanel.addEventListener("item-remove", handleItemRemove);
   configPanel.addEventListener("pin-change", () => { markDirty(); debouncedApplyConfig(); });
-
-  // Looper button events — delegate clicks from the loop-control component
-  configPanel.addEventListener("click", handleLoopClick);
 
   // Context panel auto-switching: expression inputs -> expr ref, pin selects -> pinout
   configPanel.addEventListener("focusin", (e) => {
@@ -176,31 +171,6 @@ function defaultInputItem(pin, note, extras = {}) {
   };
 }
 
-function defaultSynthConfig() {
-  return {
-    enabled: false, audio_pin: 14,
-    osc1_waveform: 0, osc2_waveform: 0,
-    osc2_detune_cents: 7, osc2_semitone: 0,
-    osc_mix: 64,
-    filter_cutoff: 80, filter_resonance: 40, filter_env_amount: 64,
-    amp_attack_ms: 10, amp_decay_ms: 200, amp_sustain_pct: 70, amp_release_ms: 300,
-    filter_attack_ms: 5, filter_decay_ms: 300, filter_sustain_pct: 30, filter_release_ms: 200,
-    master_volume: 80,
-    reverb_mix: 40, reverb_size: 80, reverb_damping: 50,
-    comp_mix: 0, comp_peak_reduction: 40, comp_gain: 30, comp_mode: 0,
-  };
-}
-
-function defaultLoopConfig() {
-  return {
-    enabled: false,
-    num_layers: 4,
-    bpm: 120,
-    quantize: 2,
-    bars: 4,
-  };
-}
-
 function defaultConfig() {
   return {
     midi_channel: 0,
@@ -216,8 +186,6 @@ function defaultConfig() {
     ldr_enabled: false,
     ldr: { pin: 28, cc: 74 },
     accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
-    synth: defaultSynthConfig(),
-    loop_cfg: defaultLoopConfig(),
   };
 }
 
@@ -235,8 +203,6 @@ function renderConfigObj(cfg) {
   panel.potList.render(cfg.pots, pins.analog);
   panel.ldrSection.render(cfg, pins.analog);
   panel.accelSection.render(cfg);
-  if (panel.synthControl) panel.synthControl.render(cfg);
-  if (panel.loopControl) panel.loopControl.render(cfg);
   // Pinout guide is now in the context panel
   const pinout = contextPanel ? contextPanel.pinoutGuide : null;
   if (pinout) pinout.update(cfg);
@@ -327,12 +293,6 @@ function drainMonitorFrames() {
         rxFrames.splice(i, 1);
         continue;
       }
-      if (variant === RESP_LOOP_STATE) {
-        const state = readLoopState(r);
-        applyLoopState(state);
-        rxFrames.splice(i, 1);
-        continue;
-      }
     } catch {}
     i++;
   }
@@ -351,8 +311,7 @@ async function _sendRequest(variantIndex, configObj) {
     try {
       const decoded = cobsDecode(frame);
       const r = new PostcardReader(decoded);
-      const v = r.varint();
-      return v === RESP_MONITOR || v === RESP_LOOP_STATE;
+      return r.varint() === RESP_MONITOR;
     } catch { return false; }
   });
 
@@ -366,7 +325,7 @@ async function _sendRequest(variantIndex, configObj) {
       try {
         const decoded = cobsDecode(rxFrames[i]);
         const resp = parseResponse(decoded);
-        if (resp && resp.type !== "monitor" && resp.type !== "loop_state") {
+        if (resp && resp.type !== "monitor") {
           rxFrames.splice(i, 1);
           return resp;
         }
@@ -409,44 +368,6 @@ function applyMonitorData(snap) {
       clearTimeout(monitorTapTimer);
       monitorTapTimer = setTimeout(() => el.classList.remove("active"), 200);
     }
-  }
-}
-
-function applyLoopState(state) {
-  if (configPanel && configPanel.loopControl) {
-    configPanel.loopControl.applyLoopState(state);
-  }
-}
-
-function handleLoopClick(e) {
-  const btn = e.target.closest("[data-action]");
-  if (!btn || !btn.closest("loop-control")) return;
-  const action = btn.dataset.action;
-  const layer = btn.dataset.layer != null ? parseInt(btn.dataset.layer, 10) : null;
-
-  switch (action) {
-    case "play":
-      sendRequest(REQ_LOOP_PLAY);
-      break;
-    case "stop":
-      sendRequest(REQ_LOOP_STOP);
-      break;
-    case "stop-all":
-      sendRequest(REQ_LOOP_STOP_ALL);
-      break;
-    case "record": {
-      // Toggle: if already recording, stop; otherwise start
-      const stateEl = document.getElementById(`loopLayerState${layer}`);
-      const isRecording = stateEl && stateEl.textContent === "Rec";
-      sendRequest(isRecording ? REQ_LOOP_STOP_RECORD : REQ_LOOP_RECORD, layer);
-      break;
-    }
-    case "mute":
-      sendRequest(REQ_LOOP_TOGGLE_MUTE, layer);
-      break;
-    case "clear":
-      sendRequest(REQ_LOOP_CLEAR, layer);
-      break;
   }
 }
 
@@ -616,16 +537,6 @@ function readConfigFromUI() {
 
   config.accel = panel.accelSection.readFromDOM();
 
-  // Synth config
-  if (panel.synthControl) {
-    config.synth = panel.synthControl.readFromDOM();
-  }
-
-  // Loop config
-  if (panel.loopControl) {
-    config.loop_cfg = panel.loopControl.readFromDOM();
-  }
-
   return config;
 }
 
@@ -699,8 +610,6 @@ function exportProject() {
     ldr_enabled: cfg.ldr_enabled,
     ldr: { pin: cfg.ldr.pin, cc: cfg.ldr.cc },
     accel: { ...cfg.accel },
-    synth: { ...cfg.synth },
-    loop_cfg: cfg.loop_cfg ? { ...cfg.loop_cfg } : defaultLoopConfig(),
   };
 
   const json = JSON.stringify(project, null, 2);
@@ -752,8 +661,6 @@ async function handleProjectImport(e) {
           dead_zone_tenths: clamp(project.accel.dead_zone_tenths, 0, 255),
           smoothing_pct: clamp(project.accel.smoothing_pct, 0, 100),
         },
-        synth: project.synth ? { ...project.synth } : defaultSynthConfig(),
-        loop_cfg: project.loop_cfg ? { ...project.loop_cfg } : defaultLoopConfig(),
       };
 
       // Render the imported config to the UI

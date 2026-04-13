@@ -392,54 +392,6 @@ config-panel.disabled .monitor-tap { opacity: 0.35; }
 .pinout-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* ==========================================================================
-   Looper
-   ========================================================================== */
-
-.loop-config-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.loop-config-row .field { margin-bottom: 0; }
-
-.loop-transport { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-.loop-transport-btn { min-width: 56px; text-align: center; }
-.loop-transport-btn.active { background: var(--fg); color: var(--bg); }
-.loop-stop-all-btn:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
-
-.loop-progress-track { flex: 1; height: 8px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; min-width: 80px; }
-.loop-progress-fill { height: 100%; width: 0%; background: var(--fg); transition: width 0.04s linear; }
-
-.loop-layers { display: flex; flex-direction: column; gap: 0; }
-
-.loop-layer-lane {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-}
-.loop-layer-lane:last-child { border-bottom: none; }
-
-.loop-layer-label { font-size: 12px; font-weight: 700; min-width: 24px; color: var(--dim); }
-.loop-layer-state { font-size: 11px; min-width: 48px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
-.loop-layer-events { font-size: 11px; min-width: 28px; color: var(--dim); text-align: right; }
-
-.loop-layer-btn { min-width: 44px; text-align: center; }
-
-.loop-rec-btn:hover, .loop-rec-btn.active { background: var(--red); color: var(--bg); border-color: var(--red); }
-.loop-mute-btn.active { background: var(--orange); color: var(--bg); border-color: var(--orange); }
-.loop-clear-btn:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
-
-.loop-layer-lane.recording .loop-layer-state { color: var(--red); }
-.loop-layer-lane.playing .loop-layer-state { color: var(--green); }
-.loop-layer-lane.muted .loop-layer-state { color: var(--orange); }
-
-/* ==========================================================================
-   Synth
-   ========================================================================== */
-
-.synth-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 14px 0 8px; }
-.synth-section-label:first-child { margin-top: 0; }
-.synth-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
-.synth-row .field { margin-bottom: 0; }
-.synth-row .field label { min-width: 90px; }
-.synth-note { font-size: 11px; color: var(--dim); margin-top: 16px; line-height: 1.6; }
-
-/* ==========================================================================
    Responsive: Collapse to single column below 1024px
    ========================================================================== */
 

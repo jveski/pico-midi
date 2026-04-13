@@ -7,5 +7,3 @@ rustflags = [
 
 [env]
 DEFMT_LOG = "info"
-# CDC-ACM (2) + MIDI (2) + UAC audio (2) = 6 interfaces; embassy-usb defaults to 4.
-EMBASSY_USB_MAX_INTERFACE_COUNT = "8"

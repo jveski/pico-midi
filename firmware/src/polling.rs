@@ -13,8 +13,6 @@ use crate::config::{Config, NoteInput, MAX_ANALOG_INPUTS, MAX_DIGITAL_INPUTS};
 use crate::expr::{self, ExprInputs};
 use crate::input;
 use crate::input_state::InputState;
-use crate::looper::Looper;
-use crate::synth::SynthEngine;
 
 const CIN_NOTE_OFF: u8 = 0x08;
 const CIN_NOTE_ON: u8 = 0x09;
@@ -196,8 +194,6 @@ async fn handle_note_events(
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
     input_state: &InputState,
     set_state: fn(&InputState, u8, bool),
-    synth: &RefCell<SynthEngine>,
-    looper: &RefCell<Looper>,
 ) {
     for (idx, pressed) in events {
         if pressed {
@@ -208,20 +204,10 @@ async fn handle_note_events(
             let vel = expr::eval(&ve.code, ve.len, expr_inputs, def.velocity());
             held[idx] = Some(HeldNote::new(note));
             send_midi(midi, &note_on(channel, note, vel)).await;
-            synth.borrow_mut().note_on(note, vel);
-            // Record into the looper if a layer is recording
-            if let Some(layer_idx) = looper.borrow().recording_layer() {
-                looper.borrow_mut().record_event(layer_idx, note, vel);
-            }
         } else {
             let note = held[idx].map_or(defs[idx].note(), |h| h.current);
             held[idx] = None;
             send_midi(midi, &note_off(channel, note)).await;
-            synth.borrow_mut().note_off(note);
-            // Record note-off into the looper (velocity 0)
-            if let Some(layer_idx) = looper.borrow().recording_layer() {
-                looper.borrow_mut().record_event(layer_idx, note, 0);
-            }
         }
         #[allow(clippy::cast_possible_truncation)]
         set_state(input_state, idx as u8, pressed);
@@ -237,7 +223,6 @@ async fn retrigger_held_notes(
     channel: u8,
     expr_inputs: &ExprInputs,
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
-    synth: &RefCell<SynthEngine>,
 ) {
     let now = Instant::now();
     for (idx, slot) in held.iter_mut().take(count).enumerate() {
@@ -257,9 +242,6 @@ async fn retrigger_held_notes(
             let vel = expr::eval(&ve.code, ve.len, expr_inputs, def.velocity());
             send_midi(midi, &note_off(channel, old_note)).await;
             send_midi(midi, &note_on(channel, note, vel)).await;
-            let mut s = synth.borrow_mut();
-            s.note_off(old_note);
-            s.note_on(note, vel);
         }
     }
 }
@@ -272,12 +254,10 @@ async fn release_held_notes(
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
     input_state: &InputState,
     set_state: fn(&InputState, u8, bool),
-    synth: &RefCell<SynthEngine>,
 ) {
     for (idx, slot) in held.iter_mut().enumerate() {
         if let Some(h) = slot.take() {
             send_midi(midi, &note_off(channel, h.current)).await;
-            synth.borrow_mut().note_off(h.current);
             #[allow(clippy::cast_possible_truncation)]
             set_state(input_state, idx as u8, false);
         }
@@ -290,7 +270,6 @@ async fn release_held_notes(
 /// iteration, evaluates note/velocity/CC expressions, and sends the
 /// resulting MIDI messages.  Also blinks the status LED and watches for
 /// pin-assignment changes in the shared config.
-#[allow(clippy::too_many_arguments)]
 pub async fn run(
     midi_class: &mut MidiClass<'static, Driver<'static, USB>>,
     led: &mut Output<'static>,
@@ -298,8 +277,6 @@ pub async fn run(
     i2c1: i2c::I2c<'static, I2C1, i2c::Async>,
     cfg: &RefCell<Config>,
     input_state: &InputState,
-    synth: &RefCell<SynthEngine>,
-    looper: &RefCell<Looper>,
 ) {
     Timer::after(Duration::from_millis(100)).await;
 
@@ -323,7 +300,6 @@ pub async fn run(
     let mut accel = input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing).await;
 
     let mut last_led_toggle = Instant::now();
-    let mut last_loop_time = Instant::now();
 
     let mut active_button_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] = [None; MAX_DIGITAL_INPUTS];
     let mut active_touch_note: [Option<HeldNote>; MAX_DIGITAL_INPUTS] = [None; MAX_DIGITAL_INPUTS];
@@ -342,7 +318,6 @@ pub async fn run(
                 midi_class,
                 input_state,
                 InputState::set_button,
-                synth,
             )
             .await;
             release_held_notes(
@@ -351,7 +326,6 @@ pub async fn run(
                 midi_class,
                 input_state,
                 InputState::set_touch,
-                synth,
             )
             .await;
 
@@ -372,47 +346,6 @@ pub async fn run(
         }
 
         accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
-
-        // Re-apply synth config each iteration (cheap, just copies values).
-        synth.borrow_mut().apply_config(&cur.synth);
-
-        // Re-apply looper config and advance the looper clock.
-        let loop_events = {
-            let now = Instant::now();
-            let elapsed_us = now.duration_since(last_loop_time).as_micros();
-            last_loop_time = now;
-
-            let mut lp = looper.borrow_mut();
-            lp.apply_config(&cur.loop_cfg);
-
-            // Advance looper clock and collect playback events
-            #[allow(clippy::cast_possible_truncation)]
-            let ticks = lp.advance(elapsed_us as u32);
-            if ticks > 0 && cur.loop_cfg.enabled {
-                let events = lp.collect_playback_events();
-                let mut out_events = [(0u8, 0u8); 16];
-                let num_events = events.len().min(16);
-                for (i, ev) in events.iter().take(num_events).enumerate() {
-                    out_events[i] = (ev.note, ev.velocity);
-                }
-                Some((out_events, num_events))
-            } else {
-                None
-            }
-        };
-
-        // Send MIDI for loop playback events (outside the borrow)
-        if let Some((out_events, num_events)) = loop_events {
-            for &(note, vel) in out_events.iter().take(num_events) {
-                if vel > 0 {
-                    send_midi(midi_class, &note_on(cur.midi_channel, note, vel)).await;
-                    synth.borrow_mut().note_on(note, vel);
-                } else {
-                    send_midi(midi_class, &note_off(cur.midi_channel, note)).await;
-                    synth.borrow_mut().note_off(note);
-                }
-            }
-        }
 
         let thrs: [u8; MAX_DIGITAL_INPUTS] =
             collect_field(cur.active_touch_pads(), 33, |t| t.threshold_pct);
@@ -493,8 +426,6 @@ pub async fn run(
             midi_class,
             input_state,
             InputState::set_button,
-            synth,
-            looper,
         )
         .await;
 
@@ -505,7 +436,6 @@ pub async fn run(
             cur.midi_channel,
             &expr_inputs,
             midi_class,
-            synth,
         )
         .await;
 
@@ -525,8 +455,6 @@ pub async fn run(
             midi_class,
             input_state,
             InputState::set_touch,
-            synth,
-            looper,
         )
         .await;
 
@@ -537,7 +465,6 @@ pub async fn run(
             cur.midi_channel,
             &expr_inputs,
             midi_class,
-            synth,
         )
         .await;
 

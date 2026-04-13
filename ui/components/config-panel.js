@@ -24,8 +24,6 @@ export class ConfigPanel extends BaseElement {
   get potList() { return this.querySelector('item-list[data-type="pot"]'); }
   get ldrSection() { return this.querySelector("ldr-section"); }
   get accelSection() { return this.querySelector("accel-section"); }
-  get loopControl() { return this.querySelector("loop-control"); }
-  get synthControl() { return this.querySelector("synth-control"); }
   get midiChannel() { return this.querySelector("midi-channel"); }
   get btnExport() { return this.querySelector("#btnExport"); }
   get btnImport() { return this.querySelector("#btnImport"); }

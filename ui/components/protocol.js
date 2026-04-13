@@ -43,9 +43,7 @@ export function cobsDecode(buf) {
 export class PostcardReader {
   constructor(buf) { this.buf = buf; this.pos = 0; }
   u8() { return this.buf[this.pos++]; }
-  i8() { const v = this.u8(); return v > 127 ? v - 256 : v; }
   bool() { return this.u8() !== 0; }
-  u16() { return this.varint(); }
   varint() {
     let val = 0, shift = 0;
     while (true) {
@@ -67,9 +65,7 @@ export class PostcardReader {
 export class PostcardWriter {
   constructor() { this.buf = []; }
   u8(v) { this.buf.push(v & 0xFF); }
-  i8(v) { this.u8(v < 0 ? v + 256 : v); }
   bool(v) { this.u8(v ? 1 : 0); }
-  u16(v) { this.varint(v); }
   varint(v) {
     v = v >>> 0;
     while (v >= 0x80) {
@@ -87,13 +83,6 @@ export const REQ_GET_CONFIG = 2;
 export const REQ_PUT_CONFIG = 3;
 export const REQ_SAVE = 4;
 export const REQ_RESET = 5;
-export const REQ_LOOP_RECORD = 6;
-export const REQ_LOOP_STOP_RECORD = 7;
-export const REQ_LOOP_TOGGLE_MUTE = 8;
-export const REQ_LOOP_CLEAR = 9;
-export const REQ_LOOP_STOP_ALL = 10;
-export const REQ_LOOP_PLAY = 11;
-export const REQ_LOOP_STOP = 12;
 
 export const RESP_PONG = 0;
 export const RESP_VERSION = 1;
@@ -101,12 +90,10 @@ export const RESP_CONFIG = 2;
 export const RESP_OK = 3;
 export const RESP_ERROR = 4;
 export const RESP_MONITOR = 5;
-export const RESP_LOOP_STATE = 6;
 
 export const MAX_DIGITAL_INPUTS = 21;
 export const MAX_ANALOG_INPUTS = 3;
 export const MAX_EXPR = 16;
-export const MAX_LOOP_LAYERS = 4;
 
 export const DIGITAL_PINS = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
@@ -133,7 +120,7 @@ function readExpr(r) {
 //   midi_channel, num_buttons, buttons[MAX_DIGITAL_INPUTS],
 //   num_touch_pads, touch_pads[MAX_DIGITAL_INPUTS],
 //   num_pots, pots[MAX_ANALOG_INPUTS],
-//   ldr_enabled, ldr, accel, synth
+//   ldr_enabled, ldr, accel
 
 function writeInputBlock(w, items, maxLen, defaultItem, writeExtra) {
   w.u8(items.length);
@@ -189,35 +176,6 @@ export function writeConfig(w, cfg) {
   w.u8(cfg.accel.x_cc); w.u8(cfg.accel.y_cc);
   w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_velocity);
   w.u8(cfg.accel.dead_zone_tenths); w.u8(cfg.accel.smoothing_pct);
-
-  w.bool(cfg.synth.enabled);
-  w.u8(cfg.synth.audio_pin);
-  w.u8(cfg.synth.osc1_waveform); w.u8(cfg.synth.osc2_waveform);
-  w.i8(cfg.synth.osc2_detune_cents); w.i8(cfg.synth.osc2_semitone);
-  w.u8(cfg.synth.osc_mix);
-  w.u8(cfg.synth.filter_cutoff); w.u8(cfg.synth.filter_resonance);
-  w.u8(cfg.synth.filter_env_amount);
-  w.u16(cfg.synth.amp_attack_ms); w.u16(cfg.synth.amp_decay_ms);
-  w.u8(cfg.synth.amp_sustain_pct);
-  w.u16(cfg.synth.amp_release_ms);
-  w.u16(cfg.synth.filter_attack_ms); w.u16(cfg.synth.filter_decay_ms);
-  w.u8(cfg.synth.filter_sustain_pct);
-  w.u16(cfg.synth.filter_release_ms);
-  w.u8(cfg.synth.master_volume);
-  w.u8(cfg.synth.reverb_mix);
-  w.u8(cfg.synth.reverb_size);
-  w.u8(cfg.synth.reverb_damping);
-  w.u8(cfg.synth.comp_mix);
-  w.u8(cfg.synth.comp_peak_reduction);
-  w.u8(cfg.synth.comp_gain);
-  w.u8(cfg.synth.comp_mode);
-
-  // LoopConfig — must match firmware LoopConfig field order
-  w.bool(cfg.loop_cfg.enabled);
-  w.u8(cfg.loop_cfg.num_layers);
-  w.u8(cfg.loop_cfg.bpm);
-  w.u8(cfg.loop_cfg.quantize);
-  w.u8(cfg.loop_cfg.bars);
 }
 
 export function readConfig(r) {
@@ -233,36 +191,6 @@ export function readConfig(r) {
       x_cc: r.u8(), y_cc: r.u8(),
       tap_note: r.u8(), tap_velocity: r.u8(),
       dead_zone_tenths: r.u8(), smoothing_pct: r.u8(),
-    },
-    synth: {
-      enabled: r.bool(),
-      audio_pin: r.u8(),
-      osc1_waveform: r.u8(), osc2_waveform: r.u8(),
-      osc2_detune_cents: r.i8(), osc2_semitone: r.i8(),
-      osc_mix: r.u8(),
-      filter_cutoff: r.u8(), filter_resonance: r.u8(),
-      filter_env_amount: r.u8(),
-      amp_attack_ms: r.u16(), amp_decay_ms: r.u16(),
-      amp_sustain_pct: r.u8(),
-      amp_release_ms: r.u16(),
-      filter_attack_ms: r.u16(), filter_decay_ms: r.u16(),
-      filter_sustain_pct: r.u8(),
-      filter_release_ms: r.u16(),
-      master_volume: r.u8(),
-      reverb_mix: r.u8(),
-      reverb_size: r.u8(),
-      reverb_damping: r.u8(),
-      comp_mix: r.u8(),
-      comp_peak_reduction: r.u8(),
-      comp_gain: r.u8(),
-      comp_mode: r.u8(),
-    },
-    loop_cfg: {
-      enabled: r.bool(),
-      num_layers: r.u8(),
-      bpm: r.u8(),
-      quantize: r.u8(),
-      bars: r.u8(),
     },
   };
   return cfg;
@@ -281,30 +209,10 @@ export function readMonitorSnapshot(r) {
   return snap;
 }
 
-export function readLoopState(r) {
-  const state = {
-    playing: r.bool(),
-    num_layers: r.u8(),
-    progress: r.u8(),
-    current_tick: r.u16(),
-    loop_length_ticks: r.u16(),
-    layer_states: [],
-    layer_event_counts: [],
-  };
-  for (let i = 0; i < MAX_LOOP_LAYERS; i++) state.layer_states.push(r.u8());
-  for (let i = 0; i < MAX_LOOP_LAYERS; i++) state.layer_event_counts.push(r.u16());
-  return state;
-}
-
 export function buildRequest(variantIndex, configObj) {
   const w = new PostcardWriter();
   w.varint(variantIndex);
   if (variantIndex === REQ_PUT_CONFIG && configObj) writeConfig(w, configObj);
-  // Loop commands with a u8 layer argument
-  if (variantIndex === REQ_LOOP_RECORD || variantIndex === REQ_LOOP_STOP_RECORD ||
-      variantIndex === REQ_LOOP_TOGGLE_MUTE || variantIndex === REQ_LOOP_CLEAR) {
-    w.u8(configObj);  // configObj is the layer index for loop commands
-  }
   return cobsEncode(w.finish());
 }
 
@@ -318,7 +226,6 @@ export function parseResponse(bytes) {
     case RESP_OK: return { type: "ok" };
     case RESP_ERROR: return { type: "error", message: r.str() };
     case RESP_MONITOR: return { type: "monitor", value: readMonitorSnapshot(r) };
-    case RESP_LOOP_STATE: return { type: "loop_state", value: readLoopState(r) };
     default: return null;
   }
 }
