@@ -13,6 +13,7 @@ use crate::config::{Config, NoteInput, MAX_ANALOG_INPUTS, MAX_DIGITAL_INPUTS};
 use crate::expr::{self, ExprInputs};
 use crate::input;
 use crate::input_state::InputState;
+use crate::synth::SynthEngine;
 
 const CIN_NOTE_OFF: u8 = 0x08;
 const CIN_NOTE_ON: u8 = 0x09;
@@ -194,6 +195,7 @@ async fn handle_note_events(
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
     input_state: &InputState,
     set_state: fn(&InputState, u8, bool),
+    synth: &RefCell<SynthEngine>,
 ) {
     for (idx, pressed) in events {
         if pressed {
@@ -204,10 +206,12 @@ async fn handle_note_events(
             let vel = expr::eval(&ve.code, ve.len, expr_inputs, def.velocity());
             held[idx] = Some(HeldNote::new(note));
             send_midi(midi, &note_on(channel, note, vel)).await;
+            synth.borrow_mut().note_on(note, vel);
         } else {
             let note = held[idx].map_or(defs[idx].note(), |h| h.current);
             held[idx] = None;
             send_midi(midi, &note_off(channel, note)).await;
+            synth.borrow_mut().note_off(note);
         }
         #[allow(clippy::cast_possible_truncation)]
         set_state(input_state, idx as u8, pressed);
@@ -223,6 +227,7 @@ async fn retrigger_held_notes(
     channel: u8,
     expr_inputs: &ExprInputs,
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
+    synth: &RefCell<SynthEngine>,
 ) {
     let now = Instant::now();
     for (idx, slot) in held.iter_mut().take(count).enumerate() {
@@ -242,6 +247,9 @@ async fn retrigger_held_notes(
             let vel = expr::eval(&ve.code, ve.len, expr_inputs, def.velocity());
             send_midi(midi, &note_off(channel, old_note)).await;
             send_midi(midi, &note_on(channel, note, vel)).await;
+            let mut s = synth.borrow_mut();
+            s.note_off(old_note);
+            s.note_on(note, vel);
         }
     }
 }
@@ -254,10 +262,12 @@ async fn release_held_notes(
     midi: &mut MidiClass<'static, Driver<'static, USB>>,
     input_state: &InputState,
     set_state: fn(&InputState, u8, bool),
+    synth: &RefCell<SynthEngine>,
 ) {
     for (idx, slot) in held.iter_mut().enumerate() {
         if let Some(h) = slot.take() {
             send_midi(midi, &note_off(channel, h.current)).await;
+            synth.borrow_mut().note_off(h.current);
             #[allow(clippy::cast_possible_truncation)]
             set_state(input_state, idx as u8, false);
         }
@@ -277,6 +287,7 @@ pub async fn run(
     i2c1: i2c::I2c<'static, I2C1, i2c::Async>,
     cfg: &RefCell<Config>,
     input_state: &InputState,
+    synth: &RefCell<SynthEngine>,
 ) {
     Timer::after(Duration::from_millis(100)).await;
 
@@ -318,6 +329,7 @@ pub async fn run(
                 midi_class,
                 input_state,
                 InputState::set_button,
+                synth,
             )
             .await;
             release_held_notes(
@@ -326,6 +338,7 @@ pub async fn run(
                 midi_class,
                 input_state,
                 InputState::set_touch,
+                synth,
             )
             .await;
 
@@ -346,6 +359,9 @@ pub async fn run(
         }
 
         accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
+
+        // Re-apply synth config each iteration (cheap, just copies values).
+        synth.borrow_mut().apply_config(&cur.synth);
 
         let thrs: [u8; MAX_DIGITAL_INPUTS] =
             collect_field(cur.active_touch_pads(), 33, |t| t.threshold_pct);
@@ -426,6 +442,7 @@ pub async fn run(
             midi_class,
             input_state,
             InputState::set_button,
+            synth,
         )
         .await;
 
@@ -436,6 +453,7 @@ pub async fn run(
             cur.midi_channel,
             &expr_inputs,
             midi_class,
+            synth,
         )
         .await;
 
@@ -455,6 +473,7 @@ pub async fn run(
             midi_class,
             input_state,
             InputState::set_touch,
+            synth,
         )
         .await;
 
@@ -465,6 +484,7 @@ pub async fn run(
             cur.midi_channel,
             &expr_inputs,
             midi_class,
+            synth,
         )
         .await;
 

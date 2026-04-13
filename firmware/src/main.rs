@@ -3,6 +3,8 @@
 // Embassy uses a single-threaded executor; futures do not need to be Send.
 #![allow(clippy::future_not_send)]
 
+#[cfg(target_os = "none")]
+mod audio;
 mod config;
 mod expr;
 #[cfg(target_os = "none")]
@@ -12,6 +14,7 @@ mod input_state;
 #[cfg(target_os = "none")]
 mod polling;
 mod serial;
+mod synth;
 
 #[cfg(target_os = "none")]
 use core::cell::RefCell;
@@ -49,6 +52,8 @@ use {defmt_rtt as _, panic_probe as _};
 use config::Config;
 #[cfg(target_os = "none")]
 use input_state::InputState;
+#[cfg(target_os = "none")]
+use synth::SynthEngine;
 
 #[cfg(target_os = "none")]
 bind_interrupts!(struct Irqs {
@@ -102,6 +107,11 @@ async fn main(_spawner: Spawner) {
     static INPUT_STATE: InputState = InputState::new();
     let usb_fut = usb.run();
 
+    // Initialize synth engine and apply saved config
+    let mut synth_engine = SynthEngine::new();
+    synth_engine.apply_config(&cfg.synth);
+    let synth_engine = RefCell::new(synth_engine);
+
     let cfg = RefCell::new(cfg);
 
     let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
@@ -112,9 +122,37 @@ async fn main(_spawner: Spawner) {
         i2c1,
         &cfg,
         &INPUT_STATE,
+        &synth_engine,
     );
 
     let serial_fut = serial::serial_task(&mut serial_class, &mut flash, &cfg, &INPUT_STATE);
 
-    join3(usb_fut, midi_fut, serial_fut).await;
+    // If synth is enabled, run the audio output task alongside MIDI.
+    // Otherwise, run the three original tasks without audio.
+    let synth_enabled = cfg.borrow().synth.enabled;
+    let synth_audio_pin = cfg.borrow().synth.audio_pin;
+
+    if synth_enabled && synth_audio_pin == config::DEFAULT_AUDIO_PIN {
+        // Safety: we checked that the audio pin doesn't conflict with other
+        // peripherals via config validation, and we only steal it once here.
+        //
+        // Pin-to-slice mapping: pin N -> slice N/2, channel A if even, B if odd.
+        // GP14 = slice 7 channel A.
+        // Currently only GP14 is supported for PWM audio output.
+        let pwm_slice = unsafe { embassy_rp::peripherals::PWM_SLICE7::steal() };
+        let audio_pin = unsafe { embassy_rp::peripherals::PIN_14::steal() };
+        let audio_fut = audio::run(&synth_engine, pwm_slice, audio_pin);
+
+        // join4: USB + MIDI polling + serial + audio
+        embassy_futures::join::join4(usb_fut, midi_fut, serial_fut, audio_fut).await;
+    } else {
+        if synth_enabled {
+            defmt::warn!(
+                "synth audio_pin {} is not supported (only GP{} works), synth disabled",
+                synth_audio_pin,
+                config::DEFAULT_AUDIO_PIN
+            );
+        }
+        join3(usb_fut, midi_fut, serial_fut).await;
+    }
 }
