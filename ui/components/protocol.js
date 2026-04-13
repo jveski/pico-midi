@@ -87,6 +87,13 @@ export const REQ_GET_CONFIG = 2;
 export const REQ_PUT_CONFIG = 3;
 export const REQ_SAVE = 4;
 export const REQ_RESET = 5;
+export const REQ_LOOP_RECORD = 6;
+export const REQ_LOOP_STOP_RECORD = 7;
+export const REQ_LOOP_TOGGLE_MUTE = 8;
+export const REQ_LOOP_CLEAR = 9;
+export const REQ_LOOP_STOP_ALL = 10;
+export const REQ_LOOP_PLAY = 11;
+export const REQ_LOOP_STOP = 12;
 
 export const RESP_PONG = 0;
 export const RESP_VERSION = 1;
@@ -94,10 +101,12 @@ export const RESP_CONFIG = 2;
 export const RESP_OK = 3;
 export const RESP_ERROR = 4;
 export const RESP_MONITOR = 5;
+export const RESP_LOOP_STATE = 6;
 
 export const MAX_DIGITAL_INPUTS = 21;
 export const MAX_ANALOG_INPUTS = 3;
 export const MAX_EXPR = 16;
+export const MAX_LOOP_LAYERS = 4;
 
 export const DIGITAL_PINS = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
@@ -195,6 +204,13 @@ export function writeConfig(w, cfg) {
   w.u8(cfg.synth.filter_sustain_pct);
   w.u16(cfg.synth.filter_release_ms);
   w.u8(cfg.synth.master_volume);
+
+  // LoopConfig — must match firmware LoopConfig field order
+  w.bool(cfg.loop_cfg.enabled);
+  w.u8(cfg.loop_cfg.num_layers);
+  w.u8(cfg.loop_cfg.bpm);
+  w.u8(cfg.loop_cfg.quantize);
+  w.u8(cfg.loop_cfg.bars);
 }
 
 export function readConfig(r) {
@@ -227,6 +243,13 @@ export function readConfig(r) {
       filter_release_ms: r.u16(),
       master_volume: r.u8(),
     },
+    loop_cfg: {
+      enabled: r.bool(),
+      num_layers: r.u8(),
+      bpm: r.u8(),
+      quantize: r.u8(),
+      bars: r.u8(),
+    },
   };
   return cfg;
 }
@@ -244,10 +267,30 @@ export function readMonitorSnapshot(r) {
   return snap;
 }
 
+export function readLoopState(r) {
+  const state = {
+    playing: r.bool(),
+    num_layers: r.u8(),
+    progress: r.u8(),
+    current_tick: r.u16(),
+    loop_length_ticks: r.u16(),
+    layer_states: [],
+    layer_event_counts: [],
+  };
+  for (let i = 0; i < MAX_LOOP_LAYERS; i++) state.layer_states.push(r.u8());
+  for (let i = 0; i < MAX_LOOP_LAYERS; i++) state.layer_event_counts.push(r.u16());
+  return state;
+}
+
 export function buildRequest(variantIndex, configObj) {
   const w = new PostcardWriter();
   w.varint(variantIndex);
   if (variantIndex === REQ_PUT_CONFIG && configObj) writeConfig(w, configObj);
+  // Loop commands with a u8 layer argument
+  if (variantIndex === REQ_LOOP_RECORD || variantIndex === REQ_LOOP_STOP_RECORD ||
+      variantIndex === REQ_LOOP_TOGGLE_MUTE || variantIndex === REQ_LOOP_CLEAR) {
+    w.u8(configObj);  // configObj is the layer index for loop commands
+  }
   return cobsEncode(w.finish());
 }
 
@@ -261,6 +304,7 @@ export function parseResponse(bytes) {
     case RESP_OK: return { type: "ok" };
     case RESP_ERROR: return { type: "error", message: r.str() };
     case RESP_MONITOR: return { type: "monitor", value: readMonitorSnapshot(r) };
+    case RESP_LOOP_STATE: return { type: "loop_state", value: readLoopState(r) };
     default: return null;
   }
 }

@@ -89,6 +89,49 @@
       </accel-section>
     </collapsible-card>
 
+    <!-- Looper -->
+    <collapsible-card data-section="looper" data-title="Looper">
+      <loop-control>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="loopEnabled">
+            <span class="slider"></span>
+          </label>
+          <label>Enabled</label>
+        </div>
+        <div id="loopFields">
+          <div class="loop-config-row">
+            <div class="field"><label>BPM</label><input type="number" id="loopBpm" min="40" max="240" value="120"></div>
+            <div class="field"><label>Bars</label><input type="number" id="loopBars" min="1" max="8" value="4"></div>
+            <div class="field">
+              <label>Quantize</label>
+              <select id="loopQuantize">
+                <option value="0">Off</option>
+                <option value="1">1/4</option>
+                <option value="2" selected>1/8</option>
+                <option value="3">1/16</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Layers</label>
+              <select id="loopNumLayers">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4" selected>4</option>
+              </select>
+            </div>
+          </div>
+          <div class="loop-transport">
+            <button class="btn btn-sm loop-transport-btn" data-action="play" title="Play">PLAY</button>
+            <button class="btn btn-sm loop-transport-btn" data-action="stop" title="Stop">STOP</button>
+            <button class="btn btn-sm loop-transport-btn loop-stop-all-btn" data-action="stop-all" title="Stop All &amp; Clear">CLEAR ALL</button>
+            <div class="loop-progress-track"><div class="loop-progress-fill" id="loopProgress"></div></div>
+          </div>
+          <div id="loopLayers" class="loop-layers"></div>
+        </div>
+      </loop-control>
+    </collapsible-card>
+
     <!-- Settings -->
     <collapsible-card data-section="settings" data-title="Settings">
       <midi-channel>
@@ -344,6 +387,7 @@ import "./components/toggle-section.js";
 import "./components/config-panel.js";
 import "./components/pinout-guide.js";
 import "./components/save-banner.js";
+import "./components/loop-control.js";
 import { init } from "./components/app.js";
 
 init({

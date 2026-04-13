@@ -17,9 +17,11 @@ use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embassy_usb::driver::EndpointError;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{self, Config};
+use crate::config::{self, Config, MAX_LOOP_LAYERS};
 #[cfg(target_os = "none")]
 use crate::input_state::InputState;
+#[cfg(target_os = "none")]
+use crate::looper::Looper;
 
 #[cfg(target_os = "none")]
 type Serial<'a> = CdcAcmClass<'a, Driver<'a, USB>>;
@@ -38,11 +40,12 @@ pub async fn serial_task(
     flash: &mut Flash<'static>,
     cfg: &RefCell<Config>,
     input_state: &InputState,
+    looper: &RefCell<Looper>,
 ) {
     loop {
         serial.wait_connection().await;
         defmt::info!("serial connected");
-        run_session(serial, flash, cfg, input_state).await;
+        run_session(serial, flash, cfg, input_state, looper).await;
         defmt::info!("serial disconnected");
     }
 }
@@ -54,6 +57,7 @@ async fn run_session(
     flash: &mut Flash<'static>,
     cfg: &RefCell<Config>,
     input_state: &InputState,
+    looper: &RefCell<Looper>,
 ) {
     let mut assembler = FrameAssembler::new();
     let mut last_monitor = Instant::now();
@@ -68,7 +72,9 @@ async fn run_session(
 
         if let Either::First(result) = event {
             match result {
-                Ok(n) => process_bytes(&usb_buf[..n], &mut assembler, serial, flash, cfg).await,
+                Ok(n) => {
+                    process_bytes(&usb_buf[..n], &mut assembler, serial, flash, cfg, looper).await
+                }
                 Err(EndpointError::Disabled) => return,
                 Err(EndpointError::BufferOverflow) => defmt::warn!("serial overflow"),
             }
@@ -76,7 +82,7 @@ async fn run_session(
 
         if last_monitor.elapsed().as_millis() >= MONITOR_INTERVAL_MS {
             last_monitor = Instant::now();
-            send_monitor_snapshot(serial, cfg, input_state).await;
+            send_monitor_snapshot(serial, cfg, input_state, looper).await;
         }
     }
 }
@@ -90,10 +96,11 @@ async fn process_bytes(
     serial: &mut Serial<'static>,
     flash: &mut Flash<'static>,
     cfg: &RefCell<Config>,
+    looper: &RefCell<Looper>,
 ) {
     for &b in bytes {
         if let Some(frame) = assembler.push(b) {
-            handle_frame(frame, serial, flash, cfg).await;
+            handle_frame(frame, serial, flash, cfg, looper).await;
         }
     }
 }
@@ -106,8 +113,9 @@ async fn handle_frame(
     serial: &mut Serial<'static>,
     flash: &mut Flash<'static>,
     cfg: &RefCell<Config>,
+    looper: &RefCell<Looper>,
 ) {
-    let result = handle_request(frame, &mut cfg.borrow_mut());
+    let result = handle_request(frame, &mut cfg.borrow_mut(), &mut looper.borrow_mut());
 
     match result {
         HandleResult::Reply(response) => {
@@ -129,12 +137,42 @@ async fn send_monitor_snapshot(
     serial: &mut Serial<'static>,
     cfg: &RefCell<Config>,
     input_state: &InputState,
+    looper: &RefCell<Looper>,
 ) {
     let snapshot = {
         let cur = cfg.borrow();
         input_state.snapshot(cur.num_buttons, cur.num_touch_pads, cur.num_pots)
     };
     send_response(serial, &Response::Monitor(snapshot)).await;
+
+    // Send loop state if looper is enabled
+    let loop_state = if cfg.borrow().loop_cfg.enabled {
+        let lp = looper.borrow();
+        let mut layer_states = [0u8; MAX_LOOP_LAYERS];
+        let mut layer_event_counts = [0u16; MAX_LOOP_LAYERS];
+        let num_layers = lp.num_layers;
+        for i in 0..num_layers as usize {
+            #[allow(clippy::cast_possible_truncation)]
+            let idx = i as u8;
+            layer_states[i] = lp.layer_state_byte(idx);
+            layer_event_counts[i] = lp.layer_event_count(idx);
+        }
+        Some(LoopState {
+            playing: lp.playing,
+            num_layers,
+            progress: lp.progress_byte(),
+            current_tick: lp.current_tick,
+            loop_length_ticks: lp.loop_length_ticks,
+            layer_states,
+            layer_event_counts,
+        })
+    } else {
+        None
+    };
+
+    if let Some(state) = loop_state {
+        send_response(serial, &Response::LoopState(state)).await;
+    }
 }
 
 /// Write a byte slice over CDC-ACM serial in 64-byte chunks.
@@ -175,6 +213,35 @@ pub enum Request {
     PutConfig(Config),
     Save,
     Reset,
+    /// Start recording on a loop layer (0-3).
+    LoopRecord(u8),
+    /// Stop recording on a loop layer (transitions to playing).
+    LoopStopRecord(u8),
+    /// Toggle mute on a loop layer.
+    LoopToggleMute(u8),
+    /// Clear a single loop layer.
+    LoopClear(u8),
+    /// Stop all: stop transport and clear all layers.
+    LoopStopAll,
+    /// Start loop transport (play).
+    LoopPlay,
+    /// Stop loop transport (pause, keep layer data).
+    LoopStop,
+}
+
+/// Live looper state snapshot, pushed to the host alongside monitor data.
+#[derive(Serialize)]
+pub struct LoopState {
+    pub playing: bool,
+    pub num_layers: u8,
+    /// Loop progress 0-255.
+    pub progress: u8,
+    pub current_tick: u16,
+    pub loop_length_ticks: u16,
+    /// Per-layer state: 0=Empty, 1=Recording, 2=Playing, 3=Muted.
+    pub layer_states: [u8; MAX_LOOP_LAYERS],
+    /// Per-layer event count.
+    pub layer_event_counts: [u16; MAX_LOOP_LAYERS],
 }
 
 /// Responses sent from the device to the host.
@@ -187,6 +254,7 @@ pub enum Response<'a> {
     Ok,
     Error(&'a str),
     Monitor(MonitorSnapshot),
+    LoopState(LoopState),
 }
 
 impl Response<'_> {
@@ -224,7 +292,11 @@ enum HandleResult<'a> {
 }
 
 #[cfg(target_os = "none")]
-fn handle_request(frame: &mut [u8], config: &mut Config) -> HandleResult<'static> {
+fn handle_request(
+    frame: &mut [u8],
+    config: &mut Config,
+    looper: &mut crate::looper::Looper,
+) -> HandleResult<'static> {
     let Ok(request) = postcard::from_bytes_cobs::<Request>(frame) else {
         return HandleResult::Reply(Response::Error("bad frame"));
     };
@@ -244,6 +316,38 @@ fn handle_request(frame: &mut [u8], config: &mut Config) -> HandleResult<'static
         Request::Save => HandleResult::ReplyAndSave(Response::Ok),
         Request::Reset => {
             *config = Config::default();
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopRecord(layer) => {
+            if layer < config.loop_cfg.num_layers {
+                looper.start_recording(layer);
+                HandleResult::Reply(Response::Ok)
+            } else {
+                HandleResult::Reply(Response::Error("invalid layer"))
+            }
+        }
+        Request::LoopStopRecord(layer) => {
+            looper.stop_recording(layer);
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopToggleMute(layer) => {
+            looper.toggle_mute(layer);
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopClear(layer) => {
+            looper.clear_layer(layer);
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopStopAll => {
+            looper.stop_all();
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopPlay => {
+            looper.start_transport();
+            HandleResult::Reply(Response::Ok)
+        }
+        Request::LoopStop => {
+            looper.stop_transport();
             HandleResult::Reply(Response::Ok)
         }
     }

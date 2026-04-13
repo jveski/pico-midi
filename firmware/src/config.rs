@@ -7,7 +7,7 @@ use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 8;
+pub const VERSION: u8 = 9;
 pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
@@ -176,6 +176,35 @@ pub struct SynthConfig {
     pub master_volume: u8,
 }
 
+/// Maximum number of loop layers (simultaneous loops).
+pub const MAX_LOOP_LAYERS: usize = 4;
+
+/// Maximum number of events per loop layer.
+pub const MAX_LOOP_EVENTS: usize = 256;
+
+/// Quantization grid options: 0=off, 1=1/4 note, 2=1/8 note, 3=1/16 note.
+#[allow(dead_code)] // Used as the default / by tests; embedded code uses `_` catch-all.
+pub const QUANTIZE_OFF: u8 = 0;
+pub const QUANTIZE_QUARTER: u8 = 1;
+pub const QUANTIZE_EIGHTH: u8 = 2;
+pub const QUANTIZE_SIXTEENTH: u8 = 3;
+
+/// Live looper configuration.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
+pub struct LoopConfig {
+    /// Enable the looper.
+    pub enabled: bool,
+    /// Number of active loop layers (2-4).
+    pub num_layers: u8,
+    /// Tempo in BPM (40-240).
+    pub bpm: u8,
+    /// Quantization grid (0=off, 1=1/4, 2=1/8, 3=1/16).
+    pub quantize: u8,
+    /// Loop length in bars (1-8), assuming 4/4 time.
+    pub bars: u8,
+}
+
 /// Synth audio output pin. Must not conflict with digital/analog/I2C/LED pins.
 /// GP14 is used because it maps to PWM slice 7 channel A, which allows
 /// simple single-channel PWM output.
@@ -215,6 +244,7 @@ pub struct Config {
     pub ldr: LdrDef,
     pub accel: AccelConfig,
     pub synth: SynthConfig,
+    pub loop_cfg: LoopConfig,
 }
 
 impl Config {
@@ -412,6 +442,13 @@ impl Default for Config {
                 filter_release_ms: 200,
                 master_volume: 80,
             },
+            loop_cfg: LoopConfig {
+                enabled: false,
+                num_layers: 4,
+                bpm: 120,
+                quantize: QUANTIZE_EIGHTH,
+                bars: 4,
+            },
         }
     }
 }
@@ -510,6 +547,11 @@ mod tests {
         assert_eq!(decoded.synth.osc1_waveform, cfg.synth.osc1_waveform);
         assert_eq!(decoded.synth.filter_cutoff, cfg.synth.filter_cutoff);
         assert_eq!(decoded.synth.amp_attack_ms, cfg.synth.amp_attack_ms);
+        assert_eq!(decoded.loop_cfg.enabled, cfg.loop_cfg.enabled);
+        assert_eq!(decoded.loop_cfg.bpm, cfg.loop_cfg.bpm);
+        assert_eq!(decoded.loop_cfg.num_layers, cfg.loop_cfg.num_layers);
+        assert_eq!(decoded.loop_cfg.quantize, cfg.loop_cfg.quantize);
+        assert_eq!(decoded.loop_cfg.bars, cfg.loop_cfg.bars);
     }
 
     #[test]

@@ -11,6 +11,7 @@ mod expr;
 mod input;
 #[cfg(target_os = "none")]
 mod input_state;
+mod looper;
 #[cfg(target_os = "none")]
 mod polling;
 mod serial;
@@ -52,6 +53,8 @@ use {defmt_rtt as _, panic_probe as _};
 use config::Config;
 #[cfg(target_os = "none")]
 use input_state::InputState;
+#[cfg(target_os = "none")]
+use looper::Looper;
 #[cfg(target_os = "none")]
 use synth::SynthEngine;
 
@@ -112,6 +115,11 @@ async fn main(_spawner: Spawner) {
     synth_engine.apply_config(&cfg.synth);
     let synth_engine = RefCell::new(synth_engine);
 
+    // Initialize looper and apply saved config
+    let mut looper_engine = Looper::new();
+    looper_engine.apply_config(&cfg.loop_cfg);
+    let looper_engine = RefCell::new(looper_engine);
+
     let cfg = RefCell::new(cfg);
 
     let i2c1 = i2c::I2c::new_async(p.I2C1, p.PIN_3, p.PIN_2, Irqs, i2c::Config::default());
@@ -123,9 +131,16 @@ async fn main(_spawner: Spawner) {
         &cfg,
         &INPUT_STATE,
         &synth_engine,
+        &looper_engine,
     );
 
-    let serial_fut = serial::serial_task(&mut serial_class, &mut flash, &cfg, &INPUT_STATE);
+    let serial_fut = serial::serial_task(
+        &mut serial_class,
+        &mut flash,
+        &cfg,
+        &INPUT_STATE,
+        &looper_engine,
+    );
 
     // If synth is enabled, run the audio output task alongside MIDI.
     // Otherwise, run the three original tasks without audio.
