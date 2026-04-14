@@ -15,15 +15,13 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let connectBanner, layout, configPanel, contextPanel, sectionNav, saveBanner, toastEl;
-let contextBackdrop = null;
+let connectBanner, layout, configPanel, contextPanel, saveBanner, toastEl;
 
 export function init(refs) {
   connectBanner = refs.connectBanner;
   layout = refs.layout;
   configPanel = refs.configPanel;
   contextPanel = refs.contextPanel;
-  sectionNav = refs.sectionNav;
   saveBanner = refs.saveBanner;
   toastEl = refs.toast;
 
@@ -60,18 +58,6 @@ export function init(refs) {
     }
   });
 
-  // Mobile drawer toggle for context panel
-  const toggleBtn = document.getElementById("btnContextToggle");
-  if (toggleBtn) {
-    // Create backdrop element for mobile drawer
-    contextBackdrop = document.createElement("div");
-    contextBackdrop.className = "context-backdrop";
-    document.body.appendChild(contextBackdrop);
-
-    toggleBtn.addEventListener("click", toggleContextDrawer);
-    contextBackdrop.addEventListener("click", closeContextDrawer);
-  }
-
   if (!("serial" in navigator)) {
     connectBanner.showUnsupported();
   } else {
@@ -86,22 +72,6 @@ export function init(refs) {
   // Show config panel with defaults (disabled) on initial load
   setConnected(false);
   renderDefaultConfig();
-}
-
-function toggleContextDrawer() {
-  if (!contextPanel) return;
-  const isOpen = contextPanel.classList.contains("drawer-open");
-  if (isOpen) {
-    closeContextDrawer();
-  } else {
-    contextPanel.classList.add("drawer-open");
-    if (contextBackdrop) contextBackdrop.classList.add("visible");
-  }
-}
-
-function closeContextDrawer() {
-  if (contextPanel) contextPanel.classList.remove("drawer-open");
-  if (contextBackdrop) contextBackdrop.classList.remove("visible");
 }
 
 function toast(msg, type) {
@@ -185,7 +155,7 @@ function defaultConfig() {
     ],
     ldr_enabled: false,
     ldr: { pin: 28, cc: 74 },
-    accel: { enabled: false, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
+    accel: { enabled: false, chip: 0, x_cc: 1, y_cc: 2, tap_note: 48, tap_velocity: 127, dead_zone_tenths: 13, smoothing_pct: 25 },
   };
 }
 
@@ -606,7 +576,7 @@ function exportProject() {
   // Build a clean JSON-serializable project object
   const project = {
     _format: "pico-midi-project",
-    _version: 2,
+    _version: 3,
     midi_channel: cfg.midi_channel,
     buttons: cfg.buttons.map(b => normalizeInputItem(b)),
     touch_pads: cfg.touch_pads.map(t => normalizeInputItem(t, { threshold_pct: t.threshold_pct })),
@@ -658,6 +628,7 @@ async function handleProjectImport(e) {
         ldr: { pin: clamp(project.ldr.pin, 0, 29), cc: clamp(project.ldr.cc, 0, 127) },
         accel: {
           enabled: !!project.accel.enabled,
+          chip: clamp(project.accel.chip ?? 0, 0, 2),
           x_cc: clamp(project.accel.x_cc, 0, 127),
           y_cc: clamp(project.accel.y_cc, 0, 127),
           tap_note: clamp(project.accel.tap_note, 0, 127),

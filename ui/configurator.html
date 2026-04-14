@@ -15,23 +15,11 @@
 
 <div class="layout has-connect-banner">
 
-  <!-- Left column: header + nav + config -->
+  <!-- Left column: header + config -->
   <div class="layout-main">
     <header>
       <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
-      <button class="btn btn-sm context-toggle" id="btnContextToggle" title="Toggle reference panel">REF</button>
     </header>
-
-    <section-nav>
-      <nav class="section-nav" id="sectionNav">
-        <a class="section-nav-item active" href="#sectionButtons" data-target="sectionButtons">Buttons</a>
-        <a class="section-nav-item" href="#sectionTouch" data-target="sectionTouch">Touch</a>
-        <a class="section-nav-item" href="#sectionPots" data-target="sectionPots">Pots</a>
-        <a class="section-nav-item" href="#sectionLdr" data-target="sectionLdr">LDR</a>
-        <a class="section-nav-item" href="#sectionAccel" data-target="sectionAccel">Accel</a>
-        <a class="section-nav-item" href="#sectionSettings" data-target="sectionSettings">Settings</a>
-      </nav>
-    </section-nav>
 
     <config-panel id="configPanel">
 
@@ -93,6 +81,14 @@
             <span class="pin-label">Accel SDA GP2</span>
           </div>
           <div id="accelFields">
+            <div class="field">
+              <label>Chip</label>
+              <select id="accelChip">
+                <option value="0">Auto (detect)</option>
+                <option value="1">LIS3DH</option>
+                <option value="2">MPU6050</option>
+              </select>
+            </div>
             <div class="field"><label>X Axis CC</label><input type="number" id="accelXCc" min="0" max="127" value="1"></div>
             <div class="field"><label>Y Axis CC</label><input type="number" id="accelYCc" min="0" max="127" value="2"></div>
             <div class="field"><label>Tap Note</label><input type="number" id="accelTapNote" min="0" max="127" value="48"><span class="note-hint" id="tapNoteHint"></span></div>
@@ -182,8 +178,10 @@
           </div>
 
           <h3>Accelerometer</h3>
-          <p>Uses an I2C accelerometer (LIS3DH) on fixed pins:
+          <p>Uses an I2C accelerometer on fixed pins:
             <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
+            Supported chips: <strong>LIS3DH</strong> (addr 0x19) and <strong>MPU6050</strong> (addr 0x68).
+            By default the firmware auto-detects which chip is present.
             Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
             When the accelerometer is disabled, GP2 and GP3 are not used.</p>
           <div class="wiring-diagram">
@@ -375,7 +373,6 @@ import "./components/config-panel.js";
 import "./components/pinout-guide.js";
 import "./components/save-banner.js";
 import "./components/context-panel.js";
-import "./components/section-nav.js";
 import { init } from "./components/app.js";
 
 init({
@@ -383,7 +380,6 @@ init({
   layout: document.querySelector(".layout"),
   configPanel: document.querySelector("config-panel"),
   contextPanel: document.querySelector("context-panel"),
-  sectionNav: document.querySelector("section-nav"),
   saveBanner: document.querySelector("save-banner"),
   toast: document.querySelector("toast-notification"),
 });
