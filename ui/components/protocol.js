@@ -173,6 +173,7 @@ export function writeConfig(w, cfg) {
   w.u8(cfg.ldr.pin); w.u8(cfg.ldr.cc);
 
   w.bool(cfg.accel.enabled);
+  w.u8(cfg.accel.chip);
   w.u8(cfg.accel.x_cc); w.u8(cfg.accel.y_cc);
   w.u8(cfg.accel.tap_note); w.u8(cfg.accel.tap_velocity);
   w.u8(cfg.accel.dead_zone_tenths); w.u8(cfg.accel.smoothing_pct);
@@ -188,6 +189,7 @@ export function readConfig(r) {
     ldr: { pin: r.u8(), cc: r.u8() },
     accel: {
       enabled: r.bool(),
+      chip: r.u8(),
       x_cc: r.u8(), y_cc: r.u8(),
       tap_note: r.u8(), tap_velocity: r.u8(),
       dead_zone_tenths: r.u8(), smoothing_pct: r.u8(),

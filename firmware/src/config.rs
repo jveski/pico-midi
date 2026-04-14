@@ -7,7 +7,7 @@ use embassy_rp::peripherals::FLASH;
 use serde::{Deserialize, Serialize};
 
 pub const MAGIC: u32 = 0x4D49_4449; // "MIDI"
-pub const VERSION: u8 = 7;
+pub const VERSION: u8 = 8;
 pub const MAX_DIGITAL_INPUTS: usize = 21;
 pub const MAX_ANALOG_INPUTS: usize = 3;
 pub const MAX_EXPR: usize = 16;
@@ -127,10 +127,29 @@ pub struct LdrDef {
     pub cc: u8,
 }
 
+/// Which accelerometer chip to use.
+///
+/// `Auto` (default) probes the I2C bus at startup and selects whichever
+/// chip responds.  The manual variants skip probing and address only the
+/// specified chip.
+///
+/// **Important**: postcard serialises enums by variant *declaration order*
+/// (0, 1, 2…), not by `#[repr(u8)]` value.  The UI uses these same
+/// indices.  Do not reorder variants without updating `protocol.js`.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(target_os = "none", derive(Format))]
+#[repr(u8)]
+pub enum AccelChip {
+    Auto = 0,
+    Lis3dh = 1,
+    Mpu6050 = 2,
+}
+
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(target_os = "none", derive(Format))]
 pub struct AccelConfig {
     pub enabled: bool,
+    pub chip: AccelChip,
     pub x_cc: u8,
     pub y_cc: u8,
     pub tap_note: u8,
@@ -314,6 +333,7 @@ impl Default for Config {
             ldr: LdrDef { pin: 28, cc: 74 },
             accel: AccelConfig {
                 enabled: true,
+                chip: AccelChip::Auto,
                 x_cc: 1,
                 y_cc: 2,
                 tap_note: 48,

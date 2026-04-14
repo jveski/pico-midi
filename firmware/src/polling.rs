@@ -297,7 +297,9 @@ pub async fn run(
 
     let accel_dead_zone = initial_cfg.accel.dead_zone_tenths;
     let accel_smoothing = initial_cfg.accel.smoothing_pct;
-    let mut accel = input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing).await;
+    let accel_chip = initial_cfg.accel.chip;
+    let mut accel =
+        input::Accelerometer::new(i2c1, accel_dead_zone, accel_smoothing, accel_chip).await;
 
     let mut last_led_toggle = Instant::now();
 

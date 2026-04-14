@@ -79,6 +79,8 @@ export class AccelSection extends BaseElement {
 
   render(config) {
     this.querySelector("#accelEnabled").checked = config.accel.enabled;
+    const chipSelect = this.querySelector("#accelChip");
+    if (chipSelect) chipSelect.value = config.accel.chip ?? 0;
     this.querySelector("#accelXCc").value = config.accel.x_cc;
     this.querySelector("#accelYCc").value = config.accel.y_cc;
     this.querySelector("#accelTapNote").value = config.accel.tap_note;
@@ -91,8 +93,10 @@ export class AccelSection extends BaseElement {
   }
 
   readFromDOM() {
+    const chipSelect = this.querySelector("#accelChip");
     return {
       enabled: this.querySelector("#accelEnabled").checked,
+      chip: chipSelect ? num(chipSelect.value, 0) : 0,
       x_cc: readClamped(this, "accelXCc", 0, 0, 127),
       y_cc: readClamped(this, "accelYCc", 0, 0, 127),
       tap_note: readClamped(this, "accelTapNote", 0, 0, 127),
