@@ -506,23 +506,27 @@ function compileInputItem(item, label, extraFields = {}) {
 function readConfigFromUI() {
   if (!config) return null;
   const panel = configPanel;
-  config.midi_channel = clamp(num(panel.midiChannel.value, 0), 0, 15);
 
   // Buttons — compile expression text to bytecode
-  config.buttons = panel.buttonList.readFromDOM().map(b =>
+  const buttons = panel.buttonList.readFromDOM().map(b =>
     compileInputItem(b, "Button")
   );
-  for (const b of config.buttons) {
+  for (const b of buttons) {
     if (b.error) { toast(b.error, "error"); return null; }
   }
 
   // Touch pads — compile expression text to bytecode
-  config.touch_pads = panel.touchList.readFromDOM().map(t =>
+  const touch_pads = panel.touchList.readFromDOM().map(t =>
     compileInputItem(t, "Touch", { threshold_pct: clamp(t.threshold_pct, 1, 255) })
   );
-  for (const t of config.touch_pads) {
+  for (const t of touch_pads) {
     if (t.error) { toast(t.error, "error"); return null; }
   }
+
+  // All compilations succeeded — safe to mutate config
+  config.midi_channel = clamp(num(panel.midiChannel.value, 0), 0, 15);
+  config.buttons = buttons;
+  config.touch_pads = touch_pads;
 
   // Pots
   config.pots = panel.potList.readFromDOM().map(p => ({

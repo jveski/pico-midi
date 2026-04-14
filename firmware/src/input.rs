@@ -2,7 +2,7 @@ use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Drive, Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::I2C1;
-use embassy_time::{Instant, Timer};
+use embassy_time::Instant;
 
 use crate::config::MAX_DIGITAL_INPUTS;
 
@@ -124,6 +124,7 @@ struct TouchPad {
     baseline: u32,
     threshold: u32,
     was_touched: bool,
+    stable_since: Instant,
 }
 
 pub struct TouchPads {
@@ -140,6 +141,7 @@ impl TouchPads {
                     baseline: 0,
                     threshold: 0,
                     was_touched: false,
+                    stable_since: Instant::MIN,
                 }
             }; MAX_DIGITAL_INPUTS],
             pins: [const { None }; MAX_DIGITAL_INPUTS],
@@ -150,11 +152,23 @@ impl TouchPads {
     /// # Safety
     /// Caller must ensure the GPIO numbers are valid and not in use elsewhere.
     pub unsafe fn configure(&mut self, gpio_pins: &[u8], threshold_pcts: &[u8]) {
+        // Drop all existing pin drivers and reset pad state (including
+        // indices beyond the new count) to avoid stale `was_touched` state
+        // causing spurious release events if the count is later increased.
         for pin in self.pins.iter_mut() {
             *pin = None;
         }
+        for pad in self.pads.iter_mut() {
+            *pad = TouchPad {
+                baseline: 0,
+                threshold: 0,
+                was_touched: false,
+                stable_since: Instant::MIN,
+            };
+        }
         self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
 
+        let now = Instant::now();
         for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
             let any = embassy_rp::gpio::AnyPin::steal(gpio);
             let mut flex = Flex::new(any);
@@ -174,6 +188,7 @@ impl TouchPads {
                 baseline,
                 threshold: baseline + margin,
                 was_touched: false,
+                stable_since: now,
             };
             self.pins[i] = Some(flex);
         }
@@ -188,6 +203,7 @@ impl TouchPads {
     }
 
     pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {
+        let now = Instant::now();
         let mut events: [Option<TouchEvent>; MAX_DIGITAL_INPUTS] =
             [const { None }; MAX_DIGITAL_INPUTS];
         for (i, event) in events.iter_mut().enumerate().take(self.count) {
@@ -195,8 +211,11 @@ impl TouchPads {
                 let reading = measure_touch_async(pin).await;
                 let touched = reading > self.pads[i].threshold;
 
-                if touched != self.pads[i].was_touched {
+                if touched != self.pads[i].was_touched
+                    && now.duration_since(self.pads[i].stable_since).as_millis() >= DEBOUNCE_MS
+                {
                     self.pads[i].was_touched = touched;
+                    self.pads[i].stable_since = now;
                     *event = Some(TouchEvent {
                         #[allow(clippy::cast_possible_truncation)]
                         index: i as u8,
@@ -257,7 +276,9 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
 
     pin.set_low();
 
-    Timer::after_micros(10).await;
+    // Use the same busy-wait discharge time as the synchronous calibration
+    // measurement to avoid a systematic baseline offset.
+    cortex_m::asm::delay(1000);
 
     pin.set_pull(Pull::Up);
 
