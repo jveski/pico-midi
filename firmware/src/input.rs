@@ -1,3 +1,4 @@
+use cortex_m::peripheral::DWT;
 use embassy_rp::adc::{self, Adc, Channel};
 use embassy_rp::gpio::{Drive, Flex, Input, Pull};
 use embassy_rp::i2c::{self, I2c};
@@ -7,6 +8,11 @@ use embassy_time::Instant;
 use crate::config::{AccelChip, MAX_DIGITAL_INPUTS};
 
 const DEBOUNCE_MS: u64 = 10;
+
+/// Minimum touch threshold in CPU cycles.  At 150 MHz this is ~2 µs, which
+/// prevents false triggers on very-low-capacitance pads where the
+/// percentage-based margin would be too small.
+const MIN_THRESHOLD_CYCLES: u32 = 300;
 
 pub struct ButtonEvent {
     pub index: u8,
@@ -189,7 +195,7 @@ impl TouchPads {
             }
             let baseline = sum / 8;
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
-            let margin = (baseline * pct / 100).max(2);
+            let margin = (baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
 
             self.pads[i] = TouchPad {
                 baseline,
@@ -204,7 +210,7 @@ impl TouchPads {
     pub fn update_thresholds(&mut self, threshold_pcts: &[u8]) {
         for (i, pad) in self.pads.iter_mut().take(self.count).enumerate() {
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
-            let margin = (pad.baseline * pct / 100).max(2);
+            let margin = (pad.baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
             pad.threshold = pad.baseline + margin;
         }
     }
@@ -245,7 +251,13 @@ impl TouchPads {
 /// pull-up.  The ~50 kΩ pull-up charges the pad through the touch
 /// capacitance, and we measure the time until the pin reads HIGH.  No
 /// external resistor is required.
+///
+/// Returns elapsed CPU cycles (not microseconds) for sub-microsecond
+/// resolution.  At 150 MHz one cycle ≈ 6.7 ns.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
+    // ~75 000 cycles at 150 MHz ≈ 500 µs.
+    const TIMEOUT_CYCLES: u32 = 75_000;
+
     pin.set_as_output();
 
     pin.set_low();
@@ -254,16 +266,16 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
 
     pin.set_pull(Pull::Up);
 
-    let start = Instant::now();
+    let start = DWT::cycle_count();
     pin.set_as_input();
 
-    let mut elapsed_us;
+    let mut elapsed;
     loop {
-        elapsed_us = start.elapsed().as_micros();
+        elapsed = DWT::cycle_count().wrapping_sub(start);
 
         let done = pin.is_high();
 
-        if done || elapsed_us >= 500 {
+        if done || elapsed >= TIMEOUT_CYCLES {
             break;
         }
     }
@@ -272,13 +284,13 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
     // the pad between measurements.
     pin.set_pull(Pull::None);
 
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        elapsed_us as u32
-    }
+    elapsed
 }
 
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
+    // ~75 000 cycles at 150 MHz ≈ 500 µs.
+    const TIMEOUT_CYCLES: u32 = 75_000;
+
     pin.set_as_output();
 
     pin.set_low();
@@ -289,26 +301,23 @@ async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
 
     pin.set_pull(Pull::Up);
 
-    let start = Instant::now();
+    let start = DWT::cycle_count();
     pin.set_as_input();
 
-    let mut elapsed_us;
+    let mut elapsed;
     loop {
-        elapsed_us = start.elapsed().as_micros();
+        elapsed = DWT::cycle_count().wrapping_sub(start);
 
         let done = pin.is_high();
 
-        if done || elapsed_us >= 500 {
+        if done || elapsed >= TIMEOUT_CYCLES {
             break;
         }
     }
 
     pin.set_pull(Pull::None);
 
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        elapsed_us as u32
-    }
+    elapsed
 }
 
 // ---------------------------------------------------------------------------

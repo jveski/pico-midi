@@ -62,6 +62,13 @@ bind_interrupts!(struct Irqs {
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(embassy_rp::config::Config::default());
 
+    // Enable the DWT cycle counter for sub-microsecond capacitive touch
+    // measurements.  embassy-rp does not take cortex-m core peripherals,
+    // so `take()` is available here.
+    let mut core = cortex_m::Peripherals::take().unwrap();
+    core.DCB.enable_trace();
+    core.DWT.enable_cycle_counter();
+
     let mut flash =
         flash::Flash::<_, flash::Blocking, { config::FLASH_SIZE }>::new_blocking(p.FLASH);
     let cfg = config::load_config(&mut flash).unwrap_or_else(|| {
