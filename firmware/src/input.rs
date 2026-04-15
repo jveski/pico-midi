@@ -14,6 +14,13 @@ const DEBOUNCE_MS: u64 = 10;
 /// percentage-based margin would be too small.
 const MIN_THRESHOLD_CYCLES: u32 = 300;
 
+/// Consecutive agreeing samples required to register a press.
+const TOUCH_PRESS_COUNT: u8 = 3;
+/// Consecutive agreeing samples required to register a release.
+/// Higher than press because a false release (note stutter) is more
+/// disruptive than a slightly delayed release.
+const TOUCH_RELEASE_COUNT: u8 = 4;
+
 pub struct ButtonEvent {
     pub index: u8,
     pub pressed: bool,
@@ -139,7 +146,7 @@ struct TouchPad {
     release_threshold: u32,
     filtered: u32,
     was_touched: bool,
-    stable_since: Instant,
+    debounce_count: u8,
 }
 
 pub struct TouchPads {
@@ -158,7 +165,7 @@ impl TouchPads {
                     release_threshold: 0,
                     filtered: 0,
                     was_touched: false,
-                    stable_since: Instant::MIN,
+                    debounce_count: 0,
                 }
             }; MAX_DIGITAL_INPUTS],
             pins: [const { None }; MAX_DIGITAL_INPUTS],
@@ -182,12 +189,11 @@ impl TouchPads {
                 release_threshold: 0,
                 filtered: 0,
                 was_touched: false,
-                stable_since: Instant::MIN,
+                debounce_count: 0,
             };
         }
         self.count = gpio_pins.len().min(MAX_DIGITAL_INPUTS);
 
-        let now = Instant::now();
         for (i, &gpio) in gpio_pins.iter().take(self.count).enumerate() {
             let any = embassy_rp::gpio::AnyPin::steal(gpio);
             let mut flex = Flex::new(any);
@@ -209,7 +215,7 @@ impl TouchPads {
                 release_threshold: baseline + margin * 60 / 100,
                 filtered: baseline,
                 was_touched: false,
-                stable_since: now,
+                debounce_count: 0,
             };
             self.pins[i] = Some(flex);
         }
@@ -225,7 +231,6 @@ impl TouchPads {
     }
 
     pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {
-        let now = Instant::now();
         let mut events: [Option<TouchEvent>; MAX_DIGITAL_INPUTS] =
             [const { None }; MAX_DIGITAL_INPUTS];
         for (i, event) in events.iter_mut().enumerate().take(self.count) {
@@ -244,16 +249,24 @@ impl TouchPads {
                     pad.filtered > pad.threshold
                 };
 
-                if touched != pad.was_touched
-                    && now.duration_since(pad.stable_since).as_millis() >= DEBOUNCE_MS
-                {
-                    pad.was_touched = touched;
-                    pad.stable_since = now;
-                    *event = Some(TouchEvent {
-                        #[allow(clippy::cast_possible_truncation)]
-                        index: i as u8,
-                        pressed: touched,
-                    });
+                if touched != pad.was_touched {
+                    pad.debounce_count = pad.debounce_count.saturating_add(1);
+                    let target = if pad.was_touched {
+                        TOUCH_RELEASE_COUNT
+                    } else {
+                        TOUCH_PRESS_COUNT
+                    };
+                    if pad.debounce_count >= target {
+                        pad.was_touched = touched;
+                        pad.debounce_count = 0;
+                        *event = Some(TouchEvent {
+                            #[allow(clippy::cast_possible_truncation)]
+                            index: i as u8,
+                            pressed: touched,
+                        });
+                    }
+                } else {
+                    pad.debounce_count = 0;
                 }
             }
         }
