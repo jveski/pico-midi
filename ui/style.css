@@ -144,7 +144,7 @@ collapsible-card { display: block; }
   flex: 1 1 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 20px 40px;
+  padding: 20px 20px 40px;
   scroll-behavior: smooth;
 }
 
