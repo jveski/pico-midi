@@ -136,6 +136,7 @@ pub struct TouchEvent {
 struct TouchPad {
     baseline: u32,
     threshold: u32,
+    release_threshold: u32,
     was_touched: bool,
     stable_since: Instant,
 }
@@ -153,6 +154,7 @@ impl TouchPads {
                 TouchPad {
                     baseline: 0,
                     threshold: 0,
+                    release_threshold: 0,
                     was_touched: false,
                     stable_since: Instant::MIN,
                 }
@@ -175,6 +177,7 @@ impl TouchPads {
             *pad = TouchPad {
                 baseline: 0,
                 threshold: 0,
+                release_threshold: 0,
                 was_touched: false,
                 stable_since: Instant::MIN,
             };
@@ -200,6 +203,7 @@ impl TouchPads {
             self.pads[i] = TouchPad {
                 baseline,
                 threshold: baseline + margin,
+                release_threshold: baseline + margin * 60 / 100,
                 was_touched: false,
                 stable_since: now,
             };
@@ -212,6 +216,7 @@ impl TouchPads {
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
             let margin = (pad.baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
             pad.threshold = pad.baseline + margin;
+            pad.release_threshold = pad.baseline + margin * 60 / 100;
         }
     }
 
@@ -222,7 +227,13 @@ impl TouchPads {
         for (i, event) in events.iter_mut().enumerate().take(self.count) {
             if let Some(pin) = &mut self.pins[i] {
                 let reading = measure_touch_async(pin).await;
-                let touched = reading > self.pads[i].threshold;
+                let touched = if self.pads[i].was_touched {
+                    // Currently touched: only release when below release threshold
+                    reading > self.pads[i].release_threshold
+                } else {
+                    // Currently released: only touch when above touch threshold
+                    reading > self.pads[i].threshold
+                };
 
                 if touched != self.pads[i].was_touched
                     && now.duration_since(self.pads[i].stable_since).as_millis() >= DEBOUNCE_MS
