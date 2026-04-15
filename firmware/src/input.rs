@@ -202,10 +202,10 @@ impl TouchPads {
             flex.set_drive_strength(Drive::_4mA);
 
             let mut sum: u32 = 0;
-            for _ in 0..8 {
+            for _ in 0..16 {
                 sum += oversample_touch_sync(&mut flex);
             }
-            let baseline = sum / 8;
+            let baseline = sum / 16;
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
             let margin = (baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
 
