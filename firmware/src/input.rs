@@ -14,6 +14,10 @@ const DEBOUNCE_MS: u64 = 10;
 /// percentage-based margin would be too small.
 const MIN_THRESHOLD_CYCLES: u32 = 300;
 
+/// ~75 000 cycles at 150 MHz ≈ 500 µs.  If a pad takes longer than this to
+/// charge, the measurement returns the timeout value.
+const TIMEOUT_CYCLES: u32 = 75_000;
+
 /// Consecutive agreeing samples required to register a press.
 const TOUCH_PRESS_COUNT: u8 = 3;
 /// Consecutive agreeing samples required to register a release.
@@ -206,6 +210,22 @@ impl TouchPads {
                 sum += oversample_touch_sync(&mut flex);
             }
             let baseline = sum / 16;
+
+            // Calibration failure: if the baseline is at or above the
+            // timeout value, the pad is shorted, disconnected, or a finger
+            // was resting on it at startup.  Mark it inactive.
+            if baseline >= TIMEOUT_CYCLES {
+                defmt::warn!(
+                    "touch pad GP{} calibration failed (baseline={}), disabling",
+                    gpio,
+                    baseline
+                );
+                // Drop the pin driver — this pad will have no pin in
+                // self.pins[i] and will be skipped during polling.
+                drop(flex);
+                continue;
+            }
+
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
             let margin = (baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
 
@@ -223,6 +243,9 @@ impl TouchPads {
 
     pub fn update_thresholds(&mut self, threshold_pcts: &[u8]) {
         for (i, pad) in self.pads.iter_mut().take(self.count).enumerate() {
+            if self.pins[i].is_none() {
+                continue; // Skip pads that failed calibration.
+            }
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
             let margin = (pad.baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
             pad.threshold = pad.baseline + margin;
@@ -316,9 +339,6 @@ async fn oversample_touch_async(pin: &mut Flex<'static>) -> u32 {
 /// Returns elapsed CPU cycles (not microseconds) for sub-microsecond
 /// resolution.  At 150 MHz one cycle ≈ 6.7 ns.
 fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
-    // ~75 000 cycles at 150 MHz ≈ 500 µs.
-    const TIMEOUT_CYCLES: u32 = 75_000;
-
     pin.set_as_output();
 
     pin.set_low();
@@ -349,9 +369,6 @@ fn measure_touch_sync(pin: &mut Flex<'static>) -> u32 {
 }
 
 async fn measure_touch_async(pin: &mut Flex<'static>) -> u32 {
-    // ~75 000 cycles at 150 MHz ≈ 500 µs.
-    const TIMEOUT_CYCLES: u32 = 75_000;
-
     pin.set_as_output();
 
     pin.set_low();
