@@ -5,27 +5,132 @@
   --surface: #111;
   --green: #0f0; --red: #f00; --orange: #f80;
   --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
-  --header-h: 52px;
-  --banner-h: 48px;
+  --toolbar-h: 52px;
 }
 
 body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; font-size: 13px; }
+body.modal-open { overflow: hidden; }
 input, select, button, textarea { font-family: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--border); outline: none; }
 input:focus, select:focus { border-color: var(--fg); }
 collapsible-card { display: block; }
 
 /* ==========================================================================
-   Two-Column Layout
+   Sticky Toolbar
+   ========================================================================== */
+
+.toolbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  height: var(--toolbar-h);
+  padding: 0 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.toolbar-left {
+  flex-shrink: 0;
+}
+
+.toolbar-left h1 {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.toolbar-left h1 a { color: var(--fg); text-decoration: none; }
+.toolbar-left h1 a:hover { color: var(--dim); }
+.toolbar-left h1 span { color: var(--dim); font-weight: 400; }
+
+.toolbar-center {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.toolbar-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.toolbar-status.unsupported {
+  color: var(--red);
+}
+
+.toolbar-ref-btn {
+  font-size: 11px;
+  padding: 4px 12px;
+}
+
+/* Connect button: bright green when disconnected (action needed) */
+.btn-connect {
+  background: #0a0; color: #000;
+  border-color: #0a0;
+  font-weight: 700;
+}
+.btn-connect:not(:disabled):hover {
+  background: #0f0; color: #000;
+  border-color: #0f0;
+}
+.btn-connect:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Once connected, the button becomes a subtle disconnect button */
+.btn-connect:not(.btn-connect-active) {
+  background: var(--bg); color: var(--dim);
+  border-color: var(--border);
+}
+.btn-connect:not(.btn-connect-active):not(:disabled):hover {
+  background: var(--surface); color: var(--fg);
+}
+
+/* Save button: muted when disabled, bright orange when active (pending changes) */
+.btn-save {
+  background: var(--bg); color: var(--dim);
+  border-color: var(--border);
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-save:disabled {
+  opacity: 0.3; cursor: not-allowed;
+}
+.btn-save.btn-save-active {
+  background: var(--orange); color: #000;
+  border-color: var(--orange);
+  opacity: 1;
+}
+.btn-save.btn-save-active:not(:disabled):hover {
+  background: #fa0; color: #000;
+  border-color: #fa0;
+}
+.btn-save.btn-save-active:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Layout (single column, full width)
    ========================================================================== */
 
 .layout {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.layout.has-connect-banner {
-  padding-top: var(--banner-h);
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: var(--toolbar-h);
 }
 
 .layout-main {
@@ -33,92 +138,15 @@ collapsible-card { display: block; }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
 }
 
 .layout-main > config-panel {
   flex: 1 1 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 20px 80px;
+  padding: 0 20px 40px;
   scroll-behavior: smooth;
 }
-
-.layout-context {
-  width: 380px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* ==========================================================================
-   Header
-   ========================================================================== */
-
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--header-h);
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-header h1 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-header h1 a { color: var(--fg); text-decoration: none; }
-header h1 a:hover { color: var(--dim); }
-header h1 span { color: var(--dim); font-weight: 400; }
-
-/* ==========================================================================
-   Context Panel
-   ========================================================================== */
-
-.context-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  height: var(--header-h);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.context-tab {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 0 12px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--dim);
-  cursor: pointer;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  transition: color 0.1s, border-color 0.1s;
-}
-.context-tab:hover { color: var(--fg); }
-.context-tab.active {
-  color: var(--fg);
-  border-bottom-color: var(--fg);
-}
-
-.context-panel-body {
-  flex: 1 1 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px;
-}
-
-.context-pane { display: none; }
-.context-pane.active { display: block; }
 
 /* ==========================================================================
    Buttons
@@ -205,7 +233,7 @@ a.btn { text-decoration: none; }
    Toast Notification
    ========================================================================== */
 
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 100; pointer-events: none; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 300; pointer-events: none; }
 .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { background: var(--green); color: var(--bg); }
 .toast.error { background: var(--red); color: var(--bg); }
@@ -300,29 +328,9 @@ a.btn { text-decoration: none; }
 .project-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ==========================================================================
-   Floating Banners
+   Disabled config panel
    ========================================================================== */
 
-.floating-banner {
-  position: fixed; left: 0; right: 0; z-index: 50;
-  display: flex; align-items: center; justify-content: center; gap: 16px;
-  padding: 12px 24px;
-  background: var(--surface); border: 1px solid var(--border);
-  opacity: 0; transition: transform 0.2s ease, opacity 0.2s ease;
-  pointer-events: none;
-}
-.floating-banner.visible { opacity: 1; pointer-events: auto; }
-.floating-banner-text { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
-
-/* Connect banner (top) */
-.connect-banner {
-  top: 0; border-bottom-width: 1px; border-top: none;
-  transform: translateY(-100%);
-}
-.connect-banner.visible { transform: translateY(0); }
-.connect-banner-text.unsupported { color: var(--red); }
-
-/* Disabled config panel */
 config-panel.disabled input,
 config-panel.disabled select,
 config-panel.disabled .toggle { opacity: 0.35; pointer-events: none; }
@@ -331,13 +339,6 @@ config-panel.disabled .monitor-indicator,
 config-panel.disabled .monitor-bar-track,
 config-panel.disabled .monitor-value,
 config-panel.disabled .monitor-tap { opacity: 0.35; }
-
-/* Save banner (bottom) */
-.save-banner {
-  bottom: 0; border-top-width: 1px; border-bottom: none;
-  transform: translateY(100%);
-}
-.save-banner.visible { transform: translateY(0); }
 
 /* ==========================================================================
    Pinout Guide
@@ -349,44 +350,124 @@ config-panel.disabled .monitor-tap { opacity: 0.35; }
 .pinout-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* ==========================================================================
-   Responsive: Collapse to single column below 1024px
+   Modal
    ========================================================================== */
 
-@media (max-width: 1024px) {
-  .layout {
-    flex-direction: column;
+ref-modal {
+  display: none;
+}
+
+ref-modal.open {
+  display: block;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-dialog {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.modal-close {
+  border-color: var(--border);
+  color: var(--dim);
+  padding: 2px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.modal-body {
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .toolbar {
+    flex-wrap: wrap;
     height: auto;
-    min-height: 100vh;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .toolbar-left h1 {
+    font-size: 12px;
+  }
+
+  .toolbar-center {
+    order: 3;
+    margin-left: 0;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+
+  .toolbar-right {
+    margin-left: auto;
+  }
+
+  .toolbar-ref-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  /* Toolbar wraps to two rows on mobile; use JS-free approach
+     with a spacer that matches the toolbar's rendered height */
+  .layout {
+    padding-top: 0;
   }
 
   .layout-main {
-    height: auto;
-    overflow: visible;
+    /* Extra top padding to clear the two-row toolbar */
+    padding-top: calc(var(--toolbar-h) + 44px);
   }
 
-  .layout-main > config-panel {
-    overflow: visible;
-    padding-bottom: 80px;
-  }
-
-  .layout-context {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 380px;
-    max-width: 90vw;
-    z-index: 60;
-    background: var(--bg);
-    border-left: 1px solid var(--border);
-    transform: translateX(100%);
-    transition: transform 0.2s ease;
-    visibility: hidden;
-    pointer-events: none;
+  .modal-dialog {
+    max-width: 100%;
+    max-height: 90vh;
   }
 }
 
-@media (max-width: 600px) {
-  .layout-context { width: 100vw; max-width: 100vw; }
-  header h1 { font-size: 12px; }
+@media (max-width: 480px) {
+  .toolbar-status { display: none; }
+  .toolbar-left h1 span { display: none; }
 }

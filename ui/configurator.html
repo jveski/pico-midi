@@ -8,19 +8,26 @@
 </head>
 <body>
 
-<connect-banner class="floating-banner connect-banner visible">
-  <span class="floating-banner-text connect-banner-text">No device connected</span>
-  <button class="btn btn-primary" id="btnConnect">Connect</button>
-</connect-banner>
+<!-- Sticky top toolbar -->
+<toolbar-bar id="toolbar" class="toolbar">
+  <div class="toolbar-left">
+    <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
+  </div>
+  <div class="toolbar-center">
+    <button class="btn toolbar-ref-btn" data-modal="pinout" id="btnPinout" title="Pin assignments diagram">Pinout</button>
+    <button class="btn toolbar-ref-btn" data-modal="wiring" id="btnWiring" title="Wiring reference">Wiring</button>
+    <button class="btn toolbar-ref-btn" data-modal="expr" id="btnExpr" title="Expression language reference">Expressions</button>
+  </div>
+  <div class="toolbar-right">
+    <span class="toolbar-status" id="toolbarStatus"></span>
+    <button class="btn btn-save" id="btnSave" disabled>Save to Flash</button>
+    <button class="btn btn-connect btn-connect-active" id="btnConnect">Connect</button>
+  </div>
+</toolbar-bar>
 
-<div class="layout has-connect-banner">
+<div class="layout">
 
-  <!-- Left column: header + config -->
   <div class="layout-main">
-    <header>
-      <h1><a href="./">pico-midi</a> <span>configurator</span></h1>
-    </header>
-
     <config-panel id="configPanel">
 
       <!-- Buttons -->
@@ -123,178 +130,162 @@
     </config-panel>
   </div>
 
-  <!-- Right column: context/reference panel -->
-  <context-panel id="contextPanel" class="layout-context">
-    <div class="context-panel-header">
-      <button class="context-tab active" data-tab="pinout">Pinout</button>
-      <button class="context-tab" data-tab="wiring">Wiring</button>
-      <button class="context-tab" data-tab="expr">Expressions</button>
-    </div>
-    <div class="context-panel-body">
-
-      <div class="context-pane active" id="contextPinout">
-        <pinout-guide>
-          <div class="pinout-guide-body"></div>
-        </pinout-guide>
-      </div>
-
-      <div class="context-pane" id="contextWiring">
-        <div class="ref-section wiring-ref">
-          <p>How to connect components to the Raspberry Pi Pico GPIO pins.
-            All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
-
-          <h3>Buttons</h3>
-          <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
-            The firmware activates the internal pull-up, so the pin reads high when open and low when pressed.
-            Any of the 21 digital pins can be used: GP0&ndash;GP1, GP4&ndash;GP22.</p>
-          <div class="wiring-diagram">
-            <span>GPIO pin</span> &larr;&mdash; [switch] &mdash;&rarr; <span>GND</span>
-          </div>
-
-          <h3>Touch Pads</h3>
-          <p>Connect a conductive pad (copper tape, bare PCB, foil) directly to a digital GPIO pin.
-            No connection to GND &mdash; the firmware senses capacitance changes when you touch the pad.
-            Uses the same digital pin pool as buttons (GP0&ndash;GP1, GP4&ndash;GP22).</p>
-          <div class="wiring-diagram">
-            <span>GPIO pin</span> &larr;&mdash; [conductive pad]
-          </div>
-
-          <h3>Potentiometers</h3>
-          <p>Wire the outer legs to <strong>3V3</strong> and <strong>GND</strong>, and the wiper (middle leg)
-            to an analog pin: <strong>GP26</strong>, <strong>GP27</strong>, or <strong>GP28</strong>.
-            Max 3 pots. Values are read as 0&ndash;127.</p>
-          <div class="wiring-diagram">
-            <span>3V3</span> &larr;&mdash; [pot outer] &mdash; [pot wiper] &mdash;&rarr; <span>ADC pin</span><br>
-            <span>GND</span> &larr;&mdash; [pot outer]
-          </div>
-
-          <h3>LDR (Light Sensor)</h3>
-          <p>Wire the LDR and a fixed resistor (e.g. 10k) as a voltage divider between
-            <strong>3V3</strong> and <strong>GND</strong>, with the midpoint going to an analog pin
-            (GP26&ndash;GP28). Shares the analog pin pool with pots.</p>
-          <div class="wiring-diagram">
-            <span>3V3</span> &larr;&mdash; [LDR] &mdash; midpoint &mdash;&rarr; <span>ADC pin</span><br>
-            <span>GND</span> &larr;&mdash; [10k resistor] &mdash; midpoint
-          </div>
-
-          <h3>Accelerometer</h3>
-          <p>Uses an I2C accelerometer on fixed pins:
-            <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
-            Supported chips: <strong>LIS3DH</strong> (addr 0x19) and <strong>MPU6050</strong> (addr 0x68).
-            By default the firmware auto-detects which chip is present.
-            Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
-            When the accelerometer is disabled, GP2 and GP3 are not used.</p>
-          <div class="wiring-diagram">
-            <span>GP3 (Accel SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
-            <span>GP2 (Accel SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
-            <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
-            <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
-          </div>
-
-          <h3>Pin Summary</h3>
-          <table>
-            <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
-            <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
-            <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
-            <tr><td>I2C (accelerometer)</td><td>GP2 (Accel SDA), GP3 (Accel SCL)</td><td>fixed</td></tr>
-          </table>
-
-          <h3>Tips</h3>
-          <ul class="wiring-tips">
-            <li>GP2 (Accel SDA) and GP3 (Accel SCL) are reserved for the accelerometer when enabled &mdash; don't assign them to buttons or touch pads</li>
-            <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
-            <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
-            <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
-            <li>Use <strong>Export Project</strong> to back up your configuration as a JSON file</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="context-pane" id="contextExpr">
-        <div class="ref-section expr-ref">
-          <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
-            An expression can be a plain number, a sensor variable, or a formula combining both.</p>
-
-          <h3>Variables</h3>
-          <table>
-            <tr><th>Variable</th><th>Description</th></tr>
-            <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
-            <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
-            <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
-            <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
-          </table>
-
-          <h3>Operators</h3>
-          <table>
-            <tr><th>Operator</th><th>Description</th></tr>
-            <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
-            <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
-            <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
-            <tr><td><code>/</code></td><td>Integer divide</td></tr>
-          </table>
-
-          <h3>Functions</h3>
-          <table>
-            <tr><th>Function</th><th>Description</th></tr>
-            <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
-            <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
-            <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
-            <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
-            <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
-            <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
-          </table>
-
-          <h3>Scale Modes</h3>
-          <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
-            of a diatonic scale, spanning about 2.5 octaves from the root note.
-            This makes it easy to assign musically consonant notes to controls.</p>
-          <table>
-            <tr><th>Mode</th><th>#</th><th>Character</th></tr>
-            <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
-            <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
-            <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
-            <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
-            <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
-            <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
-            <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
-          </table>
-
-          <h3>Conditionals</h3>
-          <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
-
-          <h3>Examples</h3>
-          <ul class="expr-examples">
-            <li><code>60</code> &mdash; fixed note: middle C</li>
-            <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
-            <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
-            <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
-            <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
-            <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
-            <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
-            <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
-            <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
-          </ul>
-
-          <h3>Notes</h3>
-          <ul class="expr-notes">
-            <li>All values are integers in the range 0&ndash;127</li>
-            <li>Arithmetic saturates (never wraps around)</li>
-            <li>Division by zero returns 127</li>
-            <li>Expressions compile to a max of 16 bytes of bytecode</li>
-            <li>Parentheses <code>()</code> can be used for grouping</li>
-          </ul>
-        </div>
-      </div>
-
-    </div>
-  </context-panel>
-
 </div>
 
-<save-banner class="floating-banner save-banner">
-  <span class="floating-banner-text">Unsaved changes</span>
-  <button class="btn btn-primary" id="btnSave">Save to Flash</button>
-</save-banner>
+<!-- Reference modals -->
+<ref-modal id="modalPinout" data-title="Pinout">
+  <pinout-guide>
+    <div class="pinout-guide-body"></div>
+  </pinout-guide>
+</ref-modal>
+
+<ref-modal id="modalWiring" data-title="Wiring Reference">
+  <div class="ref-section wiring-ref">
+    <p>How to connect components to the Raspberry Pi Pico GPIO pins.
+      All digital inputs use internal pull-ups &mdash; no external resistors needed.</p>
+
+    <h3>Buttons</h3>
+    <p>Wire one leg to a digital GPIO pin, the other to <strong>GND</strong>.
+      The firmware activates the internal pull-up, so the pin reads high when open and low when pressed.
+      Any of the 21 digital pins can be used: GP0&ndash;GP1, GP4&ndash;GP22.</p>
+    <div class="wiring-diagram">
+      <span>GPIO pin</span> &larr;&mdash; [switch] &mdash;&rarr; <span>GND</span>
+    </div>
+
+    <h3>Touch Pads</h3>
+    <p>Connect a conductive pad (copper tape, bare PCB, foil) directly to a digital GPIO pin.
+      No connection to GND &mdash; the firmware senses capacitance changes when you touch the pad.
+      Uses the same digital pin pool as buttons (GP0&ndash;GP1, GP4&ndash;GP22).</p>
+    <div class="wiring-diagram">
+      <span>GPIO pin</span> &larr;&mdash; [conductive pad]
+    </div>
+
+    <h3>Potentiometers</h3>
+    <p>Wire the outer legs to <strong>3V3</strong> and <strong>GND</strong>, and the wiper (middle leg)
+      to an analog pin: <strong>GP26</strong>, <strong>GP27</strong>, or <strong>GP28</strong>.
+      Max 3 pots. Values are read as 0&ndash;127.</p>
+    <div class="wiring-diagram">
+      <span>3V3</span> &larr;&mdash; [pot outer] &mdash; [pot wiper] &mdash;&rarr; <span>ADC pin</span><br>
+      <span>GND</span> &larr;&mdash; [pot outer]
+    </div>
+
+    <h3>LDR (Light Sensor)</h3>
+    <p>Wire the LDR and a fixed resistor (e.g. 10k) as a voltage divider between
+      <strong>3V3</strong> and <strong>GND</strong>, with the midpoint going to an analog pin
+      (GP26&ndash;GP28). Shares the analog pin pool with pots.</p>
+    <div class="wiring-diagram">
+      <span>3V3</span> &larr;&mdash; [LDR] &mdash; midpoint &mdash;&rarr; <span>ADC pin</span><br>
+      <span>GND</span> &larr;&mdash; [10k resistor] &mdash; midpoint
+    </div>
+
+    <h3>Accelerometer</h3>
+    <p>Uses an I2C accelerometer on fixed pins:
+      <strong>SCL = GP3</strong>, <strong>SDA = GP2</strong>.
+      Supported chips: <strong>LIS3DH</strong> (addr 0x19) and <strong>MPU6050</strong> (addr 0x68).
+      By default the firmware auto-detects which chip is present.
+      Power the module from <strong>3V3</strong> and <strong>GND</strong>. No external pull-ups needed &mdash; the firmware enables internal pull-ups on the I2C lines.
+      When the accelerometer is disabled, GP2 and GP3 are not used.</p>
+    <div class="wiring-diagram">
+      <span>GP3 (Accel SCL)</span> &larr;&mdash;&rarr; <span>SCL</span><br>
+      <span>GP2 (Accel SDA)</span> &larr;&mdash;&rarr; <span>SDA</span><br>
+      <span>3V3</span> &larr;&mdash;&rarr; <span>VCC</span><br>
+      <span>GND</span> &larr;&mdash;&rarr; <span>GND</span>
+    </div>
+
+    <h3>Pin Summary</h3>
+    <table>
+      <tr><th>Type</th><th>Pins</th><th>Max</th></tr>
+      <tr><td>Digital (buttons / touch)</td><td>GP0&ndash;GP1, GP4&ndash;GP22</td><td>21</td></tr>
+      <tr><td>Analog (pots / LDR)</td><td>GP26, GP27, GP28</td><td>3</td></tr>
+      <tr><td>I2C (accelerometer)</td><td>GP2 (Accel SDA), GP3 (Accel SCL)</td><td>fixed</td></tr>
+    </table>
+
+    <h3>Tips</h3>
+    <ul class="wiring-tips">
+      <li>GP2 (Accel SDA) and GP3 (Accel SCL) are reserved for the accelerometer when enabled &mdash; don't assign them to buttons or touch pads</li>
+      <li>Each pin can only be used by one input &mdash; buttons and touch pads share the digital pool</li>
+      <li>Pots and the LDR share the 3 analog pins &mdash; plan accordingly</li>
+      <li>Changes take effect immediately on the device for testing &mdash; click <strong>Save to Flash</strong> to persist</li>
+      <li>Use <strong>Export Project</strong> to back up your configuration as a JSON file</li>
+    </ul>
+  </div>
+</ref-modal>
+
+<ref-modal id="modalExpr" data-title="Expressions Reference">
+  <div class="ref-section expr-ref">
+    <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
+      An expression can be a plain number, a sensor variable, or a formula combining both.</p>
+
+    <h3>Variables</h3>
+    <table>
+      <tr><th>Variable</th><th>Description</th></tr>
+      <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
+      <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
+      <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
+      <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
+    </table>
+
+    <h3>Operators</h3>
+    <table>
+      <tr><th>Operator</th><th>Description</th></tr>
+      <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
+      <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
+      <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
+      <tr><td><code>/</code></td><td>Integer divide</td></tr>
+    </table>
+
+    <h3>Functions</h3>
+    <table>
+      <tr><th>Function</th><th>Description</th></tr>
+      <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
+      <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
+      <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
+      <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
+      <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
+      <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
+    </table>
+
+    <h3>Scale Modes</h3>
+    <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
+      of a diatonic scale, spanning about 2.5 octaves from the root note.
+      This makes it easy to assign musically consonant notes to controls.</p>
+    <table>
+      <tr><th>Mode</th><th>#</th><th>Character</th></tr>
+      <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
+      <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
+      <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
+      <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
+      <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
+      <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
+      <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
+    </table>
+
+    <h3>Conditionals</h3>
+    <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
+
+    <h3>Examples</h3>
+    <ul class="expr-examples">
+      <li><code>60</code> &mdash; fixed note: middle C</li>
+      <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
+      <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
+      <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
+      <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
+      <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
+      <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
+      <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
+      <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
+    </ul>
+
+    <h3>Notes</h3>
+    <ul class="expr-notes">
+      <li>All values are integers in the range 0&ndash;127</li>
+      <li>Arithmetic saturates (never wraps around)</li>
+      <li>Division by zero returns 127</li>
+      <li>Expressions compile to a max of 16 bytes of bytecode</li>
+      <li>Parentheses <code>()</code> can be used for grouping</li>
+    </ul>
+  </div>
+</ref-modal>
 
 <toast-notification id="toast" class="toast"></toast-notification>
 
@@ -364,23 +355,22 @@
 
 <script type="module">
 import "./components/collapsible-card.js";
-import "./components/connect-banner.js";
+import "./components/toolbar-bar.js";
 import "./components/toast-notification.js";
 import "./components/midi-channel.js";
 import "./components/item-list.js";
 import "./components/toggle-section.js";
 import "./components/config-panel.js";
 import "./components/pinout-guide.js";
-import "./components/save-banner.js";
-import "./components/context-panel.js";
+import "./components/ref-modal.js";
 import { init } from "./components/app.js";
 
 init({
-  connectBanner: document.querySelector("connect-banner"),
-  layout: document.querySelector(".layout"),
+  toolbar: document.querySelector("toolbar-bar"),
   configPanel: document.querySelector("config-panel"),
-  contextPanel: document.querySelector("context-panel"),
-  saveBanner: document.querySelector("save-banner"),
+  modalPinout: document.querySelector("#modalPinout"),
+  modalWiring: document.querySelector("#modalWiring"),
+  modalExpr: document.querySelector("#modalExpr"),
   toast: document.querySelector("toast-notification"),
 });
 </script>

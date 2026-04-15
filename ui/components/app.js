@@ -15,18 +15,23 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let connectBanner, layout, configPanel, contextPanel, saveBanner, toastEl;
+let toolbar, configPanel, modalPinout, modalWiring, modalExpr, toastEl;
 
 export function init(refs) {
-  connectBanner = refs.connectBanner;
-  layout = refs.layout;
+  toolbar = refs.toolbar;
   configPanel = refs.configPanel;
-  contextPanel = refs.contextPanel;
-  saveBanner = refs.saveBanner;
+  modalPinout = refs.modalPinout;
+  modalWiring = refs.modalWiring;
+  modalExpr = refs.modalExpr;
   toastEl = refs.toast;
 
-  connectBanner.btnConnect.addEventListener("click", connect);
-  saveBanner.btnSave.addEventListener("click", saveConfig);
+  toolbar.btnConnect.addEventListener("click", handleConnectClick);
+  toolbar.btnSave.addEventListener("click", saveConfig);
+
+  // Modal open buttons
+  toolbar.btnPinout.addEventListener("click", () => modalPinout.toggle());
+  toolbar.btnWiring.addEventListener("click", () => modalWiring.toggle());
+  toolbar.btnExpr.addEventListener("click", () => modalExpr.toggle());
 
   configPanel.btnExport.addEventListener("click", exportProject);
   configPanel.btnReset.addEventListener("click", resetConfig);
@@ -48,18 +53,8 @@ export function init(refs) {
   configPanel.addEventListener("item-remove", handleItemRemove);
   configPanel.addEventListener("pin-change", () => { markDirty(); debouncedApplyConfig(); });
 
-  // Context panel auto-switching: expression inputs -> expr ref, pin selects -> pinout
-  configPanel.addEventListener("focusin", (e) => {
-    if (!contextPanel) return;
-    if (e.target.classList.contains("expr-input")) {
-      contextPanel.switchTo("expr");
-    } else if (e.target.classList.contains("pin-select")) {
-      contextPanel.switchTo("pinout");
-    }
-  });
-
   if (!("serial" in navigator)) {
-    connectBanner.showUnsupported();
+    toolbar.showUnsupported();
   } else {
     navigator.serial.addEventListener("disconnect", async (e) => {
       if (port && (e.target === port || e.port === port)) {
@@ -79,31 +74,32 @@ function toast(msg, type) {
 }
 
 function setConnected(connected) {
-  connectBanner.visible = !connected;
-  layout.classList.toggle("has-connect-banner", !connected);
+  toolbar.connected = connected;
+  toolbar.statusEl.textContent = connected ? "Connected" : "No device";
+  toolbar.statusEl.classList.toggle("unsupported", false);
   configPanel.disabled = !connected;
   if (!connected) {
     dirty = false;
-    saveBanner.visible = false;
+    toolbar.saveVisible = false;
   }
 }
 
 function setToolbarBusy(busy) {
-  connectBanner.btnConnect.disabled = busy;
-  saveBanner.busy = busy;
+  toolbar.btnConnect.disabled = busy;
+  toolbar.saveBusy = busy;
   configPanel.projectBusy = busy;
 }
 
 function markDirty() {
   if (!dirty && config) {
     dirty = true;
-    saveBanner.visible = true;
+    toolbar.saveVisible = true;
   }
 }
 
 function clearDirty() {
   dirty = false;
-  saveBanner.visible = false;
+  toolbar.saveVisible = false;
 }
 
 function allUsedPins(cfg) {
@@ -173,9 +169,23 @@ function renderConfigObj(cfg) {
   panel.potList.render(cfg.pots, pins.analog);
   panel.ldrSection.render(cfg, pins.analog);
   panel.accelSection.render(cfg);
-  // Pinout guide is now in the context panel
-  const pinout = contextPanel ? contextPanel.pinoutGuide : null;
+  // Update pinout guide in its modal
+  const pinout = modalPinout ? modalPinout.querySelector("pinout-guide") : null;
   if (pinout) pinout.update(cfg);
+}
+
+async function handleConnectClick() {
+  toolbar.btnConnect.disabled = true;
+  try {
+    if (port) {
+      await cleanup();
+      toast("Disconnected", "info");
+    } else {
+      await connect();
+    }
+  } finally {
+    toolbar.btnConnect.disabled = false;
+  }
 }
 
 async function connect() {
@@ -187,10 +197,8 @@ async function connect() {
     rxBuf = [];
     rxFrames = [];
     readLoop();
-    // Hide the connect banner but keep the config panel disabled until
-    // we've successfully loaded the config from the device.
-    connectBanner.visible = false;
-    layout.classList.remove("has-connect-banner");
+    // Show connecting state
+    toolbar.statusEl.textContent = "Connecting...";
     const resp = await sendRequest(REQ_VERSION);
     if (resp.type === "version") {
       if (!resp.value.startsWith("midictrl")) {
@@ -519,7 +527,7 @@ async function applyConfig() {
     const cfg = readConfigFromUI();
     if (!cfg) return false;
     saveExprSources();
-    const pinout = contextPanel ? contextPanel.pinoutGuide : null;
+    const pinout = modalPinout ? modalPinout.querySelector("pinout-guide") : null;
     if (pinout) pinout.update(cfg);
     const resp = await sendRequest(REQ_PUT_CONFIG, cfg);
     if (resp.type === "ok") return true;
