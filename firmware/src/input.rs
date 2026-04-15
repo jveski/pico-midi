@@ -194,7 +194,7 @@ impl TouchPads {
 
             let mut sum: u32 = 0;
             for _ in 0..8 {
-                sum += measure_touch_sync(&mut flex);
+                sum += oversample_touch_sync(&mut flex);
             }
             let baseline = sum / 8;
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
@@ -226,7 +226,7 @@ impl TouchPads {
             [const { None }; MAX_DIGITAL_INPUTS];
         for (i, event) in events.iter_mut().enumerate().take(self.count) {
             if let Some(pin) = &mut self.pins[i] {
-                let reading = measure_touch_async(pin).await;
+                let reading = oversample_touch_async(pin).await;
                 let touched = if self.pads[i].was_touched {
                     // Currently touched: only release when below release threshold
                     reading > self.pads[i].release_threshold
@@ -250,6 +250,34 @@ impl TouchPads {
         }
         events
     }
+}
+
+/// Trimmed mean of 4 values: discard the minimum and maximum, average the
+/// middle two.  Eliminates single-sample spikes without a full sort.
+fn trimmed_mean_4(a: u32, b: u32, c: u32, d: u32) -> u32 {
+    let min = a.min(b).min(c).min(d);
+    let max = a.max(b).max(c).max(d);
+    // Sum all four, subtract the extremes, divide by 2.
+    let sum = a + b + c + d - min - max;
+    sum / 2
+}
+
+/// Take 4 synchronous measurements and return the trimmed mean.
+fn oversample_touch_sync(pin: &mut Flex<'static>) -> u32 {
+    let s0 = measure_touch_sync(pin);
+    let s1 = measure_touch_sync(pin);
+    let s2 = measure_touch_sync(pin);
+    let s3 = measure_touch_sync(pin);
+    trimmed_mean_4(s0, s1, s2, s3)
+}
+
+/// Take 4 async measurements and return the trimmed mean.
+async fn oversample_touch_async(pin: &mut Flex<'static>) -> u32 {
+    let s0 = measure_touch_async(pin).await;
+    let s1 = measure_touch_async(pin).await;
+    let s2 = measure_touch_async(pin).await;
+    let s3 = measure_touch_async(pin).await;
+    trimmed_mean_4(s0, s1, s2, s3)
 }
 
 /// Capacitive touch measurement using GPIO charge/discharge timing.
