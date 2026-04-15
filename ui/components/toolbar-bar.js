@@ -8,7 +8,6 @@ export class ToolbarBar extends BaseElement {
   get btnConnect() { return this.querySelector("#btnConnect"); }
   get btnSave() { return this.querySelector("#btnSave"); }
   get btnPinout() { return this.querySelector("#btnPinout"); }
-  get btnWiring() { return this.querySelector("#btnWiring"); }
   get btnExpr() { return this.querySelector("#btnExpr"); }
   get statusEl() { return this.querySelector("#toolbarStatus"); }
 

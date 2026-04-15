@@ -15,13 +15,12 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let toolbar, configPanel, modalPinout, modalWiring, modalExpr, toastEl;
+let toolbar, configPanel, modalPinout, modalExpr, toastEl;
 
 export function init(refs) {
   toolbar = refs.toolbar;
   configPanel = refs.configPanel;
   modalPinout = refs.modalPinout;
-  modalWiring = refs.modalWiring;
   modalExpr = refs.modalExpr;
   toastEl = refs.toast;
 
@@ -30,7 +29,6 @@ export function init(refs) {
 
   // Modal open buttons
   toolbar.btnPinout.addEventListener("click", () => modalPinout.toggle());
-  toolbar.btnWiring.addEventListener("click", () => modalWiring.toggle());
   toolbar.btnExpr.addEventListener("click", () => modalExpr.toggle());
 
   configPanel.btnExport.addEventListener("click", exportProject);
