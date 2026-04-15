@@ -253,6 +253,7 @@ fn handle_request(frame: &mut [u8], config: &mut Config) -> HandleResult<'static
 pub(crate) struct FrameAssembler {
     buf: [u8; 2048],
     pos: usize,
+    overflow: bool,
 }
 
 impl FrameAssembler {
@@ -260,6 +261,7 @@ impl FrameAssembler {
         Self {
             buf: [0u8; 2048],
             pos: 0,
+            overflow: false,
         }
     }
 
@@ -267,6 +269,14 @@ impl FrameAssembler {
     /// delimiter was received), or `None` otherwise.
     pub fn push(&mut self, byte: u8) -> Option<&mut [u8]> {
         if byte == 0x00 {
+            if self.overflow {
+                // Discard the entire overflowed frame rather than
+                // returning a truncated buffer that would fail to
+                // decode and could desynchronise subsequent frames.
+                self.overflow = false;
+                self.pos = 0;
+                return None;
+            }
             if self.pos > 0 {
                 let len = self.pos;
                 self.pos = 0;
@@ -277,9 +287,9 @@ impl FrameAssembler {
         if self.pos < self.buf.len() {
             self.buf[self.pos] = byte;
             self.pos += 1;
+        } else {
+            self.overflow = true;
         }
-        // Silently drop bytes beyond capacity -- the frame will be malformed
-        // and `handle_request` will return an error when decoding fails.
         None
     }
 }

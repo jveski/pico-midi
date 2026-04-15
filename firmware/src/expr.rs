@@ -96,11 +96,11 @@ pub fn eval(program: &[u8; MAX_EXPR], len: u8, inputs: &ExprInputs, fallback: u8
                 val.clamp(lo, hi)
             }),
             OP_LERP => triop(&mut stack, &mut sp, |a, b, t| {
-                let a = i32::from(a);
-                let b = i32::from(b);
-                let t = i32::from(t);
+                let a = i64::from(a);
+                let b = i64::from(b);
+                let t = i64::from(t);
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let val = (a + (b - a) * t / 127).clamp(0, i32::from(u16::MAX)) as u16;
+                let val = (a + (b - a) * t / 127).clamp(0, i64::from(u16::MAX)) as u16;
                 val
             }),
             OP_SCALE => {

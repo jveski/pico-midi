@@ -36,13 +36,15 @@ export function cobsDecode(buf) {
     for (let j = 1; j < code && i < buf.length; j++) out.push(buf[i++]);
     if (code < 0xFF && i < buf.length) out.push(0);
   }
-  if (out.length > 0 && out[out.length - 1] === 0) out.pop();
   return new Uint8Array(out);
 }
 
 export class PostcardReader {
   constructor(buf) { this.buf = buf; this.pos = 0; }
-  u8() { return this.buf[this.pos++]; }
+  u8() {
+    if (this.pos >= this.buf.length) throw new Error("read past end of buffer");
+    return this.buf[this.pos++];
+  }
   bool() { return this.u8() !== 0; }
   varint() {
     let val = 0, shift = 0;

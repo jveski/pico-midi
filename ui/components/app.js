@@ -61,9 +61,9 @@ export function init(refs) {
   if (!("serial" in navigator)) {
     connectBanner.showUnsupported();
   } else {
-    navigator.serial.addEventListener("disconnect", (e) => {
+    navigator.serial.addEventListener("disconnect", async (e) => {
       if (port && (e.target === port || e.port === port)) {
-        cleanup();
+        await cleanup();
         toast("Device disconnected", "info");
       }
     });
@@ -205,15 +205,15 @@ async function connect() {
     if (e.name !== "NotFoundError") {
       toast("Connection failed", "error");
     }
-    cleanup();
+    await cleanup();
   }
 }
 
-function cleanup() {
+async function cleanup() {
   keepReading = false;
-  try { if (reader) { reader.cancel(); reader.releaseLock(); } } catch {}
+  try { if (reader) { await reader.cancel(); reader.releaseLock(); } } catch {}
   try { if (writer) { writer.releaseLock(); } } catch {}
-  try { if (port) { port.close(); } } catch {}
+  try { if (port) { await port.close(); } } catch {}
   reader = null; writer = null; port = null;
   rxBuf = []; rxFrames = [];
   cmdLock = Promise.resolve();
@@ -378,8 +378,8 @@ const TYPE_KEYS = { button: "buttons", touch: "touch_pads", pot: "pots" };
 
 function withConfigMutation(e, mutate) {
   if (!config) return;
-  readConfigFromUI();
-  if (!config) return;
+  const updated = readConfigFromUI();
+  if (!updated) return;
   if (mutate(e.detail) === false) return;
   renderConfigObj(config);
   markDirty();

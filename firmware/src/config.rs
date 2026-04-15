@@ -231,6 +231,12 @@ impl Config {
             if used[self.ldr.pin as usize] {
                 return false;
             }
+            // Mark as used so future input types added after this block
+            // will correctly detect pin conflicts with the LDR.
+            #[allow(unused_assignments)]
+            {
+                used[self.ldr.pin as usize] = true;
+            }
         }
 
         true

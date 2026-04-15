@@ -131,6 +131,9 @@ class Compiler {
     this.additive();
     this.skip();
     if (this.src[this.pos] === ">") {
+      if (this.src[this.pos + 1] === "=") {
+        throw new Error("'>=' is not supported; use '>' instead");
+      }
       this.pos++;
       this.additive();
       return true;

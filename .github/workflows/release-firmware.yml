@@ -43,4 +43,5 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
             midictrl-rp2350.uf2 \
-            --repo "${{ github.repository }}"
+            --repo "${{ github.repository }}" \
+            --clobber

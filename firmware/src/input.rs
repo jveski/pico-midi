@@ -379,6 +379,9 @@ pub struct Accelerometer<'d> {
     disabled_at: Option<Instant>,
     /// The chip preference from config (used for re-init attempts).
     config_chip: AccelChip,
+    /// Whether we have received the first accelerometer reading (used to
+    /// seed the EMA filter and avoid a startup sweep).
+    first_reading: bool,
     pub available: bool,
 }
 
@@ -417,6 +420,7 @@ impl<'d> Accelerometer<'d> {
                 Some(Instant::now())
             },
             config_chip: chip_pref,
+            first_reading: true,
             available,
         }
     }
@@ -483,8 +487,16 @@ impl<'d> Accelerometer<'d> {
         };
         self.error_count = 0;
 
-        self.x_smoothed = self.smoothing * x_ms2 + (1.0 - self.smoothing) * self.x_smoothed;
-        self.y_smoothed = self.smoothing * y_ms2 + (1.0 - self.smoothing) * self.y_smoothed;
+        // Seed the filter with the first reading to avoid an audible
+        // parameter sweep from zero to the actual value at startup.
+        if self.first_reading {
+            self.x_smoothed = x_ms2;
+            self.y_smoothed = y_ms2;
+            self.first_reading = false;
+        } else {
+            self.x_smoothed = self.smoothing * x_ms2 + (1.0 - self.smoothing) * self.x_smoothed;
+            self.y_smoothed = self.smoothing * y_ms2 + (1.0 - self.smoothing) * self.y_smoothed;
+        }
 
         let x_cc = self.axis_to_cc(self.x_smoothed);
         let y_cc = self.axis_to_cc(self.y_smoothed);
