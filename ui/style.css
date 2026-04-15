@@ -195,8 +195,8 @@ a.btn { text-decoration: none; }
    Item Rows
    ========================================================================== */
 
-.item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.item-row:last-of-type { border-bottom: none; }
+.item-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; margin-bottom: 6px; }
+.item-row:last-of-type { border-bottom: none; margin-bottom: 0; }
 .item-row .index { font-size: 11px; color: var(--dim); min-width: 20px; }
 .item-row input { padding: 4px 8px; font-size: 13px; width: 64px; }
 .item-row label { font-size: 11px; color: var(--dim); min-width: 28px; }
