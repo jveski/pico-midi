@@ -92,7 +92,7 @@ pub struct TouchPadDef {
     pub pin: u8,
     pub note: u8,
     pub velocity: u8,
-    /// Percentage above the calibrated baseline (e.g. 33 = 33%).
+    /// Percentage above the calibrated baseline (e.g. 25 = 25%).
     pub threshold_pct: u8,
     pub note_expr: Expr,
     pub velocity_expr: Expr,
@@ -303,7 +303,7 @@ const fn empty_touch() -> TouchPadDef {
         pin: 0,
         note: 48,
         velocity: 100,
-        threshold_pct: 33,
+        threshold_pct: 25,
         note_expr: Expr::empty(),
         velocity_expr: Expr::empty(),
     }
@@ -326,7 +326,7 @@ impl Default for Config {
             num_touch_pads: 1,
             touch_pads: {
                 let mut arr = [empty_touch(); MAX_DIGITAL_INPUTS];
-                arr[0] = default_touch(6, 48, 100, 33);
+                arr[0] = default_touch(6, 48, 100, 25);
                 arr
             },
             num_pots: 1,

@@ -155,7 +155,7 @@ export class ItemList extends BaseElement {
           velocity_expr_src: (row.querySelector('[data-field="velocity_expr_src"]') || {}).value || "",
         };
         if (this._type === "touch") {
-          item.threshold_pct = num(row.querySelector('[data-field="threshold_pct"]').value, 33);
+          item.threshold_pct = num(row.querySelector('[data-field="threshold_pct"]').value, 25);
         }
         items.push(item);
       }

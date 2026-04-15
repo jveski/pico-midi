@@ -142,7 +142,7 @@ function defaultConfig() {
       defaultInputItem(0, 60),
     ],
     touch_pads: [
-      defaultInputItem(6, 48, { threshold_pct: 33 }),
+      defaultInputItem(6, 48, { threshold_pct: 25 }),
     ],
     pots: [
       { pin: 26, cc: 7 },
@@ -399,7 +399,7 @@ function handleItemAdd(e) {
       if (arr.length >= MAX_DIGITAL_INPUTS) return false;
       const pin = nextAvailableDigitalPin(usedDigitalPins(config));
       const baseNote = type === "button" ? 60 : 48;
-      const extras = type === "touch" ? { threshold_pct: 33 } : {};
+      const extras = type === "touch" ? { threshold_pct: 25 } : {};
       arr.push(defaultInputItem(pin, baseNote + arr.length, extras));
     } else if (type === "pot") {
       if (config.pots.length >= MAX_ANALOG_INPUTS) return false;

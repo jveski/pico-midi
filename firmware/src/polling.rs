@@ -152,7 +152,7 @@ unsafe fn configure_inputs(
 
     let tg: [u8; MAX_DIGITAL_INPUTS] = collect_field(cfg.active_touch_pads(), 0, |t| t.pin);
     let tt: [u8; MAX_DIGITAL_INPUTS] =
-        collect_field(cfg.active_touch_pads(), 33, |t| t.threshold_pct);
+        collect_field(cfg.active_touch_pads(), 25, |t| t.threshold_pct);
     touch.configure(
         &tg[..cfg.num_touch_pads as usize],
         &tt[..cfg.num_touch_pads as usize],
@@ -350,7 +350,7 @@ pub async fn run(
         accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
 
         let thrs: [u8; MAX_DIGITAL_INPUTS] =
-            collect_field(cur.active_touch_pads(), 33, |t| t.threshold_pct);
+            collect_field(cur.active_touch_pads(), 25, |t| t.threshold_pct);
         touch.update_thresholds(&thrs[..cur.num_touch_pads as usize]);
 
         // Poll analog/sensor inputs before building expression snapshot

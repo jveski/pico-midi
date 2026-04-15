@@ -226,7 +226,7 @@ impl TouchPads {
                 continue;
             }
 
-            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(25));
             let margin = (baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
 
             self.pads[i] = TouchPad {
@@ -246,7 +246,7 @@ impl TouchPads {
             if self.pins[i].is_none() {
                 continue; // Skip pads that failed calibration.
             }
-            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(33));
+            let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(25));
             let margin = (pad.baseline * pct / 100).max(MIN_THRESHOLD_CYCLES);
             pad.threshold = pad.baseline + margin;
             pad.release_threshold = pad.baseline + margin * 60 / 100;

@@ -161,7 +161,7 @@ export function writeConfig(w, cfg) {
   writeInputBlock(w, cfg.buttons, MAX_DIGITAL_INPUTS,
     { pin: 0, note: 60, velocity: 100, note_expr: [], velocity_expr: [] });
   writeInputBlock(w, cfg.touch_pads, MAX_DIGITAL_INPUTS,
-    { pin: 0, note: 48, velocity: 100, threshold_pct: 33, note_expr: [], velocity_expr: [] },
+    { pin: 0, note: 48, velocity: 100, threshold_pct: 25, note_expr: [], velocity_expr: [] },
     (w, t) => w.u8(t.threshold_pct));
 
   const numPots = cfg.pots.length;
