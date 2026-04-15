@@ -137,6 +137,7 @@ struct TouchPad {
     baseline: u32,
     threshold: u32,
     release_threshold: u32,
+    filtered: u32,
     was_touched: bool,
     stable_since: Instant,
 }
@@ -155,6 +156,7 @@ impl TouchPads {
                     baseline: 0,
                     threshold: 0,
                     release_threshold: 0,
+                    filtered: 0,
                     was_touched: false,
                     stable_since: Instant::MIN,
                 }
@@ -178,6 +180,7 @@ impl TouchPads {
                 baseline: 0,
                 threshold: 0,
                 release_threshold: 0,
+                filtered: 0,
                 was_touched: false,
                 stable_since: Instant::MIN,
             };
@@ -204,6 +207,7 @@ impl TouchPads {
                 baseline,
                 threshold: baseline + margin,
                 release_threshold: baseline + margin * 60 / 100,
+                filtered: baseline,
                 was_touched: false,
                 stable_since: now,
             };
@@ -226,20 +230,25 @@ impl TouchPads {
             [const { None }; MAX_DIGITAL_INPUTS];
         for (i, event) in events.iter_mut().enumerate().take(self.count) {
             if let Some(pin) = &mut self.pins[i] {
-                let reading = oversample_touch_async(pin).await;
-                let touched = if self.pads[i].was_touched {
+                let raw = oversample_touch_async(pin).await;
+                // IIR / EMA filter: α ≈ 0.30 using fixed-point 77/256.
+                // filtered = (77 * raw + 179 * filtered_prev) / 256
+                let pad = &mut self.pads[i];
+                pad.filtered = (77 * raw + 179 * pad.filtered) / 256;
+
+                let touched = if pad.was_touched {
                     // Currently touched: only release when below release threshold
-                    reading > self.pads[i].release_threshold
+                    pad.filtered > pad.release_threshold
                 } else {
                     // Currently released: only touch when above touch threshold
-                    reading > self.pads[i].threshold
+                    pad.filtered > pad.threshold
                 };
 
-                if touched != self.pads[i].was_touched
-                    && now.duration_since(self.pads[i].stable_since).as_millis() >= DEBOUNCE_MS
+                if touched != pad.was_touched
+                    && now.duration_since(pad.stable_since).as_millis() >= DEBOUNCE_MS
                 {
-                    self.pads[i].was_touched = touched;
-                    self.pads[i].stable_since = now;
+                    pad.was_touched = touched;
+                    pad.stable_since = now;
                     *event = Some(TouchEvent {
                         #[allow(clippy::cast_possible_truncation)]
                         index: i as u8,
