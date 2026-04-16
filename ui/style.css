@@ -303,15 +303,6 @@ a.btn { text-decoration: none; }
 .ref-section th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border); }
 .ref-section td { font-size: 12px; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border); color: var(--dim); }
 
-/* Expression reference specifics */
-.expr-ref td code, .expr-ref p code { color: var(--fg); }
-.expr-ref .expr-examples { list-style: none; margin-bottom: 12px; }
-.expr-ref .expr-examples li { padding: 3px 0; color: var(--dim); font-size: 12px; }
-.expr-ref .expr-examples code { color: var(--fg); }
-.expr-ref .expr-notes { list-style: disc; padding-left: 18px; color: var(--dim); font-size: 12px; }
-.expr-ref .expr-notes li { margin-bottom: 4px; line-height: 1.6; }
-.expr-ref .expr-notes code { color: var(--fg); }
-
 /* Pinout wiring reference (below SVG diagram) */
 .pinout-wiring-ref { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
 .pinout-wiring-ref h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; color: var(--fg); }
@@ -431,6 +422,141 @@ ref-modal.open {
 }
 
 /* ==========================================================================
+   Expression Editor Modal
+   ========================================================================== */
+
+expr-editor { display: none; }
+expr-editor.open { display: block; }
+
+.ee-dialog { max-width: 720px; }
+
+.ee-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ee-input {
+  flex: 1 1 0;
+  min-width: 200px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+.ee-input:focus { border-color: var(--fg); }
+.ee-input.expr-invalid { border-color: var(--red); }
+
+.ee-hint { font-size: 12px; color: var(--dim); }
+.ee-error { font-size: 11px; color: var(--red); flex-basis: 100%; }
+
+/* Piano Keyboard */
+.ee-keyboard-section h3,
+.ee-chips-section h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  margin: 12px 0 6px;
+}
+
+.ee-keyboard-section h3:first-child,
+.ee-chips-section h3:first-child { margin-top: 0; }
+
+.ee-keyboard-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ee-keyboard {
+  position: relative;
+  user-select: none;
+}
+
+.ee-key {
+  position: absolute;
+  top: 0;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background 0.06s;
+}
+
+.ee-key-white {
+  background: var(--fg);
+  z-index: 1;
+  border-radius: 0 0 3px 3px;
+}
+
+.ee-key-white:hover { background: var(--dim); }
+.ee-key-white.ee-key-active { background: var(--green); }
+
+.ee-key-black {
+  background: var(--bg);
+  z-index: 2;
+  border-radius: 0 0 2px 2px;
+  border-color: #444;
+}
+
+.ee-key-black:hover { background: #333; }
+.ee-key-black.ee-key-active { background: #060; border-color: var(--green); }
+
+.ee-key-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: var(--bg);
+  pointer-events: none;
+  font-weight: 700;
+}
+
+.ee-key-active .ee-key-label { color: var(--bg); }
+
+/* Chip groups */
+.ee-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.ee-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  font-family: var(--mono);
+}
+
+.ee-chips-section { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+
+.ee-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Edit button next to expression inputs */
+.btn-edit-expr {
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--dim);
+  border-color: var(--border);
+}
+.btn-edit-expr:hover { background: var(--fg); color: var(--bg); }
+
+/* ==========================================================================
    Responsive
    ========================================================================== */
 
@@ -477,6 +603,9 @@ ref-modal.open {
     max-width: 100%;
     max-height: 90vh;
   }
+
+  .ee-dialog { max-width: 100%; }
+  .ee-chip { font-size: 10px; padding: 2px 6px; }
 }
 
 @media (max-width: 480px) {

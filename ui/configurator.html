@@ -15,7 +15,6 @@
   </div>
   <div class="toolbar-center">
     <button class="btn toolbar-ref-btn" data-modal="pinout" id="btnPinout" title="Pinout &amp; wiring reference">Pinout</button>
-    <button class="btn toolbar-ref-btn" data-modal="expr" id="btnExpr" title="Expression language reference">Expressions</button>
   </div>
   <div class="toolbar-right">
     <span class="toolbar-status" id="toolbarStatus"></span>
@@ -187,81 +186,7 @@
   </div>
 </ref-modal>
 
-<ref-modal id="modalExpr" data-title="Expressions Reference">
-  <div class="ref-section expr-ref">
-    <p>The <strong>Note</strong> and <strong>Velocity</strong> fields for buttons and touch pads accept <strong>expressions</strong>.
-      An expression can be a plain number, a sensor variable, or a formula combining both.</p>
-
-    <h3>Variables</h3>
-    <table>
-      <tr><th>Variable</th><th>Description</th></tr>
-      <tr><td><code>pot0</code> &ndash; <code>pot2</code></td><td>Potentiometer values (0&ndash;127)</td></tr>
-      <tr><td><code>ldr</code></td><td>Light sensor value (0&ndash;127)</td></tr>
-      <tr><td><code>accel_x</code></td><td>Accelerometer X-axis (0&ndash;127)</td></tr>
-      <tr><td><code>accel_y</code></td><td>Accelerometer Y-axis (0&ndash;127)</td></tr>
-    </table>
-
-    <h3>Operators</h3>
-    <table>
-      <tr><th>Operator</th><th>Description</th></tr>
-      <tr><td><code>+</code></td><td>Add (saturates at 127)</td></tr>
-      <tr><td><code>-</code></td><td>Subtract (saturates at 0)</td></tr>
-      <tr><td><code>*</code></td><td>Multiply (saturates at 127)</td></tr>
-      <tr><td><code>/</code></td><td>Integer divide</td></tr>
-    </table>
-
-    <h3>Functions</h3>
-    <table>
-      <tr><th>Function</th><th>Description</th></tr>
-      <tr><td><code>min(a, b)</code></td><td>Minimum of two values</td></tr>
-      <tr><td><code>max(a, b)</code></td><td>Maximum of two values</td></tr>
-      <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp val to range [lo, hi]</td></tr>
-      <tr><td><code>lerp(a, b, t)</code></td><td>Interpolate from a to b (t: 0&ndash;127)</td></tr>
-      <tr><td><code>scale(root, pos)</code></td><td>Quantise pos to a musical scale starting at root (default: Lydian)</td></tr>
-      <tr><td><code>scale(root, pos, mode)</code></td><td>Same, with explicit mode (see below)</td></tr>
-    </table>
-
-    <h3>Scale Modes</h3>
-    <p>The <code>scale()</code> function maps a 0&ndash;127 position value onto notes
-      of a diatonic scale, spanning about 2.5 octaves from the root note.
-      This makes it easy to assign musically consonant notes to controls.</p>
-    <table>
-      <tr><th>Mode</th><th>#</th><th>Character</th></tr>
-      <tr><td><code>lydian</code></td><td>0</td><td>Bright, dreamy (default)</td></tr>
-      <tr><td><code>major</code> / <code>ionian</code></td><td>1</td><td>Happy, standard</td></tr>
-      <tr><td><code>mixolydian</code></td><td>2</td><td>Bluesy, dominant</td></tr>
-      <tr><td><code>dorian</code></td><td>3</td><td>Jazzy minor</td></tr>
-      <tr><td><code>minor</code> / <code>aeolian</code></td><td>4</td><td>Sad, natural minor</td></tr>
-      <tr><td><code>phrygian</code></td><td>5</td><td>Dark, Spanish</td></tr>
-      <tr><td><code>locrian</code></td><td>6</td><td>Dissonant, unstable</td></tr>
-    </table>
-
-    <h3>Conditionals</h3>
-    <p><code>a &gt; b ? x : y</code> &mdash; if a is greater than b, use x; otherwise use y.</p>
-
-    <h3>Examples</h3>
-    <ul class="expr-examples">
-      <li><code>60</code> &mdash; fixed note: middle C</li>
-      <li><code>pot0</code> &mdash; note follows potentiometer 0</li>
-      <li><code>pot0 + 24</code> &mdash; pot value shifted up 2 octaves</li>
-      <li><code>pot0 &gt; 64 ? 72 : 60</code> &mdash; C5 when pot is above halfway, else C4</li>
-      <li><code>min(pot0, 100)</code> &mdash; pot value capped at 100</li>
-      <li><code>clamp(pot0, 20, 100)</code> &mdash; pot value restricted to 20&ndash;100</li>
-      <li><code>lerp(36, 84, pot0)</code> &mdash; pot sweeps from C2 to C6</li>
-      <li><code>scale(60, pot0)</code> &mdash; pot sweeps C4 Lydian scale</li>
-      <li><code>scale(48, pot0, minor)</code> &mdash; pot sweeps C3 natural minor scale</li>
-    </ul>
-
-    <h3>Notes</h3>
-    <ul class="expr-notes">
-      <li>All values are integers in the range 0&ndash;127</li>
-      <li>Arithmetic saturates (never wraps around)</li>
-      <li>Division by zero returns 127</li>
-      <li>Expressions compile to a max of 16 bytes of bytecode</li>
-      <li>Parentheses <code>()</code> can be used for grouping</li>
-    </ul>
-  </div>
-</ref-modal>
+<expr-editor id="exprEditor"></expr-editor>
 
 <toast-notification id="toast" class="toast"></toast-notification>
 
@@ -287,10 +212,12 @@
     <div class="expr-group" data-expr="note">
       <label>Note</label><input type="text" class="expr-input" placeholder="e.g. scale(60, pot0, minor)" data-field="note_expr_src">
       <span class="note-hint"></span>
+      <button class="btn btn-sm btn-edit-expr" data-action="edit-expr" data-expr-field="note" title="Open expression editor">&#x270E;</button>
       <span class="expr-error" data-field="note_expr_err"></span>
     </div>
     <div class="expr-group" data-expr="vel">
       <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. clamp(pot1, 40, 120)" data-field="velocity_expr_src">
+      <button class="btn btn-sm btn-edit-expr" data-action="edit-expr" data-expr-field="vel" title="Open expression editor">&#x270E;</button>
       <span class="expr-error" data-field="velocity_expr_err"></span>
     </div>
   </div>
@@ -305,10 +232,12 @@
     <div class="expr-group" data-expr="note">
       <label>Note</label><input type="text" class="expr-input" placeholder="e.g. scale(60, pot0, minor)" data-field="note_expr_src">
       <span class="note-hint"></span>
+      <button class="btn btn-sm btn-edit-expr" data-action="edit-expr" data-expr-field="note" title="Open expression editor">&#x270E;</button>
       <span class="expr-error" data-field="note_expr_err"></span>
     </div>
     <div class="expr-group" data-expr="vel">
       <label>Vel</label><input type="text" class="expr-input" placeholder="e.g. clamp(pot1, 40, 120)" data-field="velocity_expr_src">
+      <button class="btn btn-sm btn-edit-expr" data-action="edit-expr" data-expr-field="vel" title="Open expression editor">&#x270E;</button>
       <span class="expr-error" data-field="velocity_expr_err"></span>
     </div>
   </div>
@@ -338,6 +267,7 @@ import "./components/item-list.js";
 import "./components/toggle-section.js";
 import "./components/config-panel.js";
 import "./components/pinout-guide.js";
+import "./components/expr-editor.js";
 import "./components/ref-modal.js";
 import { init } from "./components/app.js";
 
@@ -345,7 +275,7 @@ init({
   toolbar: document.querySelector("toolbar-bar"),
   configPanel: document.querySelector("config-panel"),
   modalPinout: document.querySelector("#modalPinout"),
-  modalExpr: document.querySelector("#modalExpr"),
+  exprEditor: document.querySelector("#exprEditor"),
   toast: document.querySelector("toast-notification"),
 });
 </script>

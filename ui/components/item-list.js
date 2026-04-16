@@ -126,6 +126,23 @@ export class ItemList extends BaseElement {
         this.emit("pin-change");
       });
     });
+
+    // Edit expression buttons → open expression editor modal
+    container.querySelectorAll('[data-action="edit-expr"]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        const group = btn.closest(".expr-group");
+        const input = group.querySelector(".expr-input");
+        const exprField = btn.dataset.exprField; // "note" or "vel"
+        const row = btn.closest(".item-row");
+        const idx = parseInt(input.dataset.idx, 10);
+        this.emit("edit-expr", {
+          type: this._type,
+          index: idx,
+          field: exprField,
+          input,
+        });
+      });
+    });
   }
 
   /** Show note name hints for note expression fields that contain plain numbers. */

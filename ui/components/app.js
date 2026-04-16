@@ -15,13 +15,13 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let toolbar, configPanel, modalPinout, modalExpr, toastEl;
+let toolbar, configPanel, modalPinout, exprEditor, toastEl;
 
 export function init(refs) {
   toolbar = refs.toolbar;
   configPanel = refs.configPanel;
   modalPinout = refs.modalPinout;
-  modalExpr = refs.modalExpr;
+  exprEditor = refs.exprEditor;
   toastEl = refs.toast;
 
   toolbar.btnConnect.addEventListener("click", handleConnectClick);
@@ -29,7 +29,6 @@ export function init(refs) {
 
   // Modal open buttons
   toolbar.btnPinout.addEventListener("click", () => modalPinout.toggle());
-  toolbar.btnExpr.addEventListener("click", () => modalExpr.toggle());
 
   configPanel.btnExport.addEventListener("click", exportProject);
   configPanel.btnReset.addEventListener("click", resetConfig);
@@ -50,6 +49,9 @@ export function init(refs) {
   configPanel.addEventListener("item-add", handleItemAdd);
   configPanel.addEventListener("item-remove", handleItemRemove);
   configPanel.addEventListener("pin-change", () => { markDirty(); debouncedApplyConfig(); });
+
+  // Expression editor: open modal when edit button is clicked
+  configPanel.addEventListener("edit-expr", handleEditExpr);
 
   if (!("serial" in navigator)) {
     toolbar.showUnsupported();
@@ -412,6 +414,25 @@ function handleItemRemove(e) {
   withConfigMutation(e, ({ type, index }) => {
     const key = TYPE_KEYS[type];
     if (key && config[key].length > 0) config[key].splice(index, 1);
+  });
+}
+
+function handleEditExpr(e) {
+  const { type, index, field, input } = e.detail;
+  const isNote = field === "note";
+  const label = type === "button" ? "Button" : "Touch Pad";
+  const fieldLabel = isNote ? "Note" : "Velocity";
+  const title = `${label} #${index + 1} — ${fieldLabel}`;
+
+  exprEditor.open({
+    title,
+    value: input.value,
+    isNote,
+    onApply(newValue) {
+      input.value = newValue;
+      // Trigger validation and config update
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    },
   });
 }
 
