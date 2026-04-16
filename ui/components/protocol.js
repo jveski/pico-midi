@@ -201,10 +201,31 @@ export function readConfig(r) {
 }
 
 export function readMonitorSnapshot(r) {
+  const numButtons = r.u8();
+  const allButtons = [];
+  for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allButtons.push(r.bool());
+
+  const numTouch = r.u8();
+  const allTouch = [];
+  for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allTouch.push(r.bool());
+  const allTouchFiltered = [];
+  for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allTouchFiltered.push(r.varint());
+  const allTouchBaseline = [];
+  for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allTouchBaseline.push(r.varint());
+  const allTouchThreshold = [];
+  for (let i = 0; i < MAX_DIGITAL_INPUTS; i++) allTouchThreshold.push(r.varint());
+
+  const numPots = r.u8();
+  const allPots = [];
+  for (let i = 0; i < MAX_ANALOG_INPUTS; i++) allPots.push(r.u8());
+
   const snap = {
-    buttons: readSlicedArray(r, MAX_DIGITAL_INPUTS, r => r.bool()),
-    touch_pads: readSlicedArray(r, MAX_DIGITAL_INPUTS, r => r.bool()),
-    pots: readSlicedArray(r, MAX_ANALOG_INPUTS, r => r.u8()),
+    buttons: allButtons.slice(0, numButtons),
+    touch_pads: allTouch.slice(0, numTouch),
+    touch_filtered: allTouchFiltered.slice(0, numTouch),
+    touch_baseline: allTouchBaseline.slice(0, numTouch),
+    touch_threshold: allTouchThreshold.slice(0, numTouch),
+    pots: allPots.slice(0, numPots),
     ldr: r.u8(),
     accel_x: r.u8(),
     accel_y: r.u8(),

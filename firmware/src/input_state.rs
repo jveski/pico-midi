@@ -1,4 +1,4 @@
-use portable_atomic::{AtomicBool, AtomicU8, Ordering};
+use portable_atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
 
 use crate::config;
 use crate::serial::MonitorSnapshot;
@@ -7,6 +7,9 @@ use crate::serial::MonitorSnapshot;
 pub struct InputState {
     buttons: [AtomicBool; config::MAX_DIGITAL_INPUTS],
     touch_pads: [AtomicBool; config::MAX_DIGITAL_INPUTS],
+    touch_filtered: [AtomicU32; config::MAX_DIGITAL_INPUTS],
+    touch_baseline: [AtomicU32; config::MAX_DIGITAL_INPUTS],
+    touch_threshold: [AtomicU32; config::MAX_DIGITAL_INPUTS],
     pots: [AtomicU8; config::MAX_ANALOG_INPUTS],
     ldr: AtomicU8,
     accel_x: AtomicU8,
@@ -30,11 +33,22 @@ macro_rules! atomic_u8_array {
     }};
 }
 
+macro_rules! atomic_u32_array {
+    ($n:expr, $val:expr) => {{
+        #[allow(clippy::declare_interior_mutable_const)]
+        const INIT: AtomicU32 = AtomicU32::new($val);
+        [INIT; $n]
+    }};
+}
+
 impl InputState {
     pub const fn new() -> Self {
         Self {
             buttons: atomic_bool_array!(config::MAX_DIGITAL_INPUTS),
             touch_pads: atomic_bool_array!(config::MAX_DIGITAL_INPUTS),
+            touch_filtered: atomic_u32_array!(config::MAX_DIGITAL_INPUTS, 0),
+            touch_baseline: atomic_u32_array!(config::MAX_DIGITAL_INPUTS, 0),
+            touch_threshold: atomic_u32_array!(config::MAX_DIGITAL_INPUTS, 0),
             pots: atomic_u8_array!(config::MAX_ANALOG_INPUTS, 0),
             ldr: AtomicU8::new(0),
             accel_x: AtomicU8::new(63),
@@ -52,6 +66,15 @@ impl InputState {
     pub fn set_touch(&self, index: u8, pressed: bool) {
         if (index as usize) < config::MAX_DIGITAL_INPUTS {
             self.touch_pads[index as usize].store(pressed, Ordering::Relaxed);
+        }
+    }
+
+    pub fn set_touch_telemetry(&self, index: u8, filtered: u32, baseline: u32, threshold: u32) {
+        let i = index as usize;
+        if i < config::MAX_DIGITAL_INPUTS {
+            self.touch_filtered[i].store(filtered, Ordering::Relaxed);
+            self.touch_baseline[i].store(baseline, Ordering::Relaxed);
+            self.touch_threshold[i].store(threshold, Ordering::Relaxed);
         }
     }
 
@@ -113,6 +136,17 @@ impl InputState {
             *touch_pad = self.touch_pads[i].load(Ordering::Relaxed);
         }
 
+        let mut touch_filtered = [0u16; config::MAX_DIGITAL_INPUTS];
+        let mut touch_baseline = [0u16; config::MAX_DIGITAL_INPUTS];
+        let mut touch_threshold = [0u16; config::MAX_DIGITAL_INPUTS];
+        for i in 0..nt {
+            // Scale u32 cycle counts to u16 (divide by 4, saturate).
+            let to_u16 = |v: u32| (v / 4).min(u16::MAX as u32) as u16;
+            touch_filtered[i] = to_u16(self.touch_filtered[i].load(Ordering::Relaxed));
+            touch_baseline[i] = to_u16(self.touch_baseline[i].load(Ordering::Relaxed));
+            touch_threshold[i] = to_u16(self.touch_threshold[i].load(Ordering::Relaxed));
+        }
+
         let mut pots = [0u8; config::MAX_ANALOG_INPUTS];
         for (i, pot) in pots.iter_mut().take(np).enumerate() {
             *pot = self.pots[i].load(Ordering::Relaxed);
@@ -123,6 +157,9 @@ impl InputState {
             buttons,
             num_touch_pads: num_touch.min(config::MAX_DIGITAL_INPUTS as u8),
             touch_pads,
+            touch_filtered,
+            touch_baseline,
+            touch_threshold,
             num_pots: num_pots.min(config::MAX_ANALOG_INPUTS as u8),
             pots,
             ldr: self.ldr_value(),

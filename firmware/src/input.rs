@@ -153,6 +153,14 @@ struct TouchPad {
     debounce_count: u8,
 }
 
+/// Per-pad telemetry exposed to the monitor for UI display.
+#[derive(Clone, Copy, Default)]
+pub struct TouchTelemetry {
+    pub filtered: u32,
+    pub baseline: u32,
+    pub threshold: u32,
+}
+
 pub struct TouchPads {
     pads: [TouchPad; MAX_DIGITAL_INPUTS],
     pins: [Option<Flex<'static>>; MAX_DIGITAL_INPUTS],
@@ -251,6 +259,21 @@ impl TouchPads {
             pad.threshold = pad.baseline + margin;
             pad.release_threshold = pad.baseline + margin * 60 / 100;
         }
+    }
+
+    /// Return per-pad telemetry for the monitor snapshot.
+    pub fn telemetry(&self) -> [TouchTelemetry; MAX_DIGITAL_INPUTS] {
+        let mut out = [TouchTelemetry::default(); MAX_DIGITAL_INPUTS];
+        for (i, pad) in self.pads.iter().take(self.count).enumerate() {
+            if self.pins[i].is_some() {
+                out[i] = TouchTelemetry {
+                    filtered: pad.filtered,
+                    baseline: pad.baseline,
+                    threshold: pad.threshold,
+                };
+            }
+        }
+        out
     }
 
     pub async fn poll(&mut self) -> [Option<TouchEvent>; MAX_DIGITAL_INPUTS] {

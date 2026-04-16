@@ -333,6 +333,27 @@ function toggleMonitorIndicators(prefix, values) {
 function applyMonitorData(snap) {
   toggleMonitorIndicators("monBtn", snap.buttons);
   toggleMonitorIndicators("monTouch", snap.touch_pads);
+  // Touch pad telemetry bars
+  for (let i = 0; i < snap.touch_pads.length; i++) {
+    const bar = document.getElementById("monTouchBar" + i);
+    const thrMarker = document.getElementById("monTouchThr" + i);
+    const valEl = document.getElementById("monTouchVal" + i);
+    if (!bar) continue;
+    const filtered = snap.touch_filtered[i] || 0;
+    const baseline = snap.touch_baseline[i] || 0;
+    const threshold = snap.touch_threshold[i] || 0;
+    // Scale: bar range is 0 to max(threshold * 2, filtered, 1)
+    const ceil = Math.max(threshold * 2, filtered, baseline + 100, 1);
+    bar.style.width = ((filtered / ceil) * 100).toFixed(1) + "%";
+    bar.classList.toggle("touch-active", snap.touch_pads[i]);
+    if (thrMarker) {
+      thrMarker.style.left = ((threshold / ceil) * 100).toFixed(1) + "%";
+    }
+    if (valEl) {
+      valEl.textContent = filtered;
+      valEl.title = `filtered: ${filtered}  baseline: ${baseline}  threshold: ${threshold}  (values in CPU cycles / 4)`;
+    }
+  }
   for (let i = 0; i < snap.pots.length; i++) {
     updateMonitorBar("monPotBar" + i, "monPotVal" + i, snap.pots[i]);
   }

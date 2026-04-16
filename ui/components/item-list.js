@@ -88,6 +88,14 @@ export class ItemList extends BaseElement {
           const thrInput = row.querySelector('[data-field="threshold_pct"]');
           thrInput.value = item.threshold_pct;
           tag(thrInput);
+
+          // Touch monitor bar IDs
+          const touchBar = row.querySelector('.touch-bar-fill');
+          if (touchBar) touchBar.id = "monTouchBar" + i;
+          const touchThr = row.querySelector('.touch-thr-marker');
+          if (touchThr) touchThr.id = "monTouchThr" + i;
+          const touchVal = row.querySelector('.touch-val');
+          if (touchVal) touchVal.id = "monTouchVal" + i;
         }
       }
 

@@ -451,6 +451,14 @@ pub async fn run(
             .into_iter()
             .take(num_touch)
             .filter_map(|e| e.map(|e| (e.index as usize, e.pressed)));
+
+        // Update touch telemetry for the monitor snapshot.
+        let telemetry = touch.telemetry();
+        for (i, t) in telemetry.iter().take(num_touch).enumerate() {
+            #[allow(clippy::cast_possible_truncation)]
+            input_state.set_touch_telemetry(i as u8, t.filtered, t.baseline, t.threshold);
+        }
+
         handle_note_events(
             touch_events,
             cur.active_touch_pads(),
