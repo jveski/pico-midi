@@ -526,9 +526,26 @@ impl<'d> Accelerometer<'d> {
         }
     }
 
-    pub fn update_params(&mut self, dead_zone_tenths: u8, smoothing_pct: u8) {
+    pub fn update_params(&mut self, dead_zone_tenths: u8, smoothing_pct: u8, chip: AccelChip) {
         self.dead_zone = f32::from(dead_zone_tenths) / 10.0;
         self.smoothing = f32::from(smoothing_pct) / 100.0;
+
+        // If the user changed the chip selector in the UI, mark the
+        // accelerometer for immediate re-initialisation.  `Instant::MIN`
+        // is the time epoch (tick 0); after >5 s of uptime the recovery
+        // gate in `poll()` fires on the very next call.  Reset the
+        // smoothing/state fields so the new chip's first reading seeds
+        // the EMA cleanly and the change-detector sends a fresh CC.
+        if chip != self.config_chip {
+            self.config_chip = chip;
+            self.chip = None;
+            self.available = false;
+            self.disabled_at = Some(Instant::MIN);
+            self.first_reading = true;
+            self.last_x_cc = 63;
+            self.last_y_cc = 63;
+            self.error_count = 0;
+        }
     }
 
     pub async fn poll(&mut self) -> AccelReading {

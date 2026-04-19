@@ -347,7 +347,11 @@ pub async fn run(
             );
         }
 
-        accel.update_params(cur.accel.dead_zone_tenths, cur.accel.smoothing_pct);
+        accel.update_params(
+            cur.accel.dead_zone_tenths,
+            cur.accel.smoothing_pct,
+            cur.accel.chip,
+        );
 
         let thrs: [u8; MAX_DIGITAL_INPUTS] =
             collect_field(cur.active_touch_pads(), 25, |t| t.threshold_pct);
@@ -377,7 +381,13 @@ pub async fn run(
             }
         }
 
-        if cur.accel.enabled && accel.available {
+        // Always call `accel.poll()` when enabled — even if the device
+        // is currently unavailable.  `poll()` contains the periodic
+        // re-initialisation logic that recovers from transient I2C
+        // failures, late chip power-up, hot-plugging the sensor, or a
+        // chip-preference change in the UI.  When still unavailable the
+        // call returns a no-op `AccelReading` cheaply.
+        if cur.accel.enabled {
             let r = accel.poll().await;
             if let Some(x) = r.x_cc {
                 send_midi(
