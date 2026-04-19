@@ -219,19 +219,18 @@ impl TouchPads {
             }
             let baseline = sum / 16;
 
-            // Calibration failure: if the baseline is at or above the
-            // timeout value, the pad is shorted, disconnected, or a finger
-            // was resting on it at startup.  Mark it inactive.
+            // Calibration warning: if the baseline saturates at the
+            // timeout ceiling, the pad is likely shorted, disconnected,
+            // or had a finger resting on it at startup.  Keep the pad
+            // active so the user can see live telemetry in the
+            // configurator and diagnose; touch detection simply will
+            // not trigger because `filtered` cannot exceed `threshold`.
             if baseline >= TIMEOUT_CYCLES {
                 defmt::warn!(
-                    "touch pad GP{} calibration failed (baseline={}), disabling",
+                    "touch pad GP{} calibration saturated (baseline={}); pad will not detect touches",
                     gpio,
                     baseline
                 );
-                // Drop the pin driver — this pad will have no pin in
-                // self.pins[i] and will be skipped during polling.
-                drop(flex);
-                continue;
             }
 
             let pct = u32::from(threshold_pcts.get(i).copied().unwrap_or(25));
