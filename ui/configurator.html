@@ -189,6 +189,7 @@
 <expr-editor id="exprEditor"></expr-editor>
 
 <toast-notification id="toast" class="toast"></toast-notification>
+<log-panel id="logPanel"></log-panel>
 
 <!-- Templates for dynamically rendered rows -->
 <template id="tpl-pot-row">
@@ -276,6 +277,7 @@ import "./components/config-panel.js";
 import "./components/pinout-guide.js";
 import "./components/expr-editor.js";
 import "./components/ref-modal.js";
+import "./components/log-panel.js";
 import { init } from "./components/app.js";
 
 init({
@@ -284,6 +286,7 @@ init({
   modalPinout: document.querySelector("#modalPinout"),
   exprEditor: document.querySelector("#exprEditor"),
   toast: document.querySelector("toast-notification"),
+  logPanel: document.querySelector("log-panel"),
 });
 </script>
 </body>

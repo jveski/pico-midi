@@ -92,6 +92,11 @@ export const RESP_CONFIG = 2;
 export const RESP_OK = 3;
 export const RESP_ERROR = 4;
 export const RESP_MONITOR = 5;
+export const RESP_LOG = 6;
+
+export const LOG_INFO = 0;
+export const LOG_WARN = 1;
+export const LOG_ERROR = 2;
 
 export const MAX_DIGITAL_INPUTS = 21;
 export const MAX_ANALOG_INPUTS = 3;
@@ -241,6 +246,10 @@ export function buildRequest(variantIndex, configObj) {
   return cobsEncode(w.finish());
 }
 
+export function readLogEntry(r) {
+  return { level: r.u8(), msg: r.str() };
+}
+
 export function parseResponse(bytes) {
   const r = new PostcardReader(bytes);
   const variant = r.varint();
@@ -251,6 +260,7 @@ export function parseResponse(bytes) {
     case RESP_OK: return { type: "ok" };
     case RESP_ERROR: return { type: "error", message: r.str() };
     case RESP_MONITOR: return { type: "monitor", value: readMonitorSnapshot(r) };
+    case RESP_LOG: return { type: "log", value: readLogEntry(r) };
     default: return null;
   }
 }

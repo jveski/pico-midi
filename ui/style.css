@@ -6,6 +6,8 @@
   --green: #0f0; --red: #f00; --orange: #f80;
   --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
   --toolbar-h: 52px;
+  --logpanel-h: 32px;
+  --logpanel-h-expanded: 280px;
 }
 
 body { font-family: var(--mono); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; font-size: 13px; }
@@ -131,6 +133,7 @@ collapsible-card { display: block; }
   flex-direction: column;
   min-height: 100vh;
   padding-top: var(--toolbar-h);
+  padding-bottom: var(--logpanel-h);
 }
 
 .layout-main {
@@ -233,7 +236,7 @@ a.btn { text-decoration: none; }
    Toast Notification
    ========================================================================== */
 
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 300; pointer-events: none; }
+.toast { position: fixed; bottom: calc(var(--logpanel-h) + 12px); left: 50%; transform: translateX(-50%) translateY(80px); padding: 10px 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 300; pointer-events: none; }
 .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { background: var(--green); color: var(--bg); }
 .toast.error { background: var(--red); color: var(--bg); }
@@ -373,7 +376,7 @@ ref-modal.open {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 400;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
@@ -623,3 +626,130 @@ expr-editor.open { display: block; }
   .toolbar-status { display: none; }
   .toolbar-left h1 span { display: none; }
 }
+
+/* ==========================================================================
+   Log panel (fixed bottom, default-collapsed firmware log stream)
+   ========================================================================== */
+
+.log-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  z-index: 250;
+  font-size: 12px;
+  height: var(--logpanel-h);
+  transition: height 0.15s ease;
+}
+
+.log-panel.expanded {
+  height: var(--logpanel-h-expanded);
+}
+
+.log-panel-header {
+  flex: 0 0 auto;
+  height: var(--logpanel-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  border-bottom: 1px solid transparent;
+}
+
+.log-panel.expanded .log-panel-header {
+  border-bottom-color: var(--border);
+}
+
+.log-panel-header:hover { background: #181818; }
+
+.log-panel-chevron {
+  color: var(--dim);
+  font-size: 10px;
+  width: 12px;
+  text-align: center;
+}
+
+.log-panel-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+}
+
+.log-panel-badge {
+  display: none;
+  background: var(--orange);
+  color: var(--bg);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.log-panel-badge.visible { display: inline-block; }
+
+.log-panel-spacer { flex: 1 1 auto; }
+
+.log-panel-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.log-panel-btn.log-panel-paused {
+  background: var(--orange);
+  color: var(--bg);
+  border-color: var(--orange);
+}
+
+.log-panel-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: none;
+  background: var(--bg);
+}
+
+.log-panel.expanded .log-panel-body { display: block; }
+
+.log-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.log-panel-line {
+  display: flex;
+  gap: 10px;
+  padding: 1px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.log-panel-line:hover { background: #0a0a0a; }
+
+.log-panel-level {
+  flex: 0 0 auto;
+  width: 36px;
+  font-weight: 700;
+  color: var(--dim);
+}
+
+.log-panel-msg { flex: 1 1 auto; color: var(--fg); }
+
+.log-panel-line.lp-info .log-panel-level { color: var(--dim); }
+.log-panel-line.lp-warn .log-panel-level { color: var(--orange); }
+.log-panel-line.lp-warn .log-panel-msg { color: var(--orange); }
+.log-panel-line.lp-error .log-panel-level { color: var(--red); }
+.log-panel-line.lp-error .log-panel-msg { color: var(--red); }

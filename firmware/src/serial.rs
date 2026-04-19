@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{self, Config};
 #[cfg(target_os = "none")]
 use crate::input_state::InputState;
+use crate::ui_log::LogEntry;
 
 #[cfg(target_os = "none")]
 type Serial<'a> = CdcAcmClass<'a, Driver<'a, USB>>;
@@ -41,9 +42,9 @@ pub async fn serial_task(
 ) {
     loop {
         serial.wait_connection().await;
-        defmt::info!("serial connected");
+        crate::log_info!("serial connected");
         run_session(serial, flash, cfg, input_state).await;
-        defmt::info!("serial disconnected");
+        crate::log_info!("serial disconnected");
     }
 }
 
@@ -70,7 +71,20 @@ async fn run_session(
             match result {
                 Ok(n) => process_bytes(&usb_buf[..n], &mut assembler, serial, flash, cfg).await,
                 Err(EndpointError::Disabled) => return,
-                Err(EndpointError::BufferOverflow) => defmt::warn!("serial overflow"),
+                Err(EndpointError::BufferOverflow) => crate::log_warn!("serial overflow"),
+            }
+        }
+
+        // Drain any pending log entries before the next monitor tick. We
+        // send at most a small batch per iteration to avoid blocking the
+        // 50ms monitor cadence; remaining entries are sent on subsequent
+        // loops or dropped if the producer outpaces consumption.
+        for _ in 0..4 {
+            let Some(entry) = crate::ui_log::pop() else {
+                break;
+            };
+            if !send_log_entry(serial, &entry).await {
+                break;
             }
         }
 
@@ -137,6 +151,13 @@ async fn send_monitor_snapshot(
     send_response(serial, &Response::Monitor(snapshot)).await;
 }
 
+/// Emit a single buffered log entry to the host. Returns `false` on transport
+/// failure so the caller can stop draining and retry next loop iteration.
+#[cfg(target_os = "none")]
+async fn send_log_entry(serial: &mut Serial<'static>, entry: &LogEntry) -> bool {
+    send_response(serial, &Response::Log(entry.clone())).await
+}
+
 /// Write a byte slice over CDC-ACM serial in 64-byte chunks.
 #[cfg(target_os = "none")]
 async fn send(serial: &mut Serial<'static>, data: &[u8]) -> bool {
@@ -187,6 +208,7 @@ pub enum Response<'a> {
     Ok,
     Error(&'a str),
     Monitor(MonitorSnapshot),
+    Log(LogEntry),
 }
 
 impl Response<'_> {

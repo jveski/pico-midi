@@ -226,7 +226,7 @@ impl TouchPads {
             // configurator and diagnose; touch detection simply will
             // not trigger because `filtered` cannot exceed `threshold`.
             if baseline >= TIMEOUT_CYCLES {
-                defmt::warn!(
+                crate::log_warn!(
                     "touch pad GP{} calibration saturated (baseline={}); pad will not detect touches",
                     gpio,
                     baseline
@@ -495,11 +495,11 @@ impl<'d> Accelerometer<'d> {
         let detected = Self::detect_and_init(&mut i2c, chip_pref).await;
         let available = detected.is_some();
         if !available {
-            defmt::warn!("accelerometer init failed (pref={:?})", chip_pref);
+            crate::log_warn!("accelerometer init failed (chip={})", chip_pref as u8);
         } else {
             match detected {
-                Some(DetectedChip::Lis3dh) => defmt::info!("LIS3DH initialised"),
-                Some(DetectedChip::Mpu6050) => defmt::info!("MPU6050 initialised"),
+                Some(DetectedChip::Lis3dh) => crate::log_info!("LIS3DH initialised"),
+                Some(DetectedChip::Mpu6050) => crate::log_info!("MPU6050 initialised"),
                 None => {}
             }
         }
@@ -554,7 +554,7 @@ impl<'d> Accelerometer<'d> {
         if let Some(disabled) = self.disabled_at {
             if now.duration_since(disabled).as_secs() >= 5 {
                 if let Some(det) = Self::detect_and_init(&mut self.i2c, self.config_chip).await {
-                    defmt::info!("accelerometer recovered");
+                    crate::log_info!("accelerometer recovered");
                     self.chip = Some(det);
                     self.available = true;
                     self.disabled_at = None;
@@ -593,7 +593,7 @@ impl<'d> Accelerometer<'d> {
                 if self.error_count > 10 {
                     self.available = false;
                     self.disabled_at = Some(Instant::now());
-                    defmt::error!("accelerometer disabled after repeated I2C failures");
+                    crate::log_error!("accelerometer disabled after repeated I2C failures");
                 }
                 return AccelReading {
                     x_cc: None,

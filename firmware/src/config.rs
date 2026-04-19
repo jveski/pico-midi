@@ -368,14 +368,14 @@ pub fn save_config(
         .blocking_erase(offset, offset + SECTOR_SIZE as u32)
         .is_err()
     {
-        defmt::error!("flash erase failed");
+        crate::log_error!("flash erase failed");
         return false;
     }
     if flash.blocking_write(offset, &sector).is_err() {
-        defmt::error!("flash write failed");
+        crate::log_error!("flash write failed");
         return false;
     }
-    defmt::info!("config saved to flash ({} bytes)", n);
+    crate::log_info!("config saved to flash ({} bytes)", n);
     true
 }
 
@@ -385,7 +385,7 @@ pub fn load_config(
 ) -> Option<Config> {
     let mut buf = [0u8; SECTOR_SIZE];
     if flash.blocking_read(CONFIG_OFFSET, &mut buf).is_err() {
-        defmt::warn!("flash read failed");
+        crate::log_warn!("flash read failed");
         return None;
     }
     Config::decode(&buf)

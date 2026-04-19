@@ -14,6 +14,7 @@ embassy-rp = { version = "0.10", features = ["time-driver", "critical-section-im
 embassy-usb = { version = "0.6" }
 embassy-time = { version = "0.5" }
 embassy-futures = { version = "0.1" }
+embassy-sync = { version = "0.8" }
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cortex-m-rt = "0.7"
 static_cell = "2"
@@ -25,6 +26,7 @@ panic-probe = { version = "1", features = ["print-defmt"] }
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
 postcard = "1"
+heapless = { version = "0.8", features = ["serde"] }
 
 [profile.dev]
 codegen-units = 1

@@ -1,8 +1,8 @@
 import {
-  cobsDecode, buildRequest, parseResponse, readMonitorSnapshot,
+  cobsDecode, buildRequest, parseResponse, readMonitorSnapshot, readLogEntry,
   PostcardReader,
   REQ_VERSION, REQ_GET_CONFIG, REQ_PUT_CONFIG, REQ_SAVE, REQ_RESET,
-  RESP_MONITOR, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
+  RESP_MONITOR, RESP_LOG, MAX_DIGITAL_INPUTS, MAX_ANALOG_INPUTS,
 } from "./protocol.js";
 import { sleep, num, clamp, parseStaticInt, usedDigitalPins, usedAnalogPins, nextAvailableDigitalPin, nextAvailableAnalogPin, isValidInputItem } from "./helpers.js";
 import { compileExpr } from "./expr.js";
@@ -15,7 +15,7 @@ let monitorTapTimer = null;
 let exprApplyTimer = null;
 let dirty = false;
 
-let toolbar, configPanel, modalPinout, exprEditor, toastEl;
+let toolbar, configPanel, modalPinout, exprEditor, toastEl, logPanel;
 
 export function init(refs) {
   toolbar = refs.toolbar;
@@ -23,6 +23,7 @@ export function init(refs) {
   modalPinout = refs.modalPinout;
   exprEditor = refs.exprEditor;
   toastEl = refs.toast;
+  logPanel = refs.logPanel;
 
   toolbar.btnConnect.addEventListener("click", handleConnectClick);
   toolbar.btnSave.addEventListener("click", saveConfig);
@@ -247,7 +248,7 @@ async function readLoop() {
             rxBuf.push(value[i]);
           }
         }
-        drainMonitorFrames();
+        drainAsyncFrames();
       }
     } catch (e) {
       // read error during shutdown is expected
@@ -258,7 +259,11 @@ async function readLoop() {
   }
 }
 
-function drainMonitorFrames() {
+// Async (unsolicited) responses pushed by the device: monitor snapshots
+// (consumed by the live UI) and log entries (consumed by the log panel).
+// Any other response variant is left in `rxFrames` for `_sendRequest` to
+// match against the in-flight request.
+function drainAsyncFrames() {
   let i = 0;
   while (i < rxFrames.length) {
     try {
@@ -268,6 +273,12 @@ function drainMonitorFrames() {
       if (variant === RESP_MONITOR) {
         const snap = readMonitorSnapshot(r);
         applyMonitorData(snap);
+        rxFrames.splice(i, 1);
+        continue;
+      }
+      if (variant === RESP_LOG) {
+        const entry = readLogEntry(r);
+        if (logPanel) logPanel.append(entry.level, entry.msg);
         rxFrames.splice(i, 1);
         continue;
       }
@@ -289,7 +300,8 @@ async function _sendRequest(variantIndex, configObj) {
     try {
       const decoded = cobsDecode(frame);
       const r = new PostcardReader(decoded);
-      return r.varint() === RESP_MONITOR;
+      const v = r.varint();
+      return v === RESP_MONITOR || v === RESP_LOG;
     } catch { return false; }
   });
 
@@ -303,7 +315,7 @@ async function _sendRequest(variantIndex, configObj) {
       try {
         const decoded = cobsDecode(rxFrames[i]);
         const resp = parseResponse(decoded);
-        if (resp && resp.type !== "monitor") {
+        if (resp && resp.type !== "monitor" && resp.type !== "log") {
           rxFrames.splice(i, 1);
           return resp;
         }

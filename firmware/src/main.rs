@@ -12,6 +12,7 @@ mod input_state;
 #[cfg(target_os = "none")]
 mod polling;
 mod serial;
+mod ui_log;
 
 #[cfg(target_os = "none")]
 use core::cell::RefCell;
@@ -72,10 +73,10 @@ async fn main(_spawner: Spawner) {
     let mut flash =
         flash::Flash::<_, flash::Blocking, { config::FLASH_SIZE }>::new_blocking(p.FLASH);
     let cfg = config::load_config(&mut flash).unwrap_or_else(|| {
-        defmt::info!("no saved config, using defaults");
+        log_info!("no saved config, using defaults");
         Config::default()
     });
-    defmt::info!("config loaded: ch={}", cfg.midi_channel);
+    log_info!("config loaded: ch={}", cfg.midi_channel);
 
     let driver = Driver::new(p.USB, Irqs);
 
